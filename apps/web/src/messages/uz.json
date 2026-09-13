@@ -149,7 +149,15 @@
     "unknownPartner": "hamkor ma'lum emas",
     "mixedTeams": "Aralash",
     "total": "Jami",
-    "topRanked": "Eng yuqori o'rinlar"
+    "topRanked": "Eng yuqori o'rinlar",
+    "detailOpen": "Tafsilot",
+    "detailEmpty": "Ball tafsiloti hali yo'q",
+    "date": "Sana",
+    "played": "O'yin",
+    "wins": "G'alaba",
+    "losses": "Mag'lubiyat",
+    "viewAll": "Barchasini ko'rish",
+    "lastUpdated": "Oxirgi yangilanish"
   },
   "eventsPage": {
     "upcoming": "Kelayotgan",

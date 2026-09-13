@@ -18,6 +18,7 @@ import {
   Td,
   PlayerCell,
 } from '@/components/ui';
+import { RankingRow as RankingTableRow } from '@/components/player/ranking-row';
 
 interface RankingRow {
   rank: number;
@@ -354,6 +355,8 @@ async function SinglesTable({
     totalPages: 1,
   };
 
+  const tc = await getTranslations('common');
+
   const [data, snapshots] = await Promise.all([
     api
       .get<PagedResult<RankingRow>>(`/rankings?${query}`)
@@ -412,8 +415,18 @@ async function SinglesTable({
         <p className="mt-8 text-muted">{tr('empty')}</p>
       ) : (
         <>
-          <p className="mt-6 text-sm text-muted">
-            {tr('total')}: {data.total.toLocaleString(locale)}
+          {/* WTT reyting jadvali tepasida "* Rankings last updated on ..."
+              qatorini beradi — bizda ham eng so'nggi kesim sanasi bor. */}
+          <p className="mt-6 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm text-muted">
+            <span>
+              {tr('total')}: {data.total.toLocaleString(locale)}
+            </span>
+            {snapshots[0] && (
+              <span className="text-xs">
+                * {tr('lastUpdated')}:{' '}
+                {new Date(snapshots[0].takenAt).toLocaleDateString(locale)}
+              </span>
+            )}
           </p>
           <div className="mt-2 rounded-card bg-surface-card shadow-card">
             <DataTable
@@ -423,39 +436,29 @@ async function SinglesTable({
                   <Th>{tr('player')}</Th>
                   <Th className="hidden sm:table-cell">{tr('region')}</Th>
                   <Th align="right">{tr('points')}</Th>
+                  <Th className="w-12" />
                 </>
               }
             >
               {rows.map((r) => (
-                <Tr key={r.id}>
-                  <Td className="w-24 whitespace-nowrap">
-                    <span className="flex items-center gap-2">
-                      <RankNumber rank={r.rank} />
-                      <Movement
-                        movement={r.movement}
-                        isNew={r.movement === null}
-                        newLabel={tr('new')}
-                      />
-                    </span>
-                  </Td>
-                  <Td>
-                    <Link
-                      href={{ pathname: '/players/[slug]', params: { slug: r.slug } }}
-                      className="block hover:text-accent-500"
-                    >
-                      <PlayerCell
-                        photoUrl={r.photoUrl}
-                        firstName={r.firstName}
-                        lastName={r.lastName}
-                        sub={r.club ?? undefined}
-                      />
-                    </Link>
-                  </Td>
-                  <Td className="hidden text-[13px] text-muted sm:table-cell">{r.region}</Td>
-                  <Td align="right" className="font-heading font-bold tabular-nums">
-                    {r.rankingPoints}
-                  </Td>
-                </Tr>
+                <RankingTableRow
+                  key={r.id}
+                  row={r}
+                  locale={locale}
+                  labels={{
+                    new: tr('new'),
+                    snapshot: tr('snapshot'),
+                    date: tr('date'),
+                    rank: tr('title'),
+                    points: tr('points'),
+                    played: tr('played'),
+                    wins: tr('wins'),
+                    losses: tr('losses'),
+                    empty: tr('detailEmpty'),
+                    loading: tc('loading'),
+                    open: tr('detailOpen'),
+                  }}
+                />
               ))}
             </DataTable>
           </div>

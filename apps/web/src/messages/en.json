@@ -149,7 +149,15 @@
     "unknownPartner": "partner unknown",
     "mixedTeams": "Mixed",
     "total": "Total",
-    "topRanked": "Top ranked players"
+    "topRanked": "Top ranked players",
+    "detailOpen": "Details",
+    "detailEmpty": "No points breakdown yet",
+    "date": "Date",
+    "played": "Played",
+    "wins": "Wins",
+    "losses": "Losses",
+    "viewAll": "View all",
+    "lastUpdated": "Last updated"
   },
   "eventsPage": {
     "upcoming": "Upcoming",

@@ -149,7 +149,15 @@
     "unknownPartner": "партнёр неизвестен",
     "mixedTeams": "Смешанные",
     "total": "Всего",
-    "topRanked": "Лидеры рейтинга"
+    "topRanked": "Лидеры рейтинга",
+    "detailOpen": "Подробнее",
+    "detailEmpty": "Детализация очков пока отсутствует",
+    "date": "Дата",
+    "played": "Игр",
+    "wins": "Побед",
+    "losses": "Поражений",
+    "viewAll": "Смотреть все",
+    "lastUpdated": "Последнее обновление"
   },
   "eventsPage": {
     "upcoming": "Предстоящие",
