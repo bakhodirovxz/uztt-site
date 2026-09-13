@@ -38,6 +38,27 @@ interface UttfTournamentDetail {
   name: string | null;
 }
 
+
+interface UttfSportsman {
+  pinfl: string | null;
+  fio: string | null;
+  birthday: string | null;
+  birthYear: number | null;
+  genderCode: string | number | null;
+  photoId: string | null;
+  regionName: string | null;
+  clubId: number | null;
+  clubName: string | null;
+  clubInfo?: { id?: number; name?: string } | null;
+}
+
+interface UttfClip {
+  id: number;
+  name: string | null;
+  videoUrl: string | null;
+  photoId: string | null;
+}
+
 export interface SyncResult {
   scope: string;
   dryRun: boolean;
@@ -305,4 +326,257 @@ export class UttfSyncService {
     );
     return result;
   }
+
+  /**
+   * Sportchilarni sinxronlaydi.
+   *
+   * Nima olinadi: haqiqiy tug'ilgan sana, klub bog'lanishi, fotosurat,
+   * viloyat. Yangi sportchilar ham qo'shiladi.
+   *
+   * Nima ATAYLAB OLINMAYDI: `address` (uy manzili), `phoneNumber`,
+   * `sportsCoachPinfl`. Manba ularni qaytaradi, lekin bizning `Player`
+   * modelida bunday ustunlar YO'Q va bo'lishi ham kerak emas — bu
+   * ma'lumotlarning 3 425 tasi 18 yoshgacha bolalarga tegishli.
+   *
+   * `points` ham olinmaydi: reyting ballari uchun `ratings/singleness`
+   * javobgar, bu endpoint boshqa qiymat beradi.
+   */
+  async syncPlayers({ dryRun = true, limit }: { dryRun?: boolean; limit?: number } = {}) {
+    const result: SyncResult = {
+      scope: 'players',
+      dryRun,
+      fetched: 0,
+      created: 0,
+      updated: 0,
+      skipped: 0,
+      translations: 0,
+      warnings: [],
+      sample: [],
+    };
+
+    const client = new UttfClient('uz');
+    const rows = await client.getAll<UttfSportsman>('/sportsman/index', {}, { size: 200, maxPages: 60 });
+    result.fetched = rows.length;
+
+    if (rows.length === 0) {
+      result.warnings.push("Manba 0 ta sportchi qaytardi — to'xtatildi");
+      return result;
+    }
+    const existing = await this.prisma.player.count();
+    if (existing > 0 && rows.length < existing * 0.5) {
+      result.warnings.push(
+        `Manbada ${rows.length} ta, bizda ${existing} ta — yarmidan kam, to'xtatildi`,
+      );
+      return result;
+    }
+
+    // Klub bog'lanishi uchun: uttf clubId -> bizdagi Club.id
+    const clubs = await this.prisma.club.findMany({
+      where: { externalId: { not: null } },
+      select: { id: true, externalId: true },
+    });
+    const clubByExternal = new Map(clubs.map((c) => [c.externalId!, c.id]));
+
+    const work = typeof limit === 'number' ? rows.slice(0, limit) : rows;
+    let datesFixed = 0;
+    let clubsLinked = 0;
+
+    for (const p of work) {
+      const pinfl = (p.pinfl ?? '').trim();
+      if (!pinfl) {
+        result.skipped++;
+        continue;
+      }
+
+      const birthDate = parseUttfDate(p.birthday);
+      const externalClubId = p.clubInfo?.id ?? p.clubId ?? null;
+      const clubId = externalClubId ? (clubByExternal.get(externalClubId) ?? null) : null;
+
+      const prev = await this.prisma.player.findUnique({
+        where: { licenseNumber: pinfl },
+        select: { id: true, birthDate: true, clubId: true },
+      });
+
+      if (!prev) {
+        // Yangi sportchini qo'shish uchun ism kerak; `fio` "Familiya Ism Otasi"
+        const fio = (p.fio ?? '').trim();
+        if (!fio) {
+          result.skipped++;
+          continue;
+        }
+        const parts = fio.split(/s+/);
+        const lastName = parts[0] ?? fio;
+        const firstName = parts.slice(1).join(' ') || lastName;
+        if (!dryRun) {
+          await this.prisma.player.create({
+            data: {
+              slug: `${slugify(fio, 0).replace(/-0$/, '')}-${pinfl.slice(-5)}`,
+              firstName,
+              lastName,
+              gender: String(p.genderCode) === '2' ? 'FEMALE' : 'MALE',
+              birthDate,
+              region: p.regionName ?? '—',
+              club: p.clubName ?? p.clubInfo?.name ?? null,
+              clubId,
+              licenseNumber: pinfl,
+              photoUrl: p.photoId ? `/uttf-import/players/${p.photoId}.png` : null,
+            },
+          });
+        }
+        result.created++;
+        if (result.sample.length < 8) {
+          result.sample.push({ action: 'create', id: pinfl.slice(-5), name: fio });
+        }
+        continue;
+      }
+
+      // Mavjud sportchi: faqat YETISHMAYOTGAN/NOTO'G'RI narsani tuzatamiz
+      const patch: Record<string, unknown> = {};
+      // Sun'iy 1-yanvar sanasini haqiqiysiga almashtiramiz
+      const isFabricated =
+        prev.birthDate &&
+        prev.birthDate.getUTCMonth() === 0 &&
+        prev.birthDate.getUTCDate() === 1;
+      if (birthDate && (!prev.birthDate || isFabricated)) {
+        patch.birthDate = birthDate;
+        datesFixed++;
+      }
+      if (clubId && !prev.clubId) {
+        patch.clubId = clubId;
+        clubsLinked++;
+      }
+
+      if (Object.keys(patch).length === 0) {
+        result.skipped++;
+        continue;
+      }
+      if (!dryRun) {
+        await this.prisma.player.update({ where: { id: prev.id }, data: patch });
+      }
+      result.updated++;
+      if (result.sample.length < 8) {
+        result.sample.push({
+          action: 'update',
+          id: pinfl.slice(-5),
+          name: Object.keys(patch).join(','),
+        });
+      }
+    }
+
+    result.warnings.push(
+      `tuzatilgan sanalar: ${datesFixed}, bog'langan klublar: ${clubsLinked}`,
+    );
+    this.log.log(
+      `sportchilar: ${result.fetched} olindi, +${result.created} / ~${result.updated}` +
+        (dryRun ? ' (DRY RUN)' : ''),
+    );
+    return result;
+  }
+
+
+  /**
+   * Videolarni sinxronlaydi (uttf.uz "clips").
+   *
+   * Sarlavhalar uch tilda olinadi: manba `Accept-Language` ga qarab
+   * javob beradi, shuning uchun har til uchun alohida so'raymiz.
+   *
+   * Identifikatsiya: YouTube ID. `Video` modelida `externalId` yo'q,
+   * lekin YouTube ID tabiiy ravishda noyob.
+   */
+  async syncVideos({ dryRun = true }: { dryRun?: boolean } = {}) {
+    const result: SyncResult = {
+      scope: 'videos',
+      dryRun,
+      fetched: 0,
+      created: 0,
+      updated: 0,
+      skipped: 0,
+      translations: 0,
+      warnings: [],
+      sample: [],
+    };
+
+    const locales: Locale[] = ['uz', 'ru', 'en'];
+    const byLocale = new Map<Locale, UttfClip[]>();
+    for (const loc of locales) {
+      const client = new UttfClient(loc);
+      const body = await client.get<UttfClip[]>('/tournaments/clips', { page: 0, size: 200 });
+      byLocale.set(loc, Array.isArray(body.data) ? body.data : []);
+    }
+
+    const base = byLocale.get('uz') ?? [];
+    result.fetched = base.length;
+    if (base.length === 0) {
+      result.warnings.push("Manba 0 ta video qaytardi — to'xtatildi");
+      return result;
+    }
+
+    /** YouTube havolasidan ID ajratadi (watch?v=, youtu.be/, embed/) */
+    const youtubeId = (url: string | null): string | null => {
+      if (!url) return null;
+      const m =
+        /[?&]v=([A-Za-z0-9_-]{6,})/.exec(url) ??
+        /youtu\.be\/([A-Za-z0-9_-]{6,})/.exec(url) ??
+        /embed\/([A-Za-z0-9_-]{6,})/.exec(url);
+      return m?.[1] ?? null;
+    };
+
+    for (const clip of base) {
+      const yid = youtubeId(clip.videoUrl);
+      if (!yid) {
+        result.skipped++;
+        continue;
+      }
+
+      const prev = await this.prisma.video.findFirst({
+        where: { youtubeId: yid },
+        select: { id: true },
+      });
+
+      let videoId = prev?.id ?? null;
+      if (!dryRun) {
+        if (prev) {
+          videoId = prev.id;
+        } else {
+          const created = await this.prisma.video.create({
+            data: { youtubeId: yid, category: 'highlights' },
+            select: { id: true },
+          });
+          videoId = created.id;
+        }
+      }
+      if (prev) result.updated++;
+      else result.created++;
+
+      // Har til uchun sarlavha
+      for (const loc of locales) {
+        const match = (byLocale.get(loc) ?? []).find((c) => c.id === clip.id);
+        const title = (match?.name ?? '').trim();
+        if (!title) continue;
+        if (!dryRun && videoId) {
+          await this.prisma.videoTranslation.upsert({
+            where: { videoId_locale: { videoId, locale: loc } },
+            create: { videoId, locale: loc, title },
+            update: { title },
+          });
+        }
+        result.translations++;
+      }
+
+      if (result.sample.length < 8) {
+        result.sample.push({
+          action: prev ? 'update' : 'create',
+          id: yid,
+          name: (clip.name ?? '').slice(0, 50),
+        });
+      }
+    }
+
+    this.log.log(
+      `videolar: ${result.fetched} olindi, +${result.created} / ~${result.updated}, ` +
+        `${result.translations} tarjima` + (dryRun ? ' (DRY RUN)' : ''),
+    );
+    return result;
+  }
+
 }

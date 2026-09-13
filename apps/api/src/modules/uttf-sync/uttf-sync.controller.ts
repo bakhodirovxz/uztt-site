@@ -13,8 +13,8 @@ import { UttfSyncService } from './uttf-sync.service';
  * permission talab qilinadi.
  */
 export class RunSyncDto {
-  @IsIn(['tournaments', 'tournament-names'])
-  scope!: 'tournaments' | 'tournament-names';
+  @IsIn(['tournaments', 'tournament-names', 'players', 'videos'])
+  scope!: 'tournaments' | 'tournament-names' | 'players' | 'videos';
 
   /**
    * Default TRUE — ataylab. Sinxronizatsiya hech qachon tasodifan
@@ -30,7 +30,7 @@ export class RunSyncDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(1000)
+  @Max(10000)
   limit?: number;
 }
 
@@ -52,6 +52,12 @@ export class UttfSyncController {
     const dryRun = dto.dryRun ?? true;
     if (dto.scope === 'tournament-names') {
       return this.sync.syncTournamentNames({ dryRun, limit: dto.limit });
+    }
+    if (dto.scope === 'players') {
+      return this.sync.syncPlayers({ dryRun, limit: dto.limit });
+    }
+    if (dto.scope === 'videos') {
+      return this.sync.syncVideos({ dryRun });
     }
     return this.sync.syncTournaments({ dryRun, limit: dto.limit });
   }
