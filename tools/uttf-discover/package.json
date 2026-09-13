@@ -1,0 +1,15 @@
+{
+  "name": "@uztt/uttf-discover",
+  "version": "0.1.0",
+  "description": "uttf.uz API kashfiyoti — endpointlarni brauzerdan tutib oladi",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "discover": "node discover.mjs",
+    "build": "echo skip && exit 0",
+    "test": "echo skip && exit 0"
+  },
+  "devDependencies": {
+    "playwright": "^1.58.2"
+  }
+}

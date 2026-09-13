@@ -1,0 +1,1201 @@
+{
+  "generatedFrom": "https://uttf.uz",
+  "note": "Kashfiyot natijasi. Shaxsiy maydonlar (pinfl, ism, tug'ilgan sana) namunalardan olib tashlangan — bu fayl ochiq repoga commit qilinadi.",
+  "capturedCalls": [
+    {
+      "method": "GET",
+      "path": "/api/table-tennis/files/get-file/{fileId}",
+      "queryKeys": [],
+      "requestBodies": [],
+      "status": 200,
+      "responseShape": null,
+      "sample": null,
+      "count": 142,
+      "note": "har fayl uchun alohida UUID — bitta namuna qoldirildi"
+    },
+    {
+      "method": "GET",
+      "path": "/api/table-tennis/files/get-file-info/{fileId}",
+      "queryKeys": [],
+      "requestBodies": [],
+      "status": 200,
+      "responseShape": {
+        "success": "boolean",
+        "timestamp": "string",
+        "data": {
+          "pkey": "string",
+          "name": "string",
+          "size": "number",
+          "mimeType": "string",
+          "mimeExtension": "string",
+          "referrer": "object",
+          "createdBy": "number",
+          "createdAt": "string"
+        },
+        "totalCount": "number"
+      },
+      "sample": {
+        "success": true,
+        "timestamp": "13.09.2026 19:16:59",
+        "data": {
+          "pkey": "ccbd05aa-c5e6-40c5-a95e-1b81e7bf2de5",
+          "name": "Поумолчанию.jpg",
+          "size": 101672,
+          "mimeType": "image/jpeg",
+          "mimeExtension": "jpg",
+          "referrer": null,
+          "createdBy": 0,
+          "createdAt": "18.07.2025 11:48:53"
+        },
+        "totalCount": 0
+      },
+      "count": 142,
+      "note": "fayl metama'lumoti"
+    },
+    {
+      "method": "GET",
+      "path": "/api/table-tennis/tournaments/index",
+      "queryKeys": [
+        "upcoming",
+        "page",
+        "size",
+        "international",
+        "id"
+      ],
+      "requestBodies": [],
+      "status": 200,
+      "responseShape": {
+        "success": "boolean",
+        "timestamp": "string",
+        "data": [
+          {
+            "id": "number",
+            "name": "string",
+            "startDate": "string",
+            "endDate": "string",
+            "regionCode": "number",
+            "districtCode": "number",
+            "regionName": "string",
+            "districtName": "string",
+            "minAge": "number",
+            "maxAge": "number",
+            "candidateCount": "object",
+            "registeredCount": "number",
+            "photoId": "string",
+            "status": "number",
+            "tournamentStagingTypeId": "string",
+            "tournamentSystemTypeId": "number",
+            "tournamentSystemTypeReferenceCode": "number",
+            "tableCount": "number",
+            "isGroup": "boolean",
+            "tournamentTypeId": "object",
+            "lastRegistrationDate": "string",
+            "genderCode": "number",
+            "prizeFundId": "number",
+            "arenaCoordinate": [
+              "…"
+            ],
+            "genderName": "string",
+            "ageCategories": [
+              "…"
+            ],
+            "stageData": {
+              "id": "…",
+              "name": "…",
+              "type": "…",
+              "color": "…",
+              "colorCode": "…"
+            },
+            "matchType": "object",
+            "participantCount": "string",
+            "createdAt": "string",
+            "tournamentTypeList": [
+              "…"
+            ],
+            "sportsmanCount": "number",
+            "sponsors": [],
+            "prizeFund": {
+              "id": "…",
+              "total": "…",
+              "firstPlace": "…",
+              "secondPlace": "…",
+              "thirdPlace": "…"
+            },
+            "registrationRegionCode": "number",
+            "registrationRegionName": "object",
+            "registrationDistrictCode": "number",
+            "registrationDistrictName": "object",
+            "entryScope": "string",
+            "hasTournamentGroup": "boolean"
+          }
+        ],
+        "paging": {
+          "page": "number",
+          "size": "number",
+          "total": "number"
+        },
+        "totalCount": "number"
+      },
+      "sample": {
+        "success": true,
+        "timestamp": "13.09.2026 19:17:41",
+        "data": [
+          {
+            "id": "…",
+            "name": "…",
+            "startDate": "…",
+            "endDate": "…",
+            "regionCode": "…",
+            "districtCode": "…",
+            "regionName": "…",
+            "districtName": "…",
+            "minAge": "…",
+            "maxAge": "…",
+            "candidateCount": "…",
+            "registeredCount": "…",
+            "photoId": "…",
+            "status": "…",
+            "tournamentStagingTypeId": "…",
+            "tournamentSystemTypeId": "…",
+            "tournamentSystemTypeReferenceCode": "…",
+            "tableCount": "…",
+            "isGroup": "…",
+            "tournamentTypeId": "…",
+            "lastRegistrationDate": "…",
+            "genderCode": "…",
+            "prizeFundId": "…",
+            "arenaCoordinate": "…",
+            "genderName": "…",
+            "ageCategories": "…",
+            "stageData": "…",
+            "matchType": "…",
+            "participantCount": "…",
+            "createdAt": "…",
+            "tournamentTypeList": "…",
+            "sportsmanCount": "…",
+            "sponsors": "…",
+            "prizeFund": "…",
+            "registrationRegionCode": "…",
+            "registrationRegionName": "…",
+            "registrationDistrictCode": "…",
+            "registrationDistrictName": "…",
+            "entryScope": "…",
+            "hasTournamentGroup": "…"
+          }
+        ],
+        "paging": {
+          "page": 0,
+          "size": 10000,
+          "total": 1
+        },
+        "totalCount": 0
+      },
+      "count": 20
+    },
+    {
+      "method": "GET",
+      "path": "/api/table-tennis/ratings/singleness",
+      "queryKeys": [
+        "genderCode",
+        "page",
+        "size",
+        "ageFrom",
+        "ageTo",
+        "tab",
+        "search"
+      ],
+      "requestBodies": [],
+      "status": 200,
+      "responseShape": {
+        "success": "boolean",
+        "data": [
+          {
+            "pinfl": "string",
+            "fio": "string",
+            "genderCode": "number",
+            "genderName": "string",
+            "regionCode": "number",
+            "regionName": "string",
+            "districtCode": "number",
+            "districtName": "string",
+            "age": "number",
+            "schoolId": "object",
+            "schoolName": "object",
+            "schoolPhotoId": "object",
+            "clubId": "number",
+            "clubName": "string",
+            "clubPhotoId": "object",
+            "points": "number",
+            "like": "number",
+            "photoId": "string",
+            "ranking": "number"
+          }
+        ],
+        "paging": {
+          "page": "number",
+          "size": "number",
+          "total": "number"
+        },
+        "reason": "string",
+        "totalCount": "number"
+      },
+      "sample": {
+        "success": true,
+        "data": [
+          {
+            "pinfl": "<olib tashlandi>",
+            "fio": "<olib tashlandi>",
+            "genderCode": "…",
+            "genderName": "…",
+            "regionCode": "…",
+            "regionName": "…",
+            "districtCode": "…",
+            "districtName": "…",
+            "age": "…",
+            "schoolId": "…",
+            "schoolName": "…",
+            "schoolPhotoId": "…",
+            "clubId": "…",
+            "clubName": "…",
+            "clubPhotoId": "…",
+            "points": "…",
+            "like": "…",
+            "photoId": "…",
+            "ranking": "…"
+          }
+        ],
+        "paging": {
+          "page": 0,
+          "size": 10,
+          "total": 5595
+        },
+        "reason": "The operation was successful!",
+        "totalCount": 0
+      },
+      "count": 18
+    },
+    {
+      "method": "GET",
+      "path": "/api/table-tennis/news/index",
+      "queryKeys": [
+        "page",
+        "size"
+      ],
+      "requestBodies": [],
+      "status": 200,
+      "responseShape": {
+        "success": "boolean",
+        "timestamp": "string",
+        "data": [
+          {
+            "id": "number",
+            "tag": "string",
+            "title": "string",
+            "description": "string",
+            "photoId": "string",
+            "createdAt": "string",
+            "status": "number"
+          }
+        ],
+        "paging": {
+          "page": "number",
+          "size": "number",
+          "total": "number"
+        },
+        "totalCount": "number"
+      },
+      "sample": {
+        "success": true,
+        "timestamp": "13.09.2026 19:16:16",
+        "data": [
+          {
+            "id": "…",
+            "tag": "…",
+            "title": "…",
+            "description": "…",
+            "photoId": "…",
+            "createdAt": "…",
+            "status": "…"
+          }
+        ],
+        "paging": {
+          "page": 0,
+          "size": 10,
+          "total": 11
+        },
+        "totalCount": 0
+      },
+      "count": 12
+    },
+    {
+      "method": "GET",
+      "path": "/api/table-tennis/general/regions",
+      "queryKeys": [],
+      "requestBodies": [],
+      "status": 200,
+      "responseShape": {
+        "success": "boolean",
+        "timestamp": "string",
+        "data": [
+          {
+            "code": "number",
+            "name": "string"
+          }
+        ],
+        "totalCount": "number"
+      },
+      "sample": {
+        "success": true,
+        "timestamp": "13.09.2026 19:16:58",
+        "data": [
+          {
+            "code": "…",
+            "name": "…"
+          }
+        ],
+        "totalCount": 0
+      },
+      "count": 12
+    },
+    {
+      "method": "GET",
+      "path": "/api/table-tennis/tournaments/age-categories",
+      "queryKeys": [],
+      "requestBodies": [],
+      "status": 200,
+      "responseShape": {
+        "success": "boolean",
+        "timestamp": "string",
+        "data": [
+          {
+            "id": "number",
+            "name": "string",
+            "maxAge": "number"
+          }
+        ],
+        "totalCount": "number"
+      },
+      "sample": {
+        "success": true,
+        "timestamp": "13.09.2026 19:16:59",
+        "data": [
+          {
+            "id": "…",
+            "name": "…",
+            "maxAge": "…"
+          }
+        ],
+        "totalCount": 0
+      },
+      "count": 12
+    },
+    {
+      "method": "GET",
+      "path": "/api/table-tennis/tournaments/types",
+      "queryKeys": [],
+      "requestBodies": [],
+      "status": 200,
+      "responseShape": {
+        "success": "boolean",
+        "timestamp": "string",
+        "data": [
+          {
+            "id": "number",
+            "name": "string"
+          }
+        ],
+        "totalCount": "number"
+      },
+      "sample": {
+        "success": true,
+        "timestamp": "13.09.2026 19:16:59",
+        "data": [
+          {
+            "id": "…",
+            "name": "…"
+          }
+        ],
+        "totalCount": 0
+      },
+      "count": 12
+    },
+    {
+      "method": "GET",
+      "path": "/api/table-tennis/tournament-grouping/is-grouped",
+      "queryKeys": [
+        "tournamentId",
+        "regionCode",
+        "districtCode",
+        "matchTypeId",
+        "ageCategoryCode",
+        "genderCode"
+      ],
+      "requestBodies": [],
+      "status": 200,
+      "responseShape": {
+        "success": "boolean",
+        "timestamp": "string",
+        "data": "boolean",
+        "totalCount": "number"
+      },
+      "sample": {
+        "success": true,
+        "timestamp": "13.09.2026 19:17:41",
+        "data": false,
+        "totalCount": 0
+      },
+      "count": 12
+    },
+    {
+      "method": "GET",
+      "path": "/api/table-tennis/tournaments/photos",
+      "queryKeys": [],
+      "requestBodies": [],
+      "status": 200,
+      "responseShape": {
+        "success": "boolean",
+        "timestamp": "string",
+        "data": [
+          {
+            "id": "number",
+            "name": "string",
+            "videoUrl": "object",
+            "photoId": "string"
+          }
+        ],
+        "totalCount": "number"
+      },
+      "sample": {
+        "success": true,
+        "timestamp": "13.09.2026 19:16:10",
+        "data": [
+          {
+            "id": "…",
+            "name": "…",
+            "videoUrl": "…",
+            "photoId": "…"
+          }
+        ],
+        "totalCount": 0
+      },
+      "count": 6
+    },
+    {
+      "method": "GET",
+      "path": "/api/table-tennis/tournaments/clips",
+      "queryKeys": [
+        "page",
+        "size"
+      ],
+      "requestBodies": [],
+      "status": 200,
+      "responseShape": {
+        "success": "boolean",
+        "timestamp": "string",
+        "data": [
+          {
+            "id": "number",
+            "name": "string",
+            "videoUrl": "string",
+            "photoId": "string"
+          }
+        ],
+        "totalCount": "number"
+      },
+      "sample": {
+        "success": true,
+        "timestamp": "13.09.2026 19:16:10",
+        "data": [
+          {
+            "id": "…",
+            "name": "…",
+            "videoUrl": "…",
+            "photoId": "…"
+          }
+        ],
+        "totalCount": 0
+      },
+      "count": 6
+    },
+    {
+      "method": "GET",
+      "path": "/api/table-tennis/club/get-all",
+      "queryKeys": [
+        "page",
+        "size"
+      ],
+      "requestBodies": [],
+      "status": 200,
+      "responseShape": {
+        "success": "boolean",
+        "timestamp": "string",
+        "data": {
+          "content": [
+            {
+              "id": "…",
+              "tin": "…",
+              "name": "…",
+              "regionCode": "…",
+              "regionName": "…",
+              "districtCode": "…",
+              "districtName": "…",
+              "address": "…",
+              "latitude": "…",
+              "longitude": "…",
+              "phoneNumber": "…",
+              "coachPinfl": "…",
+              "coachName": "…",
+              "photoId": "…",
+              "deleted": "…",
+              "organizationalDoc": "…",
+              "sportsHallAddress": "…",
+              "clubManagerPinfl": "…",
+              "clubManagerName": "…",
+              "coachCertificate": "…",
+              "usageBasis": "…",
+              "numberOfIttfTables": "…",
+              "passportIssueDate": "…",
+              "passportExpiryDate": "…",
+              "createdAt": "…",
+              "createdBy": "…",
+              "updatedAt": "…",
+              "updatedBy": "…",
+              "type": "…",
+              "shortName": "…",
+              "staffCount": "…"
+            }
+          ],
+          "pageable": {
+            "pageNumber": "number",
+            "pageSize": "number",
+            "sort": {
+              "empty": "…",
+              "unsorted": "…",
+              "sorted": "…"
+            },
+            "offset": "number",
+            "paged": "boolean",
+            "unpaged": "boolean"
+          },
+          "totalPages": "number",
+          "totalElements": "number",
+          "last": "boolean",
+          "size": "number",
+          "number": "number",
+          "sort": {
+            "empty": "boolean",
+            "unsorted": "boolean",
+            "sorted": "boolean"
+          },
+          "numberOfElements": "number",
+          "first": "boolean",
+          "empty": "boolean"
+        },
+        "totalCount": "number"
+      },
+      "sample": {
+        "success": true,
+        "timestamp": "13.09.2026 19:16:21",
+        "data": {
+          "content": [
+            "…"
+          ],
+          "pageable": {
+            "pageNumber": "…",
+            "pageSize": "…",
+            "sort": "…",
+            "offset": "…",
+            "paged": "…",
+            "unpaged": "…"
+          },
+          "totalPages": 6,
+          "totalElements": 58,
+          "last": false,
+          "size": 10,
+          "number": 0,
+          "sort": {
+            "empty": "…",
+            "unsorted": "…",
+            "sorted": "…"
+          },
+          "numberOfElements": 10,
+          "first": true,
+          "empty": false
+        },
+        "totalCount": 0
+      },
+      "count": 6
+    },
+    {
+      "method": "GET",
+      "path": "/api/table-tennis/club/region",
+      "queryKeys": [
+        "page",
+        "size"
+      ],
+      "requestBodies": [],
+      "status": 200,
+      "responseShape": {
+        "success": "boolean",
+        "data": [
+          {
+            "code": "number",
+            "name": "string",
+            "count": "number"
+          }
+        ],
+        "paging": {
+          "page": "number",
+          "size": "number",
+          "total": "number"
+        },
+        "reason": "string",
+        "totalCount": "number"
+      },
+      "sample": {
+        "success": true,
+        "data": [
+          {
+            "code": "…",
+            "name": "…",
+            "count": "…"
+          }
+        ],
+        "paging": {
+          "page": 0,
+          "size": 14,
+          "total": 14
+        },
+        "reason": "Clubs by region fetched successfully",
+        "totalCount": 0
+      },
+      "count": 6
+    },
+    {
+      "method": "GET",
+      "path": "/api/table-tennis/club/district",
+      "queryKeys": [
+        "page",
+        "size"
+      ],
+      "requestBodies": [],
+      "status": 200,
+      "responseShape": {
+        "success": "boolean",
+        "timestamp": "string",
+        "reason": "string",
+        "code": "string",
+        "totalCount": "number"
+      },
+      "sample": {
+        "success": false,
+        "timestamp": "13.09.2026 19:16:21",
+        "reason": "An unexpected error occurred on the server!",
+        "code": "9999",
+        "totalCount": 0
+      },
+      "count": 6
+    },
+    {
+      "method": "GET",
+      "path": "/api/table-tennis/sportsman/index",
+      "queryKeys": [
+        "page",
+        "size"
+      ],
+      "requestBodies": [],
+      "status": 200,
+      "responseShape": {
+        "success": "boolean",
+        "timestamp": "string",
+        "data": [
+          {
+            "ranking": "number",
+            "pinfl": "string",
+            "birthYear": "number",
+            "birthday": "string",
+            "fio": "string",
+            "photoId": "string",
+            "genderCode": "string",
+            "points": "number",
+            "likes": "number",
+            "districtCode": "number",
+            "districtName": "string",
+            "regionCode": "number",
+            "regionName": "string",
+            "address": "string",
+            "category": "object",
+            "ratingNumber": "object",
+            "sportRank": "object",
+            "sportsmanEducation": "object",
+            "sportsCoach": "string",
+            "sportsCoachPinfl": "string",
+            "schoolId": "object",
+            "schoolInfo": "object",
+            "clubId": "number",
+            "clubInfo": {
+              "id": "…",
+              "name": "…",
+              "regionName": "…",
+              "districtName": "…",
+              "regionCode": "…",
+              "districtCode": "…",
+              "photoId": "…"
+            },
+            "clubName": "string",
+            "schoolName": "object",
+            "id": "number",
+            "originalPhotoId": "object",
+            "phoneNumber": "string",
+            "isResinedce": "boolean",
+            "gender": "string",
+            "playerId": "string"
+          }
+        ],
+        "paging": {
+          "page": "number",
+          "size": "number",
+          "total": "number"
+        },
+        "totalCount": "number"
+      },
+      "sample": {
+        "success": true,
+        "timestamp": "13.09.2026 19:16:33",
+        "data": [
+          {
+            "ranking": "…",
+            "pinfl": "<olib tashlandi>",
+            "birthYear": "<olib tashlandi>",
+            "birthday": "<olib tashlandi>",
+            "fio": "<olib tashlandi>",
+            "photoId": "…",
+            "genderCode": "…",
+            "points": "…",
+            "likes": "…",
+            "districtCode": "…",
+            "districtName": "…",
+            "regionCode": "…",
+            "regionName": "…",
+            "address": "<olib tashlandi>",
+            "category": "…",
+            "ratingNumber": "…",
+            "sportRank": "…",
+            "sportsmanEducation": "…",
+            "sportsCoach": "…",
+            "sportsCoachPinfl": "…",
+            "schoolId": "…",
+            "schoolInfo": "…",
+            "clubId": "…",
+            "clubInfo": "…",
+            "clubName": "…",
+            "schoolName": "…",
+            "id": "…",
+            "originalPhotoId": "…",
+            "phoneNumber": "<olib tashlandi>",
+            "isResinedce": "…",
+            "gender": "…",
+            "playerId": "…"
+          }
+        ],
+        "paging": {
+          "page": 0,
+          "size": 10,
+          "total": 5612
+        },
+        "totalCount": 0
+      },
+      "count": 6
+    },
+    {
+      "method": "GET",
+      "path": "/api/table-tennis/sportsman/index-by-gender",
+      "queryKeys": [],
+      "requestBodies": [],
+      "status": 200,
+      "responseShape": {
+        "success": "boolean",
+        "timestamp": "string",
+        "data": {
+          "0": "number",
+          "1": "number",
+          "2": "number"
+        },
+        "totalCount": "number"
+      },
+      "sample": {
+        "success": true,
+        "timestamp": "13.09.2026 19:16:33",
+        "data": {
+          "0": 5647,
+          "1": 3389,
+          "2": 2258
+        },
+        "totalCount": 0
+      },
+      "count": 6
+    },
+    {
+      "method": "GET",
+      "path": "/api/table-tennis/tournament-staging-types",
+      "queryKeys": [],
+      "requestBodies": [],
+      "status": 200,
+      "responseShape": {
+        "success": "boolean",
+        "data": {
+          "content": [
+            {
+              "id": "…",
+              "name": "…",
+              "type": "…",
+              "color": "…",
+              "colorCode": "…"
+            }
+          ],
+          "pageable": "string",
+          "totalPages": "number",
+          "totalElements": "number",
+          "last": "boolean",
+          "size": "number",
+          "number": "number",
+          "sort": {
+            "empty": "boolean",
+            "unsorted": "boolean",
+            "sorted": "boolean"
+          },
+          "numberOfElements": "number",
+          "first": "boolean",
+          "empty": "boolean"
+        },
+        "reason": "string",
+        "totalCount": "number"
+      },
+      "sample": {
+        "success": true,
+        "data": {
+          "content": [
+            "…"
+          ],
+          "pageable": "INSTANCE",
+          "totalPages": 1,
+          "totalElements": 7,
+          "last": true,
+          "size": 7,
+          "number": 0,
+          "sort": {
+            "empty": "…",
+            "unsorted": "…",
+            "sorted": "…"
+          },
+          "numberOfElements": 7,
+          "first": true,
+          "empty": false
+        },
+        "reason": "Success",
+        "totalCount": 0
+      },
+      "count": 6
+    },
+    {
+      "method": "GET",
+      "path": "/api/table-tennis/sportsman/by-region",
+      "queryKeys": [],
+      "requestBodies": [],
+      "status": 200,
+      "responseShape": {
+        "success": "boolean",
+        "data": [
+          {
+            "code": "number",
+            "name": "string",
+            "schoolCount": "number",
+            "clubCount": "number",
+            "sportsmanCount": "number",
+            "sportsmanTotal": {
+              "total": "…",
+              "genderData": "…"
+            },
+            "ageCategoryData": [
+              "…"
+            ]
+          }
+        ],
+        "paging": {
+          "page": "number",
+          "size": "number",
+          "total": "number"
+        },
+        "reason": "string",
+        "totalCount": "number"
+      },
+      "sample": {
+        "success": true,
+        "data": [
+          {
+            "code": "…",
+            "name": "…",
+            "schoolCount": "…",
+            "clubCount": "…",
+            "sportsmanCount": "…",
+            "sportsmanTotal": "…",
+            "ageCategoryData": "…"
+          }
+        ],
+        "paging": {
+          "page": 0,
+          "size": 20,
+          "total": 15
+        },
+        "reason": "Success",
+        "totalCount": 0
+      },
+      "count": 5
+    },
+    {
+      "method": "GET",
+      "path": "/api/table-tennis/general/genders",
+      "queryKeys": [],
+      "requestBodies": [],
+      "status": 200,
+      "responseShape": {
+        "success": "boolean",
+        "timestamp": "string",
+        "data": [
+          {
+            "id": "number",
+            "name": "string"
+          }
+        ],
+        "totalCount": "number"
+      },
+      "sample": {
+        "success": true,
+        "timestamp": "13.09.2026 19:17:41",
+        "data": [
+          {
+            "id": "…",
+            "name": "…"
+          }
+        ],
+        "totalCount": 0
+      },
+      "count": 2
+    },
+    {
+      "method": "GET",
+      "path": "/api/table-tennis/tournaments/detail",
+      "queryKeys": [
+        "id"
+      ],
+      "requestBodies": [],
+      "status": 200,
+      "responseShape": {
+        "success": "boolean",
+        "timestamp": "string",
+        "data": {
+          "id": "number",
+          "nameUz": "string",
+          "nameRu": "string",
+          "nameEng": "string",
+          "name": "string",
+          "organizerTin": "number",
+          "deputySecretaryPinfl": "number",
+          "deputySecretary": "object",
+          "doctorPinfl": "object",
+          "organizerUz": "string",
+          "organizerRu": "string",
+          "organizerEng": "string",
+          "organizerName": "string",
+          "regionCode": "number",
+          "districtCode": "number",
+          "status": "number",
+          "startDate": "string",
+          "endDate": "string",
+          "startTime": "string",
+          "endTime": "string",
+          "lastRegistrationDate": "string",
+          "program": "object",
+          "tournamentSystemTypeId": "number",
+          "tournamentSystemTypeName": "string",
+          "tournamentSystemTypeReferenceCode": "number",
+          "tableCount": "number",
+          "tournamentStagingTypeId": "number",
+          "tournamentStagingStartDate": "object",
+          "tournamentStagingEndDate": "object",
+          "ageCategories": "object",
+          "ageCategoriesList": [
+            {
+              "id": "…",
+              "name": "…",
+              "nameUz": "…",
+              "nameRu": "…",
+              "nameEng": "…"
+            }
+          ],
+          "genderCode": "number",
+          "genderName": "string",
+          "numberOfCandidates": "object",
+          "tournamentTypeId": "object",
+          "tournamentTypeName": "object",
+          "tournamentTypeIds": "object",
+          "tournamentTypeList": [
+            {
+              "id": "…",
+              "name": "…"
+            }
+          ],
+          "numberSelected": "object",
+          "judgeId": "object"
+        },
+        "totalCount": "number"
+      },
+      "sample": {
+        "success": true,
+        "timestamp": "13.09.2026 19:17:41",
+        "data": {
+          "id": 1309,
+          "nameUz": "U-11 Ўзбекистон кубоги",
+          "nameRu": "Кубок Узбекистана среди юношей до 11 лет",
+          "nameEng": "U-11 Cup of Uzbekistan",
+          "name": "U-11 O‘zbekiston kubogi",
+          "organizerTin": 206959845,
+          "deputySecretaryPinfl": 52211006820010,
+          "deputySecretary": null,
+          "doctorPinfl": null,
+          "organizerUz": "\"O`ZBEKISTON STOL TENNISI FEDERATSIYASI\"",
+          "organizerRu": "«ФЕДЕРАЦИЯ НАСТОЛЬНОГО ТЕННИСА УЗБЕКИСТАНА»",
+          "organizerEng": "&quot;UZBEKISTAN TABLE TENNIS FEDERATION&quot;",
+          "organizerName": "\"O`ZBEKISTON STOL TENNISI FEDERATSIYASI\"",
+          "regionCode": 26,
+          "districtCode": 4,
+          "status": 1,
+          "startDate": "2026-09-17 15:27",
+          "endDate": "2026-09-25",
+          "startTime": "09:00",
+          "endTime": "18:20",
+          "lastRegistrationDate": "2026-09-16",
+          "program": null,
+          "tournamentSystemTypeId": 6,
+          "tournamentSystemTypeName": "Aralash: Guruh bosqichi va Pley-off (-2)",
+          "tournamentSystemTypeReferenceCode": 0,
+          "tableCount": 8,
+          "tournamentStagingTypeId": 2,
+          "tournamentStagingStartDate": null,
+          "tournamentStagingEndDate": null,
+          "ageCategories": null,
+          "ageCategoriesList": [
+            "…"
+          ],
+          "genderCode": 3,
+          "genderName": "Erkaklar va ayollar",
+          "numberOfCandidates": null,
+          "tournamentTypeId": null,
+          "tournamentTypeName": null,
+          "tournamentTypeIds": null,
+          "tournamentTypeList": [
+            "…"
+          ],
+          "numberSelected": null,
+          "judgeId": null
+        },
+        "totalCount": 0
+      },
+      "count": 2
+    },
+    {
+      "method": "GET",
+      "path": "/api/table-tennis/judges/tournament",
+      "queryKeys": [
+        "page",
+        "size",
+        "tournamentId"
+      ],
+      "requestBodies": [],
+      "status": 200,
+      "responseShape": {
+        "success": "boolean",
+        "data": [
+          {
+            "judgePhotoId": "string",
+            "judgePinfl": "string",
+            "judgeName": "string",
+            "judgePositionId": "number",
+            "judgePosition": "string",
+            "tournamentCount": "object",
+            "matchCount": "object",
+            "judgeAgeCategory": [
+              "…"
+            ]
+          }
+        ],
+        "paging": {
+          "page": "number",
+          "size": "number",
+          "total": "number"
+        },
+        "totalCount": "number"
+      },
+      "sample": {
+        "success": true,
+        "data": [
+          {
+            "judgePhotoId": "…",
+            "judgePinfl": "…",
+            "judgeName": "…",
+            "judgePositionId": "…",
+            "judgePosition": "…",
+            "tournamentCount": "…",
+            "matchCount": "…",
+            "judgeAgeCategory": "…"
+          }
+        ],
+        "paging": {
+          "page": 0,
+          "size": 1000,
+          "total": 9
+        },
+        "totalCount": 0
+      },
+      "count": 2
+    },
+    {
+      "method": "GET",
+      "path": "/api/table-tennis/media/tournament/photo",
+      "queryKeys": [
+        "page",
+        "size",
+        "tournamentId"
+      ],
+      "requestBodies": [],
+      "status": 200,
+      "responseShape": null,
+      "sample": null,
+      "count": 2
+    }
+  ],
+  "pathsFoundInChunks": [],
+  "envelope": {
+    "note": "Barcha javoblar shu konvertda keladi",
+    "shape": {
+      "success": "boolean",
+      "timestamp": "dd.MM.yyyy HH:mm:ss",
+      "data": "T | T[]",
+      "paging": {
+        "page": "int",
+        "size": "int",
+        "total": "int"
+      }
+    }
+  },
+  "totals": {
+    "note": "2026-09-13 holatiga ko'ra o'lchangan",
+    "yangiliklar": 11,
+    "musobaqalar": 192,
+    "videolar": 1,
+    "klublar": 58,
+    "sportchilar": 5612,
+    "reyting (erkaklar)": 3355,
+    "musobaqa suratlari": 10
+  }
+}
