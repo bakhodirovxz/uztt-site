@@ -468,6 +468,8 @@ enum MatchStage {
 
 model Match {
   id           String      @id @default(uuid())
+  /// uttf.uz dagi matchId — qayta import dublikat yaratmasligi uchun
+  externalId   Int?   @unique @map("external_id")
   tournamentId String      @map("tournament_id")
   stage        MatchStage  @default(ROUND_1)
   tableNumber  Int?        @map("table_number")

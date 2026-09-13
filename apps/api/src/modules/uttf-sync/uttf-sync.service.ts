@@ -59,7 +59,43 @@ interface UttfClip {
   photoId: string | null;
 }
 
+interface UttfWithData {
+  tournamentId: number;
+  matchTypeId: number;
+  ageCategoriesId: number | null;
+  genderCode: number | null;
+  regionCode: number | null;
+  cnt: number;
+  ageCategory: string | null;
+  matchType: string | null;
+}
+
+interface UttfMatchPlayer {
+  id: number;
+  pinfl: string | null;
+  fio: string | null;
+  groupNumber: number | null;
+}
+
+interface UttfMatch {
+  matchId: number;
+  matchSchedule?: { startTime?: string | null; tableNumber?: number | null } | null;
+  player1?: UttfMatchPlayer | null;
+  player2?: UttfMatchPlayer | null;
+  winnerId?: number | null;
+  player1Wins?: number | null;
+  player2Wins?: number | null;
+}
+
+interface UttfGroupBlock {
+  ageCategory: string | null;
+  matchType: string | null;
+  genderCode: number | null;
+  groups?: Array<{ groupNumber: number | null; matches?: UttfMatch[] | null }> | null;
+}
+
 export interface SyncResult {
+
   scope: string;
   dryRun: boolean;
   fetched: number;
@@ -590,6 +626,174 @@ export class UttfSyncService {
     this.log.log(
       `videolar: ${result.fetched} olindi, +${result.created} / ~${result.updated}, ` +
         `${result.translations} tarjima` + (dryRun ? ' (DRY RUN)' : ''),
+    );
+    return result;
+  }
+
+
+  /**
+   * Musobaqa GURUH o'yinlarini sinxronlaydi.
+   *
+   * Manba: `tournament-grouping/with-data` qaysi kesimlarda natija
+   * borligini aytadi, keyin `match/get-group-matches` o'sha kesimning
+   * guruhlari va o'yinlarini beradi.
+   *
+   * QAMROV: hozircha faqat YAKKALIK (matchTypeId=1). Juftlik va jamoaviy
+   * o'yinlar `Partnership`/`Team` bilan bog'lanishni talab qiladi — bu
+   * alohida ish va o'z sxema o'zgarishini so'raydi.
+   *
+   * Idempotentlik: `Match.externalId` = uttf `matchId`. Busiz qayta
+   * import har safar dublikat yaratardi — `Partnership` bilan bo'lgan
+   * xatoning aynan o'zi.
+   */
+  async syncMatches({ dryRun = true, limit }: { dryRun?: boolean; limit?: number } = {}) {
+    const result: SyncResult = {
+      scope: 'matches',
+      dryRun,
+      fetched: 0,
+      created: 0,
+      updated: 0,
+      skipped: 0,
+      translations: 0,
+      warnings: [],
+      sample: [],
+    };
+
+    const client = new UttfClient('uz');
+
+    const tournaments = await this.prisma.tournament.findMany({
+      where: { id: { startsWith: 'uttf-trn-' } },
+      select: { id: true, name: true },
+      orderBy: { startDate: 'desc' },
+      ...(typeof limit === 'number' ? { take: limit } : {}),
+    });
+
+    // pinfl -> bizdagi Player.id
+    const players = await this.prisma.player.findMany({
+      where: { licenseNumber: { not: null } },
+      select: { id: true, licenseNumber: true },
+    });
+    const playerByPinfl = new Map(players.map((p) => [p.licenseNumber as string, p.id]));
+
+    let noPlayerSkips = 0;
+    let tournamentsWithData = 0;
+
+    for (const t of tournaments) {
+      const uttfId = Number(t.id.replace('uttf-trn-', ''));
+      if (!Number.isFinite(uttfId)) continue;
+
+      let combos: UttfWithData[] = [];
+      try {
+        const body = await client.get<UttfWithData[]>('/tournament-grouping/with-data', {
+          page: 0,
+          size: 100,
+          tournamentId: uttfId,
+          source: 1,
+        });
+        combos = Array.isArray(body.data) ? body.data : [];
+      } catch {
+        continue; // bu musobaqada guruh yo'q
+      }
+
+      combos = combos.filter((c) => c.matchTypeId === 1);
+      if (combos.length === 0) continue;
+      tournamentsWithData++;
+
+      for (const c of combos) {
+        let blocks: UttfGroupBlock[] = [];
+        try {
+          const body = await client.get<UttfGroupBlock[]>('/match/get-group-matches', {
+            tournamentId: uttfId,
+            ageCategoryId: c.ageCategoriesId ?? 0,
+            regionCode: c.regionCode ?? 0,
+            genderCode: c.genderCode ?? 0,
+            matchTypeId: c.matchTypeId,
+          });
+          blocks = Array.isArray(body.data) ? body.data : [];
+        } catch (e) {
+          result.warnings.push(`#${uttfId}: ${(e as Error).message}`);
+          continue;
+        }
+
+        for (const block of blocks) {
+          for (const g of block.groups ?? []) {
+            for (const m of g.matches ?? []) {
+              result.fetched++;
+
+              const p1 = m.player1?.pinfl ? playerByPinfl.get(m.player1.pinfl) : undefined;
+              const p2 = m.player2?.pinfl ? playerByPinfl.get(m.player2.pinfl) : undefined;
+              if (!p1 || !p2 || p1 === p2) {
+                result.skipped++;
+                noPlayerSkips++;
+                continue;
+              }
+
+              const w1 = m.player1Wins ?? 0;
+              const w2 = m.player2Wins ?? 0;
+              const played = w1 > 0 || w2 > 0;
+
+              let winnerId: string | null = null;
+              if (m.winnerId && m.player1?.id === m.winnerId) winnerId = p1;
+              else if (m.winnerId && m.player2?.id === m.winnerId) winnerId = p2;
+              else if (played && w1 > w2) winnerId = p1;
+              else if (played && w2 > w1) winnerId = p2;
+
+              const data = {
+                tournamentId: t.id,
+                stage: 'GROUP' as const,
+                status: (played ? 'FINISHED' : 'SCHEDULED') as 'FINISHED' | 'SCHEDULED',
+                player1Id: p1,
+                player2Id: p2,
+                winnerId,
+                player1SetsWon: w1,
+                player2SetsWon: w2,
+                tableNumber: m.matchSchedule?.tableNumber ?? null,
+                scheduledAt: parseUttfDate(m.matchSchedule?.startTime ?? null),
+              };
+
+              const prev = await this.prisma.match.findUnique({
+                where: { externalId: m.matchId },
+                select: { id: true },
+              });
+
+              if (!dryRun) {
+                if (prev) {
+                  await this.prisma.match.update({ where: { id: prev.id }, data });
+                } else {
+                  await this.prisma.match.create({
+                    data: {
+                      externalId: m.matchId,
+                      ...data,
+                      // Arxiv o'yinlari: hakam kodi ishlatilmaydi, lekin
+                      // ustun majburiy — yaroqsiz qiymat qo'yamiz, hech
+                      // kim bu o'yinga ochko kirita olmasin.
+                      refereeCodeHash: `imported-${m.matchId}`,
+                    },
+                  });
+                }
+              }
+              if (prev) result.updated++;
+              else result.created++;
+
+              if (result.sample.length < 6) {
+                result.sample.push({
+                  action: prev ? 'update' : 'create',
+                  id: String(m.matchId),
+                  name: `${block.ageCategory ?? ''} ${block.matchType ?? ''} ${w1}:${w2}`,
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+
+    result.warnings.push(
+      `guruhi bor musobaqalar: ${tournamentsWithData}, o'yinchisi topilmagan o'yinlar: ${noPlayerSkips}`,
+    );
+    this.log.log(
+      `o'yinlar: ${result.fetched} korildi, +${result.created} / ~${result.updated}` +
+        (dryRun ? ' (DRY RUN)' : ''),
     );
     return result;
   }

@@ -3,6 +3,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { IsBoolean, IsIn, IsInt, IsOptional, Max, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
+import { Revalidates } from '../../common/revalidate/revalidate.decorator';
 import { UttfSyncService } from './uttf-sync.service';
 
 /**
@@ -13,8 +14,8 @@ import { UttfSyncService } from './uttf-sync.service';
  * permission talab qilinadi.
  */
 export class RunSyncDto {
-  @IsIn(['tournaments', 'tournament-names', 'players', 'videos'])
-  scope!: 'tournaments' | 'tournament-names' | 'players' | 'videos';
+  @IsIn(['tournaments', 'tournament-names', 'players', 'videos', 'matches'])
+  scope!: 'tournaments' | 'tournament-names' | 'players' | 'videos' | 'matches';
 
   /**
    * Default TRUE — ataylab. Sinxronizatsiya hech qachon tasodifan
@@ -35,6 +36,7 @@ export class RunSyncDto {
 }
 
 @ApiTags('uttf-sync')
+@Revalidates('tournaments', 'media', 'news')
 @Controller('uttf-sync')
 export class UttfSyncController {
   constructor(private readonly sync: UttfSyncService) {}
@@ -58,6 +60,9 @@ export class UttfSyncController {
     }
     if (dto.scope === 'videos') {
       return this.sync.syncVideos({ dryRun });
+    }
+    if (dto.scope === 'matches') {
+      return this.sync.syncMatches({ dryRun, limit: dto.limit });
     }
     return this.sync.syncTournaments({ dryRun, limit: dto.limit });
   }
