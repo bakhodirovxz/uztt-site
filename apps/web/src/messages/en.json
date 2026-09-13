@@ -157,7 +157,8 @@
     "wins": "Wins",
     "losses": "Losses",
     "viewAll": "View all",
-    "lastUpdated": "Last updated"
+    "lastUpdated": "Last updated",
+    "position": "Position"
   },
   "eventsPage": {
     "upcoming": "Upcoming",

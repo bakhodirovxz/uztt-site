@@ -157,7 +157,8 @@
     "wins": "G'alaba",
     "losses": "Mag'lubiyat",
     "viewAll": "Barchasini ko'rish",
-    "lastUpdated": "Oxirgi yangilanish"
+    "lastUpdated": "Oxirgi yangilanish",
+    "position": "O'rin"
   },
   "eventsPage": {
     "upcoming": "Kelayotgan",

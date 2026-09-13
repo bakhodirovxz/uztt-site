@@ -157,7 +157,8 @@
     "wins": "Побед",
     "losses": "Поражений",
     "viewAll": "Смотреть все",
-    "lastUpdated": "Последнее обновление"
+    "lastUpdated": "Последнее обновление",
+    "position": "Место"
   },
   "eventsPage": {
     "upcoming": "Предстоящие",

@@ -449,7 +449,7 @@ async function SinglesTable({
                     new: tr('new'),
                     snapshot: tr('snapshot'),
                     date: tr('date'),
-                    rank: tr('title'),
+                    rank: tr('position'),
                     points: tr('points'),
                     played: tr('played'),
                     wins: tr('wins'),
