@@ -1,0 +1,250 @@
+name: Deploy
+
+# `main` ga push bo'lganda saytni avtomatik yangilaydi.
+#
+# Ketma-ketlik CLAUDE.md dagi bilan bir xil va har bosqich oldingisiga
+# bog'langan — biri yiqilsa, keyingisi UMUMAN ishlamaydi:
+#
+#   tekshir → musobaqa kunimi? → yukla → image qur → deploy → tasdiqla
+#
+# Muhim: Docker image SERVERDA quriladi, runner'da emas. Sabab —
+# `NEXT_PUBLIC_API_URL` build vaqtida Next ichiga kiritiladi va image
+# serverdagi `.env` bilan mos bo'lishi kerak.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - 'tools/visual-parity/**'
+      - 'tools/uttf-discover/**'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Musobaqa kuni qo'riqchisini chetlab o'tish"
+        type: boolean
+        default: false
+      services:
+        description: 'Qaysi servis qayta qurilsin'
+        type: choice
+        options: [auto, api, web, 'api web']
+        default: auto
+
+# Bir vaqtda bitta deploy. Ketma-ket push bo'lsa navbatda kutadi —
+# yarim yo'lda uzilgan deploy saytni buzib qo'yishi mumkin.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  # ──────────────────────────────────────────────────────────────
+  check:
+    name: Tekshiruv
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.changed.outputs.services }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Bog'liqliklar
+        run: pnpm install --frozen-lockfile
+
+      - name: Prisma client
+        run: pnpm --filter @uztt/api prisma generate
+
+      - name: Tiplar — API
+        run: pnpm --filter @uztt/api exec tsc --noEmit -p tsconfig.json
+
+      - name: Tiplar — Web
+        run: pnpm --filter @uztt/web exec tsc --noEmit -p tsconfig.json
+
+      # Uchala til fayli bir xil kalitlar bilan turishi shart.
+      # Busiz drift xavf emas, KAFOLAT — kimdir bitta tilga kalit
+      # qo'shib qolgan ikkitasini unutadi.
+      - name: i18n drift
+        run: node apps/web/scripts/check-i18n-parity.mjs
+
+      - name: Nima o'zgardi
+        id: changed
+        run: |
+          if [ "${{ inputs.services }}" != "" ] && [ "${{ inputs.services }}" != "auto" ]; then
+            echo "services=${{ inputs.services }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          CHANGED=$(git diff --name-only HEAD~1 HEAD || echo "")
+          SVC=""
+          echo "$CHANGED" | grep -qE '^(apps/api|packages/shared)/' && SVC="api"
+          echo "$CHANGED" | grep -qE '^(apps/web|packages/shared)/' && SVC="$SVC web"
+          # Compose yoki lockfile tegilgan bo'lsa — ikkalasi
+          echo "$CHANGED" | grep -qE '^(docker-compose|pnpm-lock|package\.json)' && SVC="api web"
+          SVC=$(echo "$SVC" | xargs)
+          [ -z "$SVC" ] && SVC="web"
+          echo "services=$SVC" >> "$GITHUB_OUTPUT"
+          echo "Qayta quriladi: $SVC"
+
+  # ──────────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy
+    needs: check
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: SSH kalitini sozlash
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+          cat >> ~/.ssh/config <<EOF
+          Host uztt
+            HostName ${{ secrets.SSH_HOST }}
+            User ${{ secrets.SSH_USER }}
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            ServerAliveInterval 30
+            StrictHostKeyChecking yes
+          EOF
+
+      # /screen va /overlay jonli musobaqada ishlatiladi. Deploy paytida
+      # web konteyneri qayta ko'tariladi — zal ekrani va OBS overlayi
+      # bir necha soniya uziladi. Bu o'yin o'rtasida qabul qilib
+      # bo'lmaydigan narsa.
+      - name: Musobaqa kuni qo'riqchisi
+        if: ${{ !inputs.force }}
+        run: |
+          LIVE=$(curl -s --max-time 20 "${{ secrets.SITE_URL }}/api/tournaments?status=LIVE" \
+                 | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{console.log(JSON.parse(s).length)}catch{console.log(0)}})')
+          echo "Jonli musobaqalar: $LIVE"
+          if [ "$LIVE" != "0" ]; then
+            echo "::error::$LIVE ta musobaqa JONLI. Deploy to'xtatildi — /screen va /overlay uziladi."
+            echo "Haqiqatan kerak bo'lsa: Actions → Deploy → Run workflow → force"
+            exit 1
+          fi
+
+      - name: Bazani zaxiralash
+        run: |
+          ssh uztt 'cd /opt/uztt && docker compose -f docker-compose.prod.yml -f docker-compose.server.yml \
+            exec -T postgres pg_dump -U uztt -d uztt --no-owner --no-acl \
+            | gzip > /opt/uztt/_data/pre-deploy-$(date +%F-%H%M).sql.gz'
+          # Eskilarini tozalaymiz — 7 kundan oshganini
+          ssh uztt 'find /opt/uztt/_data -name "pre-deploy-*.sql.gz" -mtime +7 -delete'
+
+      # Rasm (450 MB) va sirlar YUBORILMAYDI — ular serverda turadi.
+      - name: Kodni yuklash
+        run: |
+          tar -czf /tmp/code.tar.gz \
+            --exclude='node_modules' --exclude='.next' --exclude='dist' --exclude='.git' \
+            --exclude='coverage' --exclude='apps/web/public/uttf-import' --exclude='_to_delete' \
+            --exclude='tools/visual-parity/reference' --exclude='tools/visual-parity/current' \
+            --exclude='tools/visual-parity/broadcast' --exclude='tools/audit' \
+            --exclude='.env' --exclude='*.tar.gz' --exclude='*.tsbuildinfo' \
+            --exclude='DEPLOY.local.md' \
+            package.json pnpm-workspace.yaml pnpm-lock.yaml .dockerignore .gitignore \
+            docker-compose.prod.yml docker-compose.server.yml docker-compose.yml \
+            apps packages deploy tools README.md CLAUDE.md .env.example
+          ssh uztt 'cat > /opt/uztt/code.tar.gz' < /tmp/code.tar.gz
+          ssh uztt 'cd /opt/uztt && tar -xzf code.tar.gz && rm code.tar.gz'
+
+      - name: Docker image qurish
+        timeout-minutes: 30
+        run: |
+          SVC="${{ needs.check.outputs.services }}"
+          echo "Quriladi: $SVC"
+          ssh uztt "cd /opt/uztt && docker compose \
+            -f docker-compose.prod.yml -f docker-compose.server.yml \
+            build $SVC > /root/ci-build.log 2>&1"
+          ERR=$(ssh uztt 'grep -ci "^ERROR" /root/ci-build.log || true')
+          if [ "$ERR" != "0" ]; then
+            ssh uztt 'tail -40 /root/ci-build.log'
+            echo "::error::Docker build xatosi"
+            exit 1
+          fi
+
+      # Entrypoint `prisma migrate deploy` ni o'zi ishga tushiradi.
+      - name: Deploy
+        run: |
+          SVC="${{ needs.check.outputs.services }}"
+          ssh uztt "cd /opt/uztt && docker compose \
+            -f docker-compose.prod.yml -f docker-compose.server.yml up -d $SVC"
+          sleep 20
+          ssh uztt 'cd /opt/uztt && docker compose -f docker-compose.prod.yml \
+            -f docker-compose.server.yml ps --format "table {{.Service}}\t{{.Status}}"'
+
+      - name: Sog'liq tekshiruvi
+        run: |
+          for i in $(seq 1 12); do
+            CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "${{ secrets.SITE_URL }}/api/health" || echo 000)
+            HOME_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "${{ secrets.SITE_URL }}/" || echo 000)
+            echo "urinish $i: /api/health=$CODE  /=$HOME_CODE"
+            if [ "$CODE" = "200" ] && [ "$HOME_CODE" = "200" ]; then exit 0; fi
+            sleep 10
+          done
+          echo "::error::Sayt deploydan keyin javob bermayapti"
+          exit 1
+
+  # ──────────────────────────────────────────────────────────────
+  verify:
+    name: Tasdiqlash
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Playwright
+        run: |
+          npm i -D playwright@1.58.2
+          npx playwright install --with-deps chromium
+
+      # 28 marshrut x 3 til + interaktiv testlar (til almashtirgich,
+      # navigatsiya, reyting tablari, sahifalash, qidiruv, mobil menyu).
+      - name: Funksional tekshiruv
+        run: node tools/visual-parity/functional-check.mjs "${{ secrets.SITE_URL }}"
+
+      # Efir grafikasi (/screen, /overlay) redizayndan MUSTAQIL bo'lishi
+      # shart. Baseline bo'lmasa bu qadam o'tkazib yuboriladi.
+      - name: Efir grafikasi
+        continue-on-error: true
+        run: |
+          if [ -f tools/visual-parity/broadcast/baseline/colors.json ]; then
+            node tools/visual-parity/broadcast-check.mjs verify "${{ secrets.SITE_URL }}"
+          else
+            echo "Baseline yo'q — o'tkazib yuborildi."
+          fi
+
+  # ──────────────────────────────────────────────────────────────
+  rollback-hint:
+    name: Yiqildi — nima qilish kerak
+    needs: [deploy, verify]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "::error::Deploy yoki tasdiqlash yiqildi."
+          cat <<'EOF'
+          Orqaga qaytarish:
+            ssh uztt 'cd /opt/uztt && docker compose -f docker-compose.prod.yml \
+              -f docker-compose.server.yml up -d --force-recreate api web'
+
+          Migratsiya qo'llangan bo'lsa, kodni qaytarish YETARLI EMAS —
+          bazani zaxiradan tiklash kerak:
+            ssh uztt 'ls -t /opt/uztt/_data/pre-deploy-*.sql.gz | head -1'
+          EOF
+          exit 1

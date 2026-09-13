@@ -5,31 +5,59 @@ foydalanuvchilarga va ~5 600 sportchining ma'lumotiga tegadi.
 
 ---
 
-## 1. Har o'zgarishdan keyin: push + deploy
+## 1. Deploy — avtomatik
 
-O'zgarish tugagach, **muammo bo'lmasa**, quyidagi ketma-ketlikni bajar.
-Har qadamda to'xtash sharti bor — biror qadam yiqilsa, **keyingisiga
-o'tma**, sababni ayt.
+**`main` ga push qilsang, boshqa hech narsa qilish shart emas.**
+GitHub Actions o'zi deploy qiladi: `.github/workflows/deploy.yml`.
 
 ```
-1. Tiplarni tekshir      → to'xtash: xato bo'lsa
-2. Build qil             → to'xtash: xato bo'lsa
-3. Commit + push         → to'xtash: maxfiy fayl staged bo'lsa
-4. Serverga yukla        → to'xtash: ulanish yo'q bo'lsa
-5. Docker image qur      → to'xtash: build xatosi bo'lsa
-6. Deploy qil
-7. Tekshir               → to'xtash: tekshiruv yiqilsa, ORQAGA QAYTAR
+tekshir → musobaqa kunimi? → zaxira → yukla → image → deploy → tasdiqla
 ```
 
-Aniq buyruqlar va server ma'lumotlari: **`DEPLOY.local.md`**
-(u `.gitignore` da — repo ochiq).
+Har bosqich oldingisiga bog'langan: biri yiqilsa keyingisi **umuman
+ishlamaydi**. Ish oqimi o'zgargan fayllarga qarab hal qiladi — faqat
+`apps/web` tegilgan bo'lsa faqat `web` qayta quriladi (ikki baravar tez).
+
+Shuning uchun sening vazifang oddiy:
+
+```
+1. Tiplarni tekshir  → to'xtash: xato bo'lsa
+2. Maxfiy fayl tekshiruvi → to'xtash: staged bo'lsa
+3. Commit + push
+4. Actions natijasini kuzat
+```
+
+**Musobaqa kuni qo'riqchisi.** Deploy paytida `web` konteyneri qayta
+ko'tariladi, ya'ni `/screen` (zal ekrani) va `/overlay` (OBS) bir necha
+soniya uziladi. Jonli musobaqa bo'lsa ish oqimi **to'xtaydi**.
+Chetlab o'tish: Actions → Deploy → Run workflow → `force`.
+
+Deploydan oldin baza avtomatik zaxiralanadi:
+`/opt/uztt/_data/pre-deploy-<sana>.sql.gz` (7 kun saqlanadi).
+
+### Kerakli GitHub secretlar
+
+`Settings → Secrets and variables → Actions`:
+
+| Nom | Nima |
+|---|---|
+| `SSH_PRIVATE_KEY` | deploy kaliti (to'liq matn, `-----BEGIN` dan `-----END` gacha) |
+| `SSH_HOST` | server IP |
+| `SSH_USER` | `root` |
+| `SITE_URL` | `https://stoltennis.uz` |
+
+Qiymatlar `DEPLOY.local.md` da (u `.gitignore` da).
+
+### Qo'lda deploy
+
+Actions ishlamasa yoki serverga to'g'ridan-to'g'ri kirish kerak bo'lsa —
+to'liq buyruqlar **`DEPLOY.local.md`** da.
 
 ### Qachon deploy QILMASLIK kerak
 
-- **Musobaqa kuni** — `/screen` va `/overlay` jonli efirda ishlatiladi.
-  Kalendarni tekshir: `GET /api/tournaments?status=LIVE`.
-- Migratsiya bor bo'lsa — avval zaxira ol (`DEPLOY.local.md` ga qara).
-- Tekshiruvlardan biri yiqilgan bo'lsa.
+- **Musobaqa kuni** — qo'riqchi buni o'zi tutadi, lekin `force` bilan
+  chetlab o'tishdan oldin ikki marta o'yla.
+- Tekshiruvlardan biri yiqilgan bo'lsa — `force` bilan majburlama.
 
 ---
 
