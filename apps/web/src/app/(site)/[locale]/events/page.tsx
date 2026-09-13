@@ -1,6 +1,7 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { api, cached } from '@/lib/api';
+import { Container, PageTitleBar } from '@/components/ui';
 
 interface TournamentRow {
   id: string;
@@ -35,10 +36,9 @@ export default async function EventsPage({
     new Date(d).toLocaleDateString(locale, { day: 'numeric', month: 'short' });
 
   return (
-    <div className="mx-auto max-w-site px-4 py-12">
-      <h1 className="font-heading text-3xl font-extrabold uppercase tracking-tight">
-        {t('events')}
-      </h1>
+    <>
+      <PageTitleBar title={t('events')} />
+      <Container className="py-8">
 
       <div className="mt-8 space-y-4">
         {tournaments.map((tr) => (
@@ -77,6 +77,7 @@ export default async function EventsPage({
           </Link>
         ))}
       </div>
-    </div>
+      </Container>
+    </>
   );
 }

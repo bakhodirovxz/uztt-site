@@ -1,5 +1,6 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { api, cached } from '@/lib/api';
+import { Container, PageTitleBar } from '@/components/ui';
 
 // Sahifa har so'rovda qayta render qilinadi, lekin API javoblari Data Cache'da
 // teg bilan saqlanadi: admin kontentni o'zgartirsa /api/revalidate darhol tozalaydi.
@@ -69,10 +70,9 @@ export default async function AboutPage({
   );
 
   return (
-    <div className="mx-auto max-w-site px-4 py-12">
-      <h1 className="font-heading text-3xl font-extrabold uppercase tracking-tight">
-        {t('title')}
-      </h1>
+    <>
+      <PageTitleBar title={t('title')} />
+      <Container className="py-8">
       <p className="mt-3 max-w-2xl text-muted">{tc('siteName')}</p>
 
       <h2 className="mt-10 font-heading text-xl font-bold uppercase tracking-wide">
@@ -128,6 +128,7 @@ export default async function AboutPage({
           </div>
         ))}
       </div>
-    </div>
+      </Container>
+    </>
   );
 }

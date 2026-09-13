@@ -2,6 +2,7 @@ import Image from 'next/image';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { api, cached } from '@/lib/api';
+import { Container, PageTitleBar } from '@/components/ui';
 
 // Sahifa har so'rovda qayta render qilinadi, lekin API javoblari Data Cache'da
 // teg bilan saqlanadi: admin kontentni o'zgartirsa /api/revalidate darhol tozalaydi.
@@ -33,10 +34,9 @@ export default async function NewsPage({
     .catch(() => [] as NewsItem[]);
 
   return (
-    <div className="mx-auto max-w-site px-4 py-12">
-      <h1 className="font-heading text-3xl font-extrabold uppercase tracking-tight">
-        {t('news')}
-      </h1>
+    <>
+      <PageTitleBar title={t('news')} />
+      <Container className="py-8">
 
       <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {items.map((n) => (
@@ -87,6 +87,7 @@ export default async function NewsPage({
           </Link>
         ))}
       </div>
-    </div>
+      </Container>
+    </>
   );
 }

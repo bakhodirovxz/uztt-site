@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { api } from '@/lib/api';
+import { Container, PageTitleBar } from '@/components/ui';
 import { MatchCard } from '@/components/match/match-card';
 import type { MatchPayload } from '@/lib/socket';
 
@@ -29,11 +30,11 @@ export default function LivePage() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-site px-4 py-12">
-      <h1 className="flex items-center gap-3 font-heading text-3xl font-extrabold uppercase tracking-tight">
+    <>
+      <PageTitleBar title={t('live')}>
         <span className="inline-block size-3 animate-pulse rounded-full bg-live" />
-        {t('live')}
-      </h1>
+      </PageTitleBar>
+      <Container className="py-8">
 
       {matches === null ? (
         <p className="mt-6 text-muted">{tc('loading')}</p>
@@ -46,6 +47,7 @@ export default function LivePage() {
           ))}
         </div>
       )}
-    </div>
+      </Container>
+    </>
   );
 }

@@ -213,6 +213,19 @@ input::placeholder, textarea::placeholder {
 .grad-teams {
   background-image: linear-gradient(180deg, #409a36 0%, #00923f 45%, #065748 100%);
 }
+/*
+ * Reyting yon panelidagi "eng yaxshi o'yinchilar" kartalari.
+ * WTT'da erkaklar — ko'k-firuza, ayollar — magenta-siyoh. O'lchangan:
+ *   erkaklar: linear-gradient(to right, #33c1c3 0, #127ed4 90%)
+ *   ayollar:  linear-gradient(to right, #d947e2 28%, #673ab7 100%)
+ */
+.grad-men {
+  background-image: linear-gradient(to right, #33c1c3 0%, #127ed4 90%);
+}
+.grad-women {
+  background-image: linear-gradient(to right, #d947e2 28%, #673ab7 100%);
+}
+
 /* Rasm ustidagi matnni o'qiladigan qiladigan qoplama (WTT o'lchovi) */
 .grad-scrim {
   background-image: linear-gradient(

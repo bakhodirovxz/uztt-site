@@ -1,6 +1,7 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { api, cached } from '@/lib/api';
+import { Container, PageTitleBar } from '@/components/ui';
 
 // Sahifa har so'rovda qayta render qilinadi, lekin API javoblari Data Cache'da
 // teg bilan saqlanadi: admin kontentni o'zgartirsa /api/revalidate darhol tozalaydi.
@@ -30,10 +31,9 @@ export default async function GalleriesPage({
     .catch(() => [] as GalleryItem[]);
 
   return (
-    <div className="mx-auto max-w-site px-4 py-12">
-      <h1 className="font-heading text-3xl font-extrabold uppercase tracking-tight">
-        {t('galleries')}
-      </h1>
+    <>
+      <PageTitleBar title={t('galleries')} />
+      <Container className="py-8">
 
       {galleries.length === 0 ? (
         <p className="mt-6 text-muted">{t('empty')}</p>
@@ -80,6 +80,7 @@ export default async function GalleriesPage({
           ))}
         </div>
       )}
-    </div>
+      </Container>
+    </>
   );
 }

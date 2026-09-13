@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
+import { Container, PageTitleBar } from '@/components/ui';
 import { api } from '@/lib/api';
 
 interface SearchResults {
@@ -49,10 +50,9 @@ export default function SearchPage() {
     results.players.length + results.tournaments.length + results.news.length;
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-12">
-      <h1 className="font-heading text-3xl font-extrabold uppercase tracking-tight">
-        {t('title')}
-      </h1>
+    <>
+      <PageTitleBar title={t('title')} />
+      <Container className="max-w-4xl py-8">
 
       <input
         autoFocus
@@ -131,6 +131,7 @@ export default function SearchPage() {
           </div>
         </section>
       )}
-    </div>
+      </Container>
+    </>
   );
 }

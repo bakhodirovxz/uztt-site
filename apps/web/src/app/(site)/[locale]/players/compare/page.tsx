@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { api } from '@/lib/api';
+import { Container, PageTitleBar } from '@/components/ui';
 
 interface PlayerLite {
   id: string;
@@ -74,10 +75,9 @@ export default async function ComparePage({
     'w-full rounded-md border border-border bg-surface-card px-3 py-2.5 text-sm outline-none focus:border-accent-500';
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-12">
-      <h1 className="font-heading text-3xl font-extrabold uppercase tracking-tight">
-        {tp('compareTitle')}
-      </h1>
+    <>
+      <PageTitleBar title={tp('compareTitle')} />
+      <Container className="max-w-3xl py-8">
       <p className="mt-2 text-muted">{tp('comparePick')}</p>
 
       {/* JS'siz ishlaydi: oddiy GET forma */}
@@ -211,6 +211,7 @@ export default async function ComparePage({
           )}
         </>
       )}
-    </div>
+      </Container>
+    </>
   );
 }

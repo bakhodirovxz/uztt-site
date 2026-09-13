@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { api, ApiError } from '@/lib/api';
+import { Container, PageTitleBar } from '@/components/ui';
 
 export default function ContactPage() {
   const t = useTranslations('contactPage');
@@ -37,10 +38,9 @@ export default function ContactPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-12">
-      <h1 className="font-heading text-3xl font-extrabold uppercase tracking-tight">
-        {t('title')}
-      </h1>
+    <>
+      <PageTitleBar title={t('title')} />
+      <Container className="max-w-3xl py-8">
 
       <div className="mt-8 grid gap-8 md:grid-cols-2">
         {sent ? (
@@ -79,6 +79,7 @@ export default function ContactPage() {
           <p className="mt-1 text-white/80">+998 71 000 00 00</p>
         </div>
       </div>
-    </div>
+      </Container>
+    </>
   );
 }

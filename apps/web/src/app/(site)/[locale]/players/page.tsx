@@ -2,6 +2,7 @@ import Image from 'next/image';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { api } from '@/lib/api';
+import { Container, PageTitleBar, chipClass } from '@/components/ui';
 
 interface PlayerRow {
   id: string;
@@ -100,19 +101,16 @@ export default async function PlayersPage({
   };
 
   return (
-    <div className="mx-auto max-w-site px-4 py-12">
-      <span className="eyebrow">{tp('rank')}</span>
-      <div className="mt-2 flex flex-wrap items-center justify-between gap-4">
-        <h1 className="font-heading text-3xl font-extrabold uppercase tracking-tight">
-          {t('players')}
-        </h1>
+    <>
+      <PageTitleBar title={t('players')}>
         <Link
           href="/players/compare"
-          className="inline-flex min-h-10 items-center rounded-md border border-border px-4 text-sm font-semibold transition-colors hover:border-accent-500 hover:text-accent-500"
+          className="inline-flex min-h-9 items-center rounded-card border border-white/25 px-4 text-[13px] font-semibold uppercase tracking-wide text-white transition-colors hover:border-accent-500 hover:text-accent-500"
         >
           {tp('compare')}
         </Link>
-      </div>
+      </PageTitleBar>
+      <Container className="py-8">
 
       {/* Filtrlar: qidiruv + jins + viloyat (hammasi URL'da — havola bo'lishib bo'ladi) */}
       <form className="mt-6 flex flex-wrap items-center gap-2" action="">
@@ -140,7 +138,7 @@ export default async function PlayersPage({
         </select>
         <button
           type="submit"
-          className="min-h-10 rounded-md bg-accent-500 px-4 text-sm font-semibold text-white hover:bg-accent-400"
+          className="min-h-10 rounded-card bg-accent-500 px-5 text-[13px] font-bold uppercase tracking-wide text-white transition-colors hover:bg-accent-400"
         >
           {tp('search')}
         </button>
@@ -151,11 +149,7 @@ export default async function PlayersPage({
           <a
             key={tab.label}
             href={hrefWith({ gender: tab.key })}
-            className={`inline-flex min-h-9 items-center rounded-full px-4 text-sm font-semibold transition-colors ${
-              gender === tab.key || (!gender && !tab.key)
-                ? 'bg-accent-500 text-white'
-                : 'bg-surface-card text-muted hover:text-ink'
-            }`}
+            className={chipClass(gender === tab.key || (!gender && !tab.key))}
           >
             {tab.label}
           </a>
@@ -245,6 +239,7 @@ export default async function PlayersPage({
           </Link>
         </nav>
       )}
-    </div>
+      </Container>
+    </>
   );
 }
