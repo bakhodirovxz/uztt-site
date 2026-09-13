@@ -100,10 +100,28 @@ jobs:
     needs: check
     runs-on: ubuntu-latest
     environment: production
+    outputs:
+      ready: ${{ steps.gate.outputs.ready }}
     steps:
       - uses: actions/checkout@v4
 
+      # Secretlar sozlanmagan bo'lsa ish oqimi QIZIL chiqmasin — shunchaki
+      # ogohlantirib o'tkazib yuboradi. Sozlash: DEPLOY.local.md.
+      - name: Secretlar sozlanganmi
+        id: gate
+        env:
+          HOST: ${{ secrets.SSH_HOST }}
+          KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          if [ -z "$HOST" ] || [ -z "$KEY" ]; then
+            echo "::warning title=Deploy o'tkazib yuborildi::GitHub secretlari sozlanmagan (SSH_HOST, SSH_PRIVATE_KEY, SSH_USER, SITE_URL). Ko'rsatma: DEPLOY.local.md"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: SSH kalitini sozlash
+        if: steps.gate.outputs.ready == 'true'
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
@@ -124,7 +142,7 @@ jobs:
       # bir necha soniya uziladi. Bu o'yin o'rtasida qabul qilib
       # bo'lmaydigan narsa.
       - name: Musobaqa kuni qo'riqchisi
-        if: ${{ !inputs.force }}
+        if: steps.gate.outputs.ready == 'true' && !inputs.force
         run: |
           LIVE=$(curl -s --max-time 20 "${{ secrets.SITE_URL }}/api/tournaments?status=LIVE" \
                  | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{console.log(JSON.parse(s).length)}catch{console.log(0)}})')
@@ -136,6 +154,7 @@ jobs:
           fi
 
       - name: Bazani zaxiralash
+        if: steps.gate.outputs.ready == 'true'
         run: |
           ssh uztt 'cd /opt/uztt && docker compose -f docker-compose.prod.yml -f docker-compose.server.yml \
             exec -T postgres pg_dump -U uztt -d uztt --no-owner --no-acl \
@@ -145,6 +164,7 @@ jobs:
 
       # Rasm (450 MB) va sirlar YUBORILMAYDI — ular serverda turadi.
       - name: Kodni yuklash
+        if: steps.gate.outputs.ready == 'true'
         run: |
           tar -czf /tmp/code.tar.gz \
             --exclude='node_modules' --exclude='.next' --exclude='dist' --exclude='.git' \
@@ -160,6 +180,7 @@ jobs:
           ssh uztt 'cd /opt/uztt && tar -xzf code.tar.gz && rm code.tar.gz'
 
       - name: Docker image qurish
+        if: steps.gate.outputs.ready == 'true'
         timeout-minutes: 30
         run: |
           SVC="${{ needs.check.outputs.services }}"
@@ -176,6 +197,7 @@ jobs:
 
       # Entrypoint `prisma migrate deploy` ni o'zi ishga tushiradi.
       - name: Deploy
+        if: steps.gate.outputs.ready == 'true'
         run: |
           SVC="${{ needs.check.outputs.services }}"
           ssh uztt "cd /opt/uztt && docker compose \
@@ -185,6 +207,7 @@ jobs:
             -f docker-compose.server.yml ps --format "table {{.Service}}\t{{.Status}}"'
 
       - name: Sog'liq tekshiruvi
+        if: steps.gate.outputs.ready == 'true'
         run: |
           for i in $(seq 1 12); do
             CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "${{ secrets.SITE_URL }}/api/health" || echo 000)
@@ -200,6 +223,7 @@ jobs:
   verify:
     name: Tasdiqlash
     needs: deploy
+    if: needs.deploy.outputs.ready == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
