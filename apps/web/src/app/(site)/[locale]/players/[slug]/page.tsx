@@ -56,13 +56,6 @@ interface PlayerHistory {
 
 export const dynamic = 'force-dynamic';
 
-const chip = (active: boolean) =>
-  `inline-flex min-h-9 items-center rounded border px-4 text-sm font-semibold transition-colors ${
-    active
-      ? 'border-navy-700 bg-navy-700 text-white'
-      : 'border-border-strong bg-white text-ink hover:border-navy-600 hover:text-navy-700'
-  }`;
-
 /** O'ng paneldagi kartalar (Hudud, Sport maktabi/klubi) — uttf.uz uslubiga mos */
 function InfoCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -138,31 +131,42 @@ export default async function PlayerDetailPage({
   return (
     <>
       {/* Orqaga + sahifa nomi + bo'lim havolalari (uttf.uz'dagi Sportchi sahifasi tuzilishiga mos) */}
-      <div className="border-b border-border bg-surface-card">
-        <div className="mx-auto flex max-w-site flex-wrap items-center justify-between gap-3 px-4 py-4">
-          <div className="flex items-center gap-2 text-sm">
+      <div className="bg-navy-950 text-white">
+        <div className="mx-auto flex max-w-site flex-wrap items-center justify-between gap-x-6 px-4">
+          <div className="flex items-center gap-2 py-3 text-sm">
             <Link
               href="/players"
-              className="inline-flex min-h-8 items-center gap-1 font-semibold text-muted hover:text-ink"
+              className="inline-flex min-h-8 items-center gap-1 font-semibold text-white/60 hover:text-white"
             >
               ‹ {tp('back')}
             </Link>
-            <span className="text-border-strong">|</span>
-            <span className="font-heading font-bold uppercase tracking-wide text-navy-700">
+            <span className="text-white/25">|</span>
+            <span className="font-heading font-bold uppercase tracking-wide">
               {t('players')}
             </span>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <a href="#malumotlar" className={chip(true)}>
-              {tp('tabInfo')}
-            </a>
-            <a href="#musobaqalar" className={chip(false)}>
-              {tp('tabMatches')}
-            </a>
-            <a href="#ballar-tarixi" className={chip(false)}>
-              {tp('tabPointsHistory')}
-            </a>
-          </div>
+          {/* WTT uslubidagi tablar: pastda to'q sariq chiziq */}
+          <nav className="flex flex-wrap items-center gap-x-1">
+            {(
+              [
+                ['#malumotlar', tp('tabInfo'), true],
+                ['#musobaqalar', tp('tabMatches'), false],
+                ['#ballar-tarixi', tp('tabPointsHistory'), false],
+              ] as const
+            ).map(([href, label, active]) => (
+              <a
+                key={href}
+                href={href}
+                className={`border-b-4 px-3 py-3 font-heading text-[13px] font-semibold uppercase tracking-wide transition-colors ${
+                  active
+                    ? 'border-accent-500 text-white'
+                    : 'border-transparent text-white/60 hover:text-white'
+                }`}
+              >
+                {label}
+              </a>
+            ))}
+          </nav>
         </div>
       </div>
 
@@ -225,7 +229,7 @@ export default async function PlayerDetailPage({
                   <dt className="text-xs font-bold uppercase tracking-wider text-muted">
                     {tp('points')}
                   </dt>
-                  <dd className="mt-1 font-heading text-2xl font-extrabold tabular-nums text-court-500">
+                  <dd className="mt-1 font-heading text-2xl font-extrabold tabular-nums text-accent-500">
                     {player.rankingPoints}
                   </dd>
                 </div>

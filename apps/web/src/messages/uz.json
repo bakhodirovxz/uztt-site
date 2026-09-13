@@ -148,7 +148,8 @@
     "team": "Jamoa",
     "unknownPartner": "hamkor ma'lum emas",
     "mixedTeams": "Aralash",
-    "total": "Jami"
+    "total": "Jami",
+    "topRanked": "Eng yuqori o'rinlar"
   },
   "eventsPage": {
     "upcoming": "Kelayotgan",

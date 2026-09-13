@@ -2,8 +2,6 @@ import Image from 'next/image';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { api, cached } from '@/lib/api';
-import { LiveTicker } from '@/components/match/live-ticker';
-import type { MatchPayload } from '@/lib/socket';
 
 interface NewsItem {
   id: string;
@@ -89,7 +87,7 @@ export default async function HomePage({
   const t = await getTranslations('home');
   const tm = await getTranslations('media');
 
-  const [news, rankingsM, rankingsF, tournaments, videos, sponsors, liveMatches] =
+  const [news, rankingsM, rankingsF, tournaments, videos, sponsors] =
     await Promise.all([
       api.get<NewsItem[]>(`/news?locale=${locale}`, cached('news', 60)).catch(() => []),
       api
@@ -108,8 +106,6 @@ export default async function HomePage({
           cached('federation', 300),
         )
         .catch(() => []),
-      // Jonli lenta serverdan to'ldiriladi — birinchi chizishda joyida turadi
-      api.get<MatchPayload[]>('/matches/live').catch(() => []),
     ]);
 
   const hero = news.find((n) => n.isFeatured) ?? news[0];
@@ -120,8 +116,6 @@ export default async function HomePage({
 
   return (
     <>
-      <LiveTicker initial={liveMatches} />
-
       {/* HERO — to'liq eni, katta sarlavha (WTT layout tili, UZTT brendi) */}
       {hero ? (
         <section className="relative overflow-hidden bg-navy-950">

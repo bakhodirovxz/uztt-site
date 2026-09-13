@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { NextIntlClientProvider, hasLocale } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { routing } from '@/i18n/routing';
+import { LiveTicker } from '@/components/match/live-ticker';
 import { SiteHeader } from '@/components/layout/site-header';
 import { SiteFooter } from '@/components/layout/site-footer';
 import '@/styles/globals.css';
@@ -89,6 +90,10 @@ export default async function SiteLayout({
     <html lang={locale} className={`${heading.variable} ${body.variable}`}>
       <body className="flex min-h-screen flex-col">
         <NextIntlClientProvider>
+          {/* Jonli hisob tasmasi header USTIDA — WTT layout tili.
+              Ilgari faqat bosh sahifada edi, ya'ni boshqa sahifadagi
+              tashrifchi jonli o'yin borligini bilmasdi. */}
+          <LiveTicker />
           <SiteHeader />
           <main className="flex-1">{children}</main>
           <SiteFooter />

@@ -4,6 +4,7 @@ import { api } from '@/lib/api';
 import {
   Container,
   PageTitleBar,
+  GradientCard,
   TabBar,
   Chip,
   ChipGroup,
@@ -165,6 +166,9 @@ export default async function RankingsPage({
           }))}
         />
 
+        <div className="mt-6 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_330px]">
+          <div className="min-w-0">
+
       {type === 'singles' && (
         <SinglesTable
           locale={locale}
@@ -203,6 +207,14 @@ export default async function RankingsPage({
           tr={tr}
         />
       )}
+          </div>
+
+          {/* WTT reyting sahifasidagi "TOP RANKED PLAYERS" bloklari */}
+          <aside className="space-y-5">
+            <TopRanked gender="MALE" title={tr('men')} tr={tr} />
+            <TopRanked gender="FEMALE" title={tr('women')} tr={tr} />
+          </aside>
+        </div>
       </Container>
     </>
   );
@@ -241,6 +253,71 @@ function AgeCategoryFilter({
         </a>
       ))}
     </div>
+  );
+}
+
+/**
+ * Yon paneldagi "eng yuqori o'rindagilar" kartasi — WTT'dagi
+ * "TOP RANKED PLAYERS" bloki. Gradient sarlavha rangi jinsga qarab
+ * (o'lchangan: erkaklar ko'k-firuza, ayollar magenta-siyoh).
+ */
+async function TopRanked({
+  gender,
+  title,
+  tr,
+}: {
+  gender: 'MALE' | 'FEMALE';
+  title: string;
+  tr: Tr;
+}) {
+  const data = await api
+    .get<PagedResult<RankingRow>>(`/rankings?gender=${gender}&pageSize=5`)
+    .catch(() => null);
+  const rows = data?.rows ?? [];
+  if (rows.length === 0) return null;
+
+  return (
+    <GradientCard
+      tone={gender === 'MALE' ? 'men' : 'women'}
+      title={title}
+      subtitle={tr('topRanked')}
+    >
+      <ol>
+        {rows.map((r) => (
+          <li key={r.id} className="border-b border-border last:border-0">
+            <Link
+              href={{ pathname: '/players/[slug]', params: { slug: r.slug } }}
+              className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-[rgba(232,105,34,0.18)]"
+            >
+              <span className="w-4 shrink-0 text-center font-heading text-sm font-bold tabular-nums text-muted">
+                {r.rank}
+              </span>
+              {r.photoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={r.photoUrl}
+                  alt=""
+                  width={28}
+                  height={28}
+                  loading="lazy"
+                  className="size-7 shrink-0 rounded-full bg-surface-alt object-cover"
+                />
+              ) : (
+                <span className="grid size-7 shrink-0 place-items-center rounded-full bg-navy-800 text-[10px] font-bold text-white">
+                  {(r.lastName?.[0] ?? '') + (r.firstName?.[0] ?? '')}
+                </span>
+              )}
+              <span className="min-w-0 flex-1 truncate text-[13px]">
+                <span className="uppercase">{r.lastName}</span> {r.firstName}
+              </span>
+              <span className="shrink-0 font-heading text-sm font-bold tabular-nums">
+                {r.rankingPoints}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ol>
+    </GradientCard>
   );
 }
 
@@ -342,8 +419,7 @@ async function SinglesTable({
             <DataTable
               head={
                 <>
-                  <Th>#</Th>
-                  <Th>{tr('movement')}</Th>
+                  <Th className="w-24">#</Th>
                   <Th>{tr('player')}</Th>
                   <Th className="hidden sm:table-cell">{tr('region')}</Th>
                   <Th align="right">{tr('points')}</Th>
@@ -352,11 +428,15 @@ async function SinglesTable({
             >
               {rows.map((r) => (
                 <Tr key={r.id}>
-                  <Td className="w-14">
-                    <RankNumber rank={r.rank} />
-                  </Td>
-                  <Td className="w-20 whitespace-nowrap">
-                    <Movement movement={r.movement} isNew={r.movement === null} newLabel={tr('new')} />
+                  <Td className="w-24 whitespace-nowrap">
+                    <span className="flex items-center gap-2">
+                      <RankNumber rank={r.rank} />
+                      <Movement
+                        movement={r.movement}
+                        isNew={r.movement === null}
+                        newLabel={tr('new')}
+                      />
+                    </span>
                   </Td>
                   <Td>
                     <Link

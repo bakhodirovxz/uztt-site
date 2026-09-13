@@ -148,7 +148,8 @@
     "team": "Team",
     "unknownPartner": "partner unknown",
     "mixedTeams": "Mixed",
-    "total": "Total"
+    "total": "Total",
+    "topRanked": "Top ranked players"
   },
   "eventsPage": {
     "upcoming": "Upcoming",

@@ -9,6 +9,10 @@ import { subscribeToMatches, type MatchPayload } from '@/lib/socket';
 /**
  * Jonli hisoblar tickeri (WTT-uslub): qora panelda oq mini-kartalar,
  * gorizontal scroll, socket orqali real vaqtda yangilanadi.
+ *
+ * `data-live` atributi: e2e/visual/site.spec.ts shu selektorni maskalaydi,
+ * lekin u komponentda MAVJUD EMAS edi — ya'ni maskalash ishlamay, har
+ * baseline'ga o'zgaruvchan jonli hisob muhrlanardi.
  */
 export function LiveTicker({ initial = [] }: { initial?: MatchPayload[] }) {
   const t = useTranslations('match');
@@ -46,7 +50,7 @@ export function LiveTicker({ initial = [] }: { initial?: MatchPayload[] }) {
   if (matches.length === 0) return null;
 
   return (
-    <div className="border-b border-border bg-navy-950">
+    <div data-live className="border-b border-white/10 bg-navy-950">
       <div className="rail mx-auto max-w-site px-4 py-2.5">
         {matches.map((m) => (
           <Link

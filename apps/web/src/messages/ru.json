@@ -148,7 +148,8 @@
     "team": "Команда",
     "unknownPartner": "партнёр неизвестен",
     "mixedTeams": "Смешанные",
-    "total": "Всего"
+    "total": "Всего",
+    "topRanked": "Лидеры рейтинга"
   },
   "eventsPage": {
     "upcoming": "Предстоящие",
