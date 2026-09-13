@@ -29,7 +29,7 @@ export default async function EventsPage({
   const te = await getTranslations('eventsPage');
   const tm = await getTranslations('match');
 
-  const tournaments = await api.get<TournamentRow[]>('/tournaments', cached('tournaments', 60))
+  const tournaments = await api.get<TournamentRow[]>(`/tournaments?locale=${locale}`, cached('tournaments', 60))
     .catch(() => [] as TournamentRow[]);
 
   const fmt = (d: string) =>

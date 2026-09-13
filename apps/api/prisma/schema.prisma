@@ -425,9 +425,27 @@ model Tournament {
   news        NewsArticle[]
   galleries   Gallery[]
   videos      Video[]
+  translations TournamentTranslation[]
 
   @@index([status, startDate])
   @@map("tournaments")
+}
+
+/// Musobaqa nomining tarjimalari.
+/// uttf.uz `tournaments/detail` nameUz/nameRu/nameEng beradi — ilgari
+/// faqat inglizchasi saqlanardi va sayt uch tilli bo'lsa ham musobaqa
+/// nomi hamma tilda inglizcha chiqardi.
+/// Sxemadagi boshqa oltita tarjima modeli bilan bir xil naqsh.
+model TournamentTranslation {
+  id           String @id @default(uuid())
+  tournamentId String @map("tournament_id")
+  locale       String // uz | ru | en
+  name         String
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  @@unique([tournamentId, locale])
+  @@map("tournament_translations")
 }
 
 // ==================== O'YINLAR ====================

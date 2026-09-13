@@ -89,9 +89,9 @@ export async function generateMetadata({
 }: {
   params: Promise<{ locale: string; slug: string }>;
 }): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug, locale } = await params;
   const t = await api
-    .get<TournamentDetail>(`/tournaments/${slug}`)
+    .get<TournamentDetail>(`/tournaments/${slug}?locale=${locale}`)
     .catch(() => null);
   if (!t) return {};
   const description = `${t.level.name} · ${[t.city, t.venue].filter(Boolean).join(', ')}`;
@@ -119,7 +119,7 @@ export default async function EventDetailPage({
   const tn = await getTranslations('nav');
 
   const t = await api
-    .get<TournamentDetail>(`/tournaments/${slug}`)
+    .get<TournamentDetail>(`/tournaments/${slug}?locale=${locale}`)
     .catch((e) => {
       if (e instanceof ApiError && e.status === 404) return null;
       throw e;

@@ -51,6 +51,7 @@ const PERMISSIONS: Array<[code: string, description: string]> = [
   ['contact.inbox', 'Murojaatlar inboxini ko‘rish'],
   // Translatsiya
   ['stream.view', 'Translatsiya kanalini (overlay/monitor) ochish'],
+  ['uttf.sync', "uttf.uz dan ma'lumot sinxronizatsiyasini ishga tushirish"],
 ];
 
 // ==================== ROLLAR ====================
@@ -89,6 +90,7 @@ const ROLES: Array<{
       'news.publish',
       'media.manage',
       'stream.view',
+      'uttf.sync',
       'contact.inbox',
     ],
   },

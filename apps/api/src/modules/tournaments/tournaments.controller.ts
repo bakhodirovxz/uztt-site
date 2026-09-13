@@ -7,6 +7,8 @@ import { Public } from '../../common/decorators/public.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { Revalidates } from '../../common/revalidate/revalidate.decorator';
 
+const LOCALES = ['uz', 'ru', 'en'];
+
 @ApiTags('tournaments')
 @Revalidates('tournaments')
 @Controller('tournaments')
@@ -15,12 +17,16 @@ export class TournamentsController {
 
   @Public()
   @Get()
-  list(@Query('status') status?: TournamentStatus) {
+  list(
+    @Query('status') status?: TournamentStatus,
+    @Query('locale') locale?: string,
+  ) {
     return this.tournaments.list({
       status:
         status && Object.values(TournamentStatus).includes(status)
           ? status
           : undefined,
+      locale: LOCALES.includes(locale ?? '') ? locale : undefined,
     });
   }
 
@@ -32,8 +38,14 @@ export class TournamentsController {
 
   @Public()
   @Get(':idOrSlug')
-  detail(@Param('idOrSlug') idOrSlug: string) {
-    return this.tournaments.detail(idOrSlug);
+  detail(
+    @Param('idOrSlug') idOrSlug: string,
+    @Query('locale') locale?: string,
+  ) {
+    return this.tournaments.detail(
+      idOrSlug,
+      LOCALES.includes(locale ?? '') ? locale : undefined,
+    );
   }
 
   @Post()

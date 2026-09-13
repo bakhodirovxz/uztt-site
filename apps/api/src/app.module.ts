@@ -13,6 +13,7 @@ import { TournamentsModule } from './modules/tournaments/tournaments.module';
 import { MatchesModule } from './modules/matches/matches.module';
 import { LiveModule } from './modules/live/live.module';
 import { RankingsModule } from './modules/rankings/rankings.module';
+import { UttfSyncModule } from './modules/uttf-sync/uttf-sync.module';
 import { NewsModule } from './modules/news/news.module';
 import { RegistrationModule } from './modules/registration/registration.module';
 import { DrawsModule } from './modules/draws/draws.module';
@@ -57,6 +58,7 @@ import { SlowRequestInterceptor } from './common/interceptors/slow-request.inter
     MatchesModule,
     LiveModule,
     RankingsModule,
+    UttfSyncModule,
     NewsModule,
     RegistrationModule,
     DrawsModule,

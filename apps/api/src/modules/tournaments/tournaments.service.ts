@@ -21,7 +21,22 @@ const PUBLIC_TOURNAMENT_SELECT = {
   bannerImageUrl: true,
   level: { select: { code: true, name: true, coefficient: true } },
   ageCategory: { select: { code: true, name: true } },
+  translations: { select: { locale: true, name: true } },
 } satisfies Prisma.TournamentSelect;
+
+/**
+ * Musobaqa nomini so'ralgan tilga ko'chiradi.
+ * Tarjima bo'lmasa asl nom qoladi — bo'sh joy chiqmaydi.
+ * `translations` massivi javobdan olib tashlanadi: mijozga kerak emas.
+ */
+function localizeTournament<T extends { name: string; translations?: Array<{ locale: string; name: string }> }>(
+  t: T,
+  locale?: string,
+): Omit<T, 'translations'> {
+  const { translations, ...rest } = t;
+  const hit = locale ? translations?.find((x) => x.locale === locale) : undefined;
+  return { ...rest, name: hit?.name?.trim() || t.name };
+}
 
 /** O'yin javobida hech qachon refereeCodeHash/overlayToken chiqmaydi */
 const PUBLIC_MATCH_SELECT = {
@@ -56,15 +71,16 @@ const PUBLIC_MATCH_SELECT = {
 export class TournamentsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(filter: { status?: TournamentStatus }) {
-    return this.prisma.tournament.findMany({
+  async list(filter: { status?: TournamentStatus; locale?: string }) {
+    const rows = await this.prisma.tournament.findMany({
       where: { status: filter.status },
       orderBy: { startDate: 'desc' },
       select: PUBLIC_TOURNAMENT_SELECT,
     });
+    return rows.map((t) => localizeTournament(t, filter.locale));
   }
 
-  async detail(idOrSlug: string) {
+  async detail(idOrSlug: string, locale?: string) {
     const t = await this.prisma.tournament.findFirst({
       where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
       select: {
@@ -121,7 +137,7 @@ export class TournamentsService {
           (a.gender ?? '').localeCompare(b.gender ?? ''),
       );
 
-    return { ...t, categories };
+    return { ...localizeTournament(t, locale), categories };
   }
 
   async create(data: {

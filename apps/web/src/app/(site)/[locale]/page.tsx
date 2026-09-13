@@ -98,7 +98,9 @@ export default async function HomePage({
         .get<{ rows: RankingRow[] }>('/rankings?gender=FEMALE&pageSize=5')
         .then((r) => r.rows)
         .catch(() => [] as RankingRow[]),
-      api.get<TournamentRow[]>('/tournaments', cached('tournaments', 60)).catch(() => []),
+      api
+        .get<TournamentRow[]>(`/tournaments?locale=${locale}`, cached('tournaments', 60))
+        .catch(() => []),
       api.get<VideoItem[]>(`/videos?locale=${locale}`, cached('media', 300)).catch(() => []),
       api
         .get<Array<{ id: string; name: string; tier: number }>>(
