@@ -40,40 +40,48 @@ export default async function EventsPage({
       <PageTitleBar title={t('events')} />
       <Container className="py-8">
 
-      <div className="mt-8 space-y-4">
+      {/*
+        Ilgari har musobaqa to'liq enli qator edi: 50 ta turnir 7400px
+        balandlik bergan. WTT bu ro'yxatni zich to'rda beradi (uning
+        sahifasi 3237px) — biz ham ustunlarga o'tkazdik.
+      */}
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {tournaments.map((tr) => (
           <Link
             key={tr.id}
             href={{ pathname: '/events/[slug]', params: { slug: tr.slug } }}
-            className="group flex flex-wrap items-center gap-4 rounded-card bg-surface-card p-5 shadow-card transition-shadow hover:shadow-card-hover"
+            className="group flex items-start gap-3 rounded-card border border-border bg-surface-card p-3.5 shadow-card transition-shadow hover:shadow-card-hover"
           >
             {/* Sana bloki */}
-            <div className="grid size-16 shrink-0 place-items-center rounded-card bg-navy-900 text-center text-white">
-              <span className="font-heading text-xs font-bold uppercase leading-tight">
+            <div className="grid size-12 shrink-0 place-items-center rounded-card bg-navy-900 text-center text-white">
+              <span className="font-heading text-[11px] font-bold uppercase leading-tight">
                 {fmt(tr.startDate)}
               </span>
             </div>
 
             <div className="min-w-0 flex-1">
-              <h2 className="truncate font-heading text-lg font-bold group-hover:text-accent-400">
+              <h2 className="line-clamp-2 font-heading text-[15px] font-bold leading-snug group-hover:text-accent-500">
                 {tr.name}
               </h2>
-              <p className="truncate text-sm text-muted">
-                {[tr.city, tr.venue].filter(Boolean).join(' · ')} ·{' '}
-                {tr.level.name} (×{tr.level.coefficient})
+              <p className="mt-1 truncate text-xs text-muted">
+                {[tr.city, tr.venue].filter(Boolean).join(' · ')}
+              </p>
+              <p className="mt-1.5 flex items-center gap-2">
+                <span className="truncate text-[11px] font-semibold uppercase tracking-wider text-accent-500">
+                  {tr.level.name}
+                </span>
+                {tr.status === 'LIVE' ? (
+                  <span className="flex shrink-0 items-center gap-1 rounded-card bg-live px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
+                    <span className="size-1 animate-pulse rounded-full bg-white" />
+                    {tm('live')}
+                  </span>
+                ) : (
+                  <span className="shrink-0 rounded-card bg-surface-alt px-1.5 py-0.5 text-[10px] font-semibold uppercase text-muted">
+                    {tr.status === 'FINISHED' ? te('finished') : te('upcoming')}
+                  </span>
+                )}
               </p>
             </div>
-
-            {tr.status === 'LIVE' ? (
-              <span className="flex items-center gap-1.5 rounded-full bg-accent-700 px-3 py-1 text-xs font-bold uppercase text-white">
-                <span className="size-1.5 animate-pulse rounded-full bg-white" />
-                {tm('live')}
-              </span>
-            ) : (
-              <span className="rounded-full bg-surface px-3 py-1 text-xs font-semibold text-muted">
-                {tr.status === 'FINISHED' ? te('finished') : te('upcoming')}
-              </span>
-            )}
           </Link>
         ))}
       </div>
