@@ -1,0 +1,99 @@
+name: uztt
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-uztt}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD .env faylida berilishi shart}
+      POSTGRES_DB: ${POSTGRES_DB:-uztt}
+    ports:
+      # Faqat localhost — tashqi tarmoqqa ochilmaydi
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-uztt} -d ${POSTGRES_DB:-uztt}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      # Konteyner har safar (reboot, docker compose up -d --build) qayta
+      # ishga tushganda demo/test ma'lumotlarni qayta yaratmasligi uchun
+      # seed avtomatik ishlamaydi. Faqat ataylab ishga tushirish uchun
+      # .env ga SEED_ON_BOOT=1 qo'shing.
+      SEED_ON_BOOT: ${SEED_ON_BOOT:-0}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-uztt}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-uztt}?schema=public
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET .env faylida berilishi shart}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET .env faylida berilishi shart}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-30d}
+      DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:?DATA_ENCRYPTION_KEY .env faylida berilishi shart}
+      DATA_ENCRYPTION_KEY_ID: ${DATA_ENCRYPTION_KEY_ID:-k1}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
+      # Kontent o'zgarganda web keshini yangilash. Ixtiyoriy: .env da
+      # REVALIDATE_SECRET va WEB_REVALIDATE_URL=http://web:3000/api/revalidate
+      # berilsagina yoqiladi (bittasi berilsa API boot qilmaydi — noto'liq sozlama).
+      THROTTLE_LIMIT: ${THROTTLE_LIMIT:-300}
+      THROTTLE_TTL_MS: ${THROTTLE_TTL_MS:-60000}
+      SLOW_REQUEST_MS: ${SLOW_REQUEST_MS:-500}
+      WEB_REVALIDATE_URL: ${WEB_REVALIDATE_URL:-}
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET:-}
+    ports:
+      - "4000:4000"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      API_INTERNAL_URL: http://api:4000
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET:-}
+    ports:
+      - "${WEB_PORT:-3100}:3000"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  uploads:

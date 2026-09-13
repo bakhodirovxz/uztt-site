@@ -1,0 +1,26 @@
+# stoltennis.uz serveri uchun ustama (override).
+#
+# Serverda HOST nginx allaqachon ishlaydi va Let's Encrypt sertifikatini
+# (certbot avtomatik yangilaydi) tutib turadi. Shuning uchun compose ichidagi
+# nginx konteyneri ISHGA TUSHMAYDI — 80/443 portlari uchun urushmasin.
+# Host nginx 127.0.0.1 dagi web/api ga proxy qiladi.
+#
+# Ishlatish:
+#   docker compose -f docker-compose.prod.yml -f docker-compose.server.yml up -d --build
+
+services:
+  nginx:
+    # Profil berilgani uchun `up` bu servisni chetlab otadi
+    profiles: ["unused"]
+
+  api:
+    ports:
+      - "127.0.0.1:4000:4000"
+
+  web:
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      # uttf-import rasmlari (447 MB) image ichiga kirmaydi — bind mount.
+      # Shu tufayli rasm qoshilganda web ni qayta build qilish shart emas.
+      - ./apps/web/public/uttf-import:/app/apps/web/public/uttf-import:ro

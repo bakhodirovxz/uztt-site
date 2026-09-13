@@ -1,0 +1,130 @@
+# UZTT — production stack (serverda ishga tushiriladi)
+# Ishlatish:
+#   cp .env.example .env   # sirlarni to'ldiring
+#   docker compose -f docker-compose.prod.yml up -d --build
+# TLS: deploy/certs/ ichiga fullchain.pem + privkey.pem qo'ying (certbot)
+
+name: uztt-prod
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-uztt}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD berilishi shart}
+      POSTGRES_DB: ${POSTGRES_DB:-uztt}
+    # Tashqi port OCHILMAYDI — faqat ichki tarmoq
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-uztt} -d ${POSTGRES_DB:-uztt}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-uztt}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-uztt}?schema=public
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET berilishi shart}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET berilishi shart}
+      DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:?DATA_ENCRYPTION_KEY berilishi shart}
+      DATA_ENCRYPTION_KEY_ID: ${DATA_ENCRYPTION_KEY_ID:-k1}
+      WEB_ORIGIN: ${WEB_ORIGIN:?WEB_ORIGIN berilishi shart (masalan https://uztt.uz)}
+      SEED_ON_BOOT: ${SEED_ON_BOOT:-0}
+      # Kontent o'zgarganda Next keshini yangilash (ichki tarmoq orqali)
+      THROTTLE_LIMIT: ${THROTTLE_LIMIT:-300}
+      THROTTLE_TTL_MS: ${THROTTLE_TTL_MS:-60000}
+      SLOW_REQUEST_MS: ${SLOW_REQUEST_MS:-500}
+      WEB_REVALIDATE_URL: ${WEB_REVALIDATE_URL:-}
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET:-}
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # Brauzer API'ga nginx orqali bir xil domenda murojaat qiladi
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?masalan https://uztt.uz}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      API_INTERNAL_URL: http://api:4000
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-${NEXT_PUBLIC_API_URL}}
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET:-}
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      api:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./deploy/certs:/etc/nginx/certs:ro
+    depends_on:
+      - web
+      - api
+
+  # Kunlik shifrlangan backup (saqlash muddati: 14 kun)
+  backup:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE:?BACKUP_PASSPHRASE berilishi shart}
+    volumes:
+      - ./backups:/backups
+    entrypoint: /bin/sh
+    command: >
+      -c 'apk add --no-cache openssl >/dev/null 2>&1 || true;
+      while true; do
+        FILE=/backups/uztt-$$(date +%Y%m%d-%H%M).sql.gz.enc;
+        pg_dump -h postgres -U ${POSTGRES_USER:-uztt} ${POSTGRES_DB:-uztt} | gzip |
+          openssl enc -aes-256-cbc -pbkdf2 -pass env:BACKUP_PASSPHRASE -out $$FILE &&
+          echo "backup OK: $$FILE";
+        find /backups -name "*.enc" -mtime +14 -delete;
+        sleep 86400;
+      done'
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  uploads:

@@ -1,0 +1,31 @@
+{
+  "name": "uztt-site",
+  "private": true,
+  "version": "0.1.0",
+  "description": "O'zbekiston Stol Tennisi Federatsiyasi — rasmiy platforma",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @uztt/api --filter @uztt/web dev",
+    "dev:api": "pnpm --filter @uztt/api dev",
+    "dev:web": "pnpm --filter @uztt/web dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "db:up": "docker compose up -d postgres",
+    "db:migrate": "pnpm --filter @uztt/api prisma:migrate",
+    "db:seed": "pnpm --filter @uztt/api prisma:seed",
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "parity:capture-wtt": "pnpm --filter @uztt/visual-parity capture-wtt",
+    "parity:capture-local": "pnpm --filter @uztt/visual-parity capture-local",
+    "parity:report": "pnpm --filter @uztt/visual-parity report",
+    "import:legacy": "pnpm --filter @uztt/api import:legacy",
+    "test:e2e": "pnpm --filter @uztt/api test:e2e",
+    "audit:lighthouse": "node tools/audit/lighthouse.mjs",
+    "test:visual": "pnpm --filter @uztt/web test:visual"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@11.18.0"
+}

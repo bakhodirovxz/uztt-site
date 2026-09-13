@@ -1,0 +1,23 @@
+{
+  "comment": "WTT reference sahifalari va lokal ekvivalentlari. reference/ va current/ papkalari gitignored — WTT skrinshotlari faqat ichki dizayn o'lchovi uchun, repo yoki saytga hech qachon kirmaydi. Asset (shrift, rasm, logotip) KO'CHIRILMAYDI: WTT 'Bio Sans' tijorat shriftini ITTF serveridan beradi — biz erkin muqobil (Archivo) ishlatamiz.",
+  "widths": [390, 768, 1440],
+  "pages": [
+    { "name": "home", "wttUrl": "https://www.worldtabletennis.com/home", "localPath": "/" },
+    { "name": "events-calendar", "wttUrl": "https://www.worldtabletennis.com/events_calendar", "localPath": "/musobaqalar" },
+    { "name": "eventslist", "wttUrl": "https://www.worldtabletennis.com/eventslist", "localPath": "/musobaqalar" },
+    { "name": "rankings", "wttUrl": "https://www.worldtabletennis.com/rankings", "localPath": "/reyting" },
+    { "name": "players", "wttUrl": "https://www.worldtabletennis.com/playerslist", "localPath": "/oyinchilar" },
+    { "name": "news", "wttUrl": "https://www.worldtabletennis.com/news", "localPath": "/yangiliklar" },
+    { "name": "videos", "wttUrl": "https://www.worldtabletennis.com/videolist", "localPath": "/videos" },
+    { "name": "galleries", "wttUrl": "https://www.worldtabletennis.com/gallerylist", "localPath": "/galereya" },
+    { "name": "matches", "wttUrl": "https://www.worldtabletennis.com/matches", "localPath": "/live" },
+    { "name": "results", "wttUrl": "https://www.worldtabletennis.com/results", "localPath": "/live" },
+    { "name": "search", "wttUrl": "https://www.worldtabletennis.com/search", "localPath": "/search" },
+    { "name": "aboutus", "wttUrl": "https://www.worldtabletennis.com/aboutus", "localPath": "/federatsiya" },
+    { "name": "contact", "wttUrl": "https://www.worldtabletennis.com/contact-us", "localPath": "/aloqa" },
+    { "name": "player-detail", "wttUrl": "https://www.worldtabletennis.com/playerslist", "localPath": "/oyinchilar/iskandarov-shohrux-shuxratovich-itrcg" },
+    { "name": "event-detail", "wttUrl": "https://www.worldtabletennis.com/eventslist", "localPath": "/musobaqalar/uzbekistan-cup-among-the-kata-1156" },
+    { "name": "news-detail", "wttUrl": "https://www.worldtabletennis.com/news", "localPath": "/yangiliklar/pro-tour-1001" },
+    { "name": "compare", "wttUrl": "https://www.worldtabletennis.com/headtoheadcomparison", "localPath": "/oyinchilar/taqqoslash" }
+  ]
+}

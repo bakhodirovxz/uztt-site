@@ -1,0 +1,35 @@
+{
+  "name": "@uztt/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "lint": "eslint",
+    "test:visual": "playwright test",
+    "test:visual:update": "playwright test --update-snapshots",
+    "check:i18n": "node scripts/check-i18n-parity.mjs",
+    "prebuild": "node scripts/check-i18n-parity.mjs"
+  },
+  "dependencies": {
+    "next": "16.2.12",
+    "next-intl": "^4.13.4",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-markdown": "^10.1.0",
+    "socket.io-client": "^4.8.3"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.6",
+    "@playwright/test": "^1.62.1",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.12",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

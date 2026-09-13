@@ -1,0 +1,88 @@
+# Dependencies
+node_modules/
+
+# Builds
+dist/
+*.tsbuildinfo
+.turbo/
+.next/
+out/
+build/
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# Database & uploads
+uploads/
+*.webm
+
+# ============================================================
+# SHAXSIY MA'LUMOT — GITGA HECH QACHON TUSHMASIN
+# ============================================================
+# Bu fayllarda 5 520 ta real sportchining PINFL (milliy ID) raqami,
+# to'liq ismi, yoshi, viloyati va tumani bor. Ulardan 3 425 tasi
+# 18 YOSHGACHA. Repo ochiq (public) — bularni push qilish
+# jiddiy ma'lumot sizib chiqishi bo'lardi.
+#
+# Bu fayllar kerak bo'lsa: shifrlangan holda alohida saqlansin
+# (server: /opt/uztt/_data/), gitga emas.
+uttf-full-export.json
+uttf-import-data.sql
+uttf-rankings-import-data.sql
+uttf-tournaments-import.sql
+uttf-news-i18n.sql
+restore-player-points.sql
+reset-player-points.sql
+images-manifest.json
+uttf-*.tar.gz
+uztt-site-export.tar.gz
+
+# Sportchilar (asosan bolalar) fotosuratlari — 2 105 fayl, 450 MB
+apps/web/public/uttf-import/
+
+# Baza zaxiralari va yuklamalar
+_backup/
+backups/
+*.sql.gz
+*.sql.gz.enc
+
+# Tozalash/o'chirish uchun ajratilgan eski materiallar
+_to_delete/
+
+# Efir/demo tozalash skriptlari — real ma'lumotga bog'langan
+cleanup-*.sql
+aniq-demo-tozalash.sql
+*.bat
+
+# Test artifacts
+coverage/
+playwright-report/
+test-results/
+apps/web/e2e/.artifacts/
+# Baseline skrinshotlar (e2e/visual/*-snapshots/) ATAYLAB saqlanadi —
+# regressiyani ular bilan solishtiramiz.
+
+# Lighthouse hisobotlari
+tools/audit/reports/
+
+# Visual parity references (WTT screenshots — internal reference only, never committed)
+tools/visual-parity/reference/
+tools/visual-parity/current/
+tools/visual-parity/compare.html
+
+# IDE / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Legacy MVP local data
+legacy/backend/data/db.json
+legacy/backend/data/audio/

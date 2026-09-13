@@ -1,0 +1,17 @@
+{
+  "name": "@uztt/visual-parity",
+  "version": "0.1.0",
+  "description": "WTT reference skrinshotlari va lokal sayt bilan yonma-yon solishtirish",
+  "private": true,
+  "scripts": {
+    "capture-wtt": "node capture.mjs wtt",
+    "capture-local": "node capture.mjs local",
+    "report": "node report.mjs",
+    "build": "echo skip && exit 0",
+    "test": "echo skip && exit 0",
+    "measure": "node measure.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.58.2"
+  }
+}

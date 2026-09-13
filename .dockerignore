@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+**/.next
+**/coverage
+legacy
+tools/visual-parity/reference
+tools/visual-parity/current
+.env
+.env.*
+!.env.example
+uploads
+*.log
+.git
+apps/web/public/uttf-import

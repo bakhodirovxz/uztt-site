@@ -1,0 +1,304 @@
+@import "tailwindcss";
+
+/*
+ * UZTT dizayn tokenlari — worldtabletennis.com dan O'LCHAB olingan qiymatlar.
+ *
+ * Manba: tools/visual-parity/extract-design.mjs 12 ta WTT sahifasida hisoblangan
+ * stillarni yig'di (reference/design-system.json). Bu yerdagi raqamlar taxmin
+ * emas — bo'yalgan maydon bo'yicha vaznlangan o'lchov natijasi:
+ *   fon:      oq 43070 / qora 41594 / rgba(0,0,0,.51) 5651 / #f7f7f7 3896
+ *   matn:     #666 1407 / oq 509 / #212529 289
+ *   radius:   2px 452 / 5px 165 / 3px 126
+ *   tracking: 0.2px 3250 (deyarli hamma joyda)
+ *   konteyner: ~1382px
+ *
+ * MUHIM: token NOMLARI o'zgarmaydi. Tailwind v4 da `@theme` dagi qiymat
+ * `bg-navy-950` kabi utilitani generatsiya qiladi, shuning uchun ~40 sahifa
+ * fayliga tegmasdan butun mahsulot rangini qayta yo'naltirish mumkin.
+ * Nomni o'zgartirish — yuzlab fayl tahriri; qiymatni o'zgartirish — bitta fayl.
+ *
+ * Shrift: WTT "Bio Sans" ishlatadi — bu Fontfabric'ning TIJORAT shrifti,
+ * ITTF serveridan beriladi. Uni ko'chirish litsenziya buzilishi bo'lardi,
+ * shuning uchun erkin eng yaqin muqobil — Inter (100–900, kirill bor).
+ */
+@theme {
+  /*
+   * Navy — endi "brend ko'k" emas, WTT'ning QORA xromi.
+   * Nomi tarixiy sabablarga ko'ra saqlangan (24+ fayl ishlatadi).
+   * Header, footer, hero, media kartalar shu shkalada.
+   */
+  --color-navy-950: #000000;
+  --color-navy-900: #0d0d0d;
+  --color-navy-800: #1a1a1a;
+  --color-navy-700: #262626;
+  --color-navy-600: #3d3d3d;
+  --color-navy-500: #5a5a5a;
+
+  /*
+   * Accent — WTT'ning to'q sariq oilasi (--c-theme-color: #FF6B00).
+   * Ilgari bu shkala MONOTON EMAS edi (accent-400 accent-500 dan to'qroq),
+   * ya'ni oldindan aytib bo'lmaydigan edi. Endi to'g'ri tartibda.
+   */
+  --color-accent-700: #8a3a10; /* oq fonda o'qiladigan to'q sariq matn */
+  --color-accent-600: #db4526; /* WTT --c-tier-theme-color (match-card) */
+  --color-accent-500: #ff6b00; /* WTT --c-theme-color — asosiy harakat */
+  --color-accent-400: #e76922; /* WTT --c-theme-color-darker */
+  --color-accent-300: #ff9a5c; /* faqat fon/chegara — MATN uchun emas */
+  --color-accent-100: rgba(255, 107, 0, 0.1);
+
+  /*
+   * Court — WTT'ning ko'k gradienti (--c-theme-blue-gradient).
+   * Cheklov: court-400 `.eyebrow` da OQ fonda matn, shuning uchun u
+   * porlash-ko'ki (#2babd2) emas, o'qiladigan to'qroq ton bo'lishi kerak.
+   */
+  --color-court-900: #022e6d;
+  --color-court-800: #0d3a6e;
+  --color-court-700: #1a4f8a;
+  --color-court-500: #0a9ab3;
+  --color-court-400: #0a7f96;
+  --color-court-100: rgba(10, 154, 179, 0.1);
+
+  /* Gold — WTT sarig'i (--c-theme-yellow / #ffba01) */
+  --color-gold-600: #c98f00; /* oq fonda o'qiladigan */
+  --color-gold-500: #ffba01;
+  --color-gold-100: rgba(255, 186, 1, 0.15);
+
+  /*
+   * Semantik — WTT NEYTRAL kulrang ishlatadi, ko'k-kulrang emas.
+   * Eski #f4f6fa oilasi ko'kimtir edi; neytralga o'tish "WTT'ga o'xshadi"
+   * ishining kutilmaganda katta qismini bajaradi.
+   */
+  --color-surface: #f7f7f7;        /* WTT rgb(247,247,247) — 3896 vazn */
+  --color-surface-alt: #ebebeb;    /* almashinuvchi bo'lim ritmi */
+  --color-surface-card: #ffffff;
+  --color-surface-raised: #f2f2f2; /* ilgari #ffffff edi — ya'ni butun
+                                      koddagi hover:bg-surface-raised
+                                      hech qanday effekt bermasdi */
+  --color-border: #e4e4e4;         /* WTT rgb(228,228,228) */
+  --color-border-strong: #c8c8c8;  /* WTT #c8c8c8 */
+  --color-muted: #666666;          /* WTT'ning eng ko'p matn rangi (1407) */
+  --color-ink: #212529;            /* WTT rgb(33,37,41) */
+
+  /* Holat ranglari — WTT o'z CSS o'zgaruvchilaridan */
+  --color-live: #ef2020;           /* --c-theme-red-color-2 */
+  --color-danger: #d01717;         /* --c-theme-red-color (YANGI nom) */
+  --color-win: #088423;            /* --c-theme-green-color */
+  --color-warn: #ffba01;
+  --color-teams: #409a32;          /* --c-teams-theme-color (jamoa reytingi) */
+
+  /* Shriftlar */
+  --font-heading: var(--font-inter), "Inter", system-ui, sans-serif;
+  --font-body: var(--font-roboto), "Roboto", system-ui, sans-serif;
+
+  /* Shakl — WTT o'lchovi: radius 2px (452), soya = ambient porlash */
+  --radius-card: 2px;
+  --shadow-card: 0 2px 20px rgb(221 221 221);
+  --shadow-card-hover: 0 0 40px rgb(236 235 235);
+  --shadow-nav: 0 2px 10px rgb(85 85 85 / 0.25);
+
+  /* Konteyner — WTT ~1382px, bizdagi max-w-7xl (1280px) tor edi */
+  --container-site: 1382px;
+
+  /*
+   * ===== EFIR GRAFIKASI — QADALGAN RANGLAR =====
+   * /screen (zal proyektori) va /overlay (OBS Browser Source) sayt
+   * redizaynidan MUSTAQIL bo'lishi shart. Ular ham shu @theme ni baham
+   * ko'rgani uchun, token qiymati o'zgarganda jimgina qayta bo'yalardi —
+   * jonli musobaqa o'rtasida. Shuning uchun eski qiymatlar shu yerda
+   * qotirilgan va efir fayllari FAQAT shu tokenlarni ishlatadi.
+   * Bularni o'zgartirish = efir ko'rinishini o'zgartirish. Ataylab qiling.
+   */
+  --color-broadcast-bg: #1c2b4d;
+  --color-broadcast-bg2: #22355e;
+  --color-broadcast-bg3: #2a4070;
+  --color-broadcast-bg4: #33487a;
+  --color-broadcast-gold: #ffb703;
+  --color-broadcast-live: #ff2d4c;
+  --color-broadcast-accent: #e02246;
+  --color-broadcast-muted: #6b7385;
+}
+
+/*
+ * Qatlamlash va harakat tokenlari — ilgari umuman yo'q edi, shuning uchun
+ * z-index qiymatlari fayllar bo'ylab qo'lda yozilgan.
+ */
+:root {
+  --z-header: 50;
+  --z-dropdown: 60;
+  --z-overlay: 70;
+  --z-modal: 80;
+
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+body {
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  /* WTT body: 14px / letter-spacing 0.2px — ikkalasi ham o'lchangan */
+  font-size: 14px;
+  letter-spacing: 0.2px;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+}
+
+/*
+ * Form elementlari. Ilgari bu yerda `color-scheme: dark` turardi — bu
+ * yorug' mavzuga o'tishdan oldingi qoldiq edi va butun mahsulot bo'ylab
+ * OQ inputlar ustida QORONG'I native kalendar/dropdown chiqarardi.
+ */
+input, select, textarea {
+  background: var(--color-surface-card);
+  color: var(--color-ink);
+}
+input::placeholder, textarea::placeholder {
+  color: var(--color-muted);
+}
+
+/*
+ * Bo'lim eyebrow'i — stolning markaziy oq chizig'idan olingan motiv:
+ * sarlavha tepasida qisqa chiziq, bo'limlarni bir-biridan ajratadi.
+ */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--font-heading);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-accent-500);
+}
+.eyebrow::before {
+  content: "";
+  width: 28px;
+  height: 2px;
+  background: var(--color-accent-500);
+}
+
+/* Almashinuvchi bo'lim fonlari — bir xil ritmdan qutulish uchun */
+.band-alt {
+  background: var(--color-surface-alt);
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* To'liq qora bo'lim — WTT'ning media/hero bloklari */
+.band-dark {
+  background: var(--color-navy-950);
+  color: #ffffff;
+}
+
+/*
+ * Brend gradientlari — WTT'dan aynan o'lchab olingan.
+ * Nomlangan class sifatida: aks holda bu satrlar TSX ichida
+ * `bg-[linear-gradient(...)]` bo'lib o'nlab marta takrorlanardi.
+ */
+.grad-brand {
+  background-image: linear-gradient(90deg, #f37822 0%, #d45022 45%, #e6342d 100%);
+}
+.grad-brand-alt {
+  background-image: linear-gradient(45deg, #e6342d 0%, #d45022 45%, #f37822 100%);
+}
+.grad-blue {
+  background-image: linear-gradient(90deg, #0a9ab3 0%, #3298b3 45%, #022e6d 100%);
+}
+/* Jamoa reytingi — WTT jamoalar uchun yashil ishlatadi, bizda 369 jamoa bor */
+.grad-teams {
+  background-image: linear-gradient(180deg, #409a36 0%, #00923f 45%, #065748 100%);
+}
+/* Rasm ustidagi matnni o'qiladigan qiladigan qoplama (WTT o'lchovi) */
+.grad-scrim {
+  background-image: linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.9) 20%,
+    rgba(0, 0, 0, 0.7) 60%,
+    rgba(0, 0, 0, 0.3) 70%
+  );
+}
+
+/* Gorizontal karusel (WTT-uslub) */
+.rail {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+.rail > * {
+  scroll-snap-align: start;
+  flex-shrink: 0;
+}
+
+/*
+ * OBS overlay va zal ekrani — EFIR grafikasi.
+ * Bular token o'zgarishini meros oladi, lekin ularning ko'rinishi
+ * o'zgarmasligi shart: video oqimda o'qilishi buzilmasin.
+ */
+body[data-overlay="true"] {
+  background: transparent;
+}
+
+/*
+ * Zal ekrani (proyektor). Bu qoida KERAK: yuqoridagi `body { background }`
+ * layer'dan tashqarida yozilgani uchun Tailwind utilitasidan ustun turadi,
+ * shuning uchun layout'dagi `bg-broadcast-bg` classi ishlamay, zal ekrani
+ * yorug' kulrang fonda chiqib turgan edi (jonli saytda tasdiqlandi:
+ * /screen/1 body foni rgb(244,246,250) edi, navy o'rniga).
+ */
+body[data-screen="true"] {
+  background: var(--color-broadcast-bg);
+}
+
+/* Yangilik matni (markdown) tipografiyasi */
+.prose-uztt {
+  font-size: 15px;
+  line-height: 1.7;
+}
+.prose-uztt h2 {
+  margin-top: 1.6em;
+  font-size: 1.35em;
+  font-weight: 700;
+}
+.prose-uztt h3 {
+  margin-top: 1.3em;
+  font-size: 1.15em;
+  font-weight: 700;
+}
+.prose-uztt p {
+  margin-top: 1em;
+}
+.prose-uztt ul,
+.prose-uztt ol {
+  margin-top: 1em;
+  padding-left: 1.4em;
+}
+.prose-uztt ul {
+  list-style: disc;
+}
+.prose-uztt ol {
+  list-style: decimal;
+}
+.prose-uztt a {
+  color: var(--color-accent-600);
+  text-decoration: underline;
+}
+.prose-uztt blockquote {
+  margin-top: 1em;
+  border-left: 3px solid var(--color-accent-500);
+  padding-left: 1em;
+  color: var(--color-muted);
+}
+
+/* A11y: klaviatura fokusi aniq ko'rinsin */
+:focus-visible {
+  outline: 2px solid var(--color-accent-500);
+  outline-offset: 2px;
+}
