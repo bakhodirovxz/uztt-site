@@ -530,16 +530,31 @@ export class UttfSyncService {
 
       const prev = await this.prisma.video.findFirst({
         where: { youtubeId: yid },
-        select: { id: true },
+        select: { id: true, publishedAt: true },
       });
 
       let videoId = prev?.id ?? null;
       if (!dryRun) {
         if (prev) {
           videoId = prev.id;
+          // `publishedAt` bo'sh bo'lsa to'ldiramiz: ommaviy /videos
+          // endpointi `publishedAt: { not: null }` bilan filtrlaydi,
+          // ya'ni bo'sh qolgan video saytda umuman ko'rinmaydi.
+          if (!prev.publishedAt) {
+            await this.prisma.video.update({
+              where: { id: prev.id },
+              data: { publishedAt: new Date() },
+            });
+          }
         } else {
           const created = await this.prisma.video.create({
-            data: { youtubeId: yid, category: 'highlights' },
+            data: {
+              youtubeId: yid,
+              category: 'highlights',
+              // Manbada sana yo'q (clips faqat id/name/url/photoId beradi),
+              // lekin bu videolar uttf.uz da allaqachon chop etilgan.
+              publishedAt: new Date(),
+            },
             select: { id: true },
           });
           videoId = created.id;
