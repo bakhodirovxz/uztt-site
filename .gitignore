@@ -71,6 +71,8 @@ tools/audit/reports/
 tools/visual-parity/reference/
 tools/visual-parity/current/
 tools/visual-parity/compare.html
+# Efir tekshiruvi artefaktlari — har ishga tushirishda qaytadan olinadi
+tools/visual-parity/broadcast/
 
 # IDE / OS
 .vscode/
