@@ -49,9 +49,11 @@ jobs:
         with:
           fetch-depth: 2
 
+      # `version` ATAYLAB berilmagan: package.json da
+      # `packageManager: pnpm@11.18.0` bor va ikkalasi birga berilsa
+      # action "Multiple versions of pnpm specified" deb darhol yiqiladi.
+      # Versiya manbasi bitta bo'lishi kerak — packageManager.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11
 
       - uses: actions/setup-node@v4
         with:
@@ -90,7 +92,11 @@ jobs:
           # Compose yoki lockfile tegilgan bo'lsa — ikkalasi
           echo "$CHANGED" | grep -qE '^(docker-compose|pnpm-lock|package\.json)' && SVC="api web"
           SVC=$(echo "$SVC" | xargs)
-          [ -z "$SVC" ] && SVC="web"
+          # Ilovaga tegishli hech narsa o'zgarmagan bo'lsa (masalan faqat
+          # workflow yoki hujjat) — deploy qilishning ma'nosi yo'q.
+          # Ilgari bunda "web" ga tushib, bekorga 8 daqiqalik build
+          # va saytning qayta ko'tarilishi bo'lardi.
+          [ -z "$SVC" ] && SVC="none"
           echo "services=$SVC" >> "$GITHUB_OUTPUT"
           echo "Qayta quriladi: $SVC"
 
@@ -112,8 +118,12 @@ jobs:
         env:
           HOST: ${{ secrets.SSH_HOST }}
           KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SVC: ${{ needs.check.outputs.services }}
         run: |
-          if [ -z "$HOST" ] || [ -z "$KEY" ]; then
+          if [ "$SVC" = "none" ]; then
+            echo "::notice title=Deploy shart emas::Ilovaga tegishli fayl o'zgarmagan (faqat workflow yoki hujjat)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          elif [ -z "$HOST" ] || [ -z "$KEY" ]; then
             echo "::warning title=Deploy o'tkazib yuborildi::GitHub secretlari sozlanmagan (SSH_HOST, SSH_PRIVATE_KEY, SSH_USER, SITE_URL). Ko'rsatma: DEPLOY.local.md"
             echo "ready=false" >> "$GITHUB_OUTPUT"
           else
@@ -254,10 +264,17 @@ jobs:
           fi
 
   # ──────────────────────────────────────────────────────────────
+  # Faqat HAQIQATAN deploy bo'lib, keyin yiqilgan bo'lsa ishlaydi.
+  # Ilgari `if: failure()` edi — `Tekshiruv` yiqilganda ham chiqib,
+  # "orqaga qaytar" deb noto'g'ri maslahat berardi, holbuki hech narsa
+  # deploy qilinmagan. Tekshiruv yiqilsa oddiygina tuzatish kerak.
   rollback-hint:
     name: Yiqildi — nima qilish kerak
     needs: [deploy, verify]
-    if: failure()
+    if: |
+      always() &&
+      needs.deploy.outputs.ready == 'true' &&
+      (needs.deploy.result == 'failure' || needs.verify.result == 'failure')
     runs-on: ubuntu-latest
     steps:
       - run: |
