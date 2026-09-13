@@ -14,6 +14,12 @@ build/
 .env.*
 !.env.example
 
+# Serverga ulanish: IP, SSH kaliti yo'li, deploy buyruqlari, parol fayli.
+# CLAUDE.md (commit qilinadi) faqat shu faylga HAVOLA qiladi, sirni
+# o'zida saqlamaydi — repo ochiq.
+DEPLOY.local.md
+*.local.md
+
 # Database & uploads
 uploads/
 *.webm
