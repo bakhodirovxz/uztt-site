@@ -14,6 +14,7 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -72,6 +73,21 @@ class CreateLevelDto {
   @Max(10)
   coefficient?: number;
 
+  @ApiPropertyOptional({
+    description: "Nizom 1-ilova: katta yoshlar uchun K (1 chempionat, 0.9 kubok, 0.5 hududiy; pro-tur 0.1–1)",
+    default: 0.5,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0.1)
+  @Max(1)
+  ratingK?: number;
+
+  @ApiPropertyOptional({ enum: ['OFFICIAL', 'LEGACY'], default: 'OFFICIAL' })
+  @IsOptional()
+  @IsIn(['OFFICIAL', 'LEGACY'])
+  ratingMode?: 'OFFICIAL' | 'LEGACY';
+
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) sortOrder?: number;
 
   @ApiPropertyOptional({ type: [PointRuleDto], description: 'Ball reglamenti' })
@@ -102,6 +118,21 @@ class UpdateLevelDto {
   @Min(0.1)
   @Max(10)
   coefficient?: number;
+
+  @ApiPropertyOptional({
+    description: "Nizom 1-ilova: katta yoshlar uchun K (1 chempionat, 0.9 kubok, 0.5 hududiy; pro-tur 0.1–1)",
+    default: 0.5,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0.1)
+  @Max(1)
+  ratingK?: number;
+
+  @ApiPropertyOptional({ enum: ['OFFICIAL', 'LEGACY'], default: 'OFFICIAL' })
+  @IsOptional()
+  @IsIn(['OFFICIAL', 'LEGACY'])
+  ratingMode?: 'OFFICIAL' | 'LEGACY';
 
   @ApiPropertyOptional() @IsOptional() @IsInt() @Min(0) sortOrder?: number;
 
@@ -175,6 +206,8 @@ export class LevelsController {
         name: dto.name,
         description: dto.description,
         coefficient: dto.coefficient ?? 1,
+        ...(dto.ratingK !== undefined ? { ratingK: dto.ratingK } : {}),
+        ...(dto.ratingMode ? { ratingMode: dto.ratingMode } : {}),
         sortOrder: dto.sortOrder ?? 0,
         pointsRules: { create: this.dedupeRules(dto.rules) },
       },
@@ -210,6 +243,8 @@ export class LevelsController {
         name: dto.name,
         description: dto.description,
         coefficient: dto.coefficient,
+        ratingK: dto.ratingK,
+        ratingMode: dto.ratingMode,
         sortOrder: dto.sortOrder,
       },
       include: { pointsRules: true },

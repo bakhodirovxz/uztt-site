@@ -98,6 +98,39 @@ export function CategoryEntries({
     }
   }
 
+  const [plan, setPlan] = useState<{ firstRound: Array<{ n: number; a: string | null; b: string | null }>; status: string } | null>(null);
+  const loadPlan = useCallback(() => {
+    api
+      .get<{ status: string; bracketPlan?: { firstRound: Array<{ n: number; a: string | null; b: string | null }> } }>(`/groups/category/${categoryId}?t=${Date.now()}`)
+      .then((v) => setPlan(v.bracketPlan ? { firstRound: v.bracketPlan.firstRound, status: v.status } : null))
+      .catch(() => setPlan(null));
+  }, [categoryId]);
+  useEffect(loadPlan, [loadPlan]);
+  const [drawing, setDrawing] = useState(false);
+  const [drawMsg, setDrawMsg] = useState<string | null>(null);
+  async function autoDraw() {
+    setError(null);
+    setDrawMsg(null);
+    setDrawing(true);
+    try {
+      const r = await api.post<{ format: 'BRACKET' | 'GROUPS'; players: number; groupCount: number; advancing: number }>(
+        `/groups/category/${categoryId}/auto`,
+        {},
+      );
+      setDrawMsg(
+        r.format === 'GROUPS'
+          ? `Qura o'tkazildi: ${r.players} o'yinchi ${r.groupCount} ta guruhga bo'lindi (har guruhdan ${r.advancing} tadan setkaga chiqadi). O'yinlar va hakamlar avtomatik yaratildi.`
+          : `Qura o'tkazildi: ${r.players} o'yinchi uchun setka yaratildi. O'yinlar va hakamlar avtomatik yaratildi.`,
+      );
+      loadPlan();
+      onChanged?.();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e));
+    } finally {
+      setDrawing(false);
+    }
+  }
+
   async function addParticipant() {
     if (!addPlayerId) return;
     setError(null);
@@ -126,6 +159,38 @@ export function CategoryEntries({
         <p className="mt-2 rounded-md bg-accent-100 px-3 py-2 text-sm text-danger">
           {error}
         </p>
+      )}
+
+      <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md bg-surface-raised px-3 py-3">
+        <button
+          type="button"
+          disabled={drawing || entries.filter((x) => x.status === 'CONFIRMED').length < 2}
+          onClick={autoDraw}
+          className="rounded-md bg-accent-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+        >
+          {drawing ? 'Qura o‘tkazilmoqda…' : 'Qurani avtomatik o‘tkazish'}
+        </button>
+        <span className="text-xs text-muted">
+          Tasdiqlanganlar: {entries.filter((x) => x.status === 'CONFIRMED').length} ta. Tizim reyting bo‘yicha guruhlarga bo‘ladi, o‘yinlar va hakamlarni o‘zi yaratadi.
+        </span>
+      </div>
+      {plan && plan.status !== 'ADVANCED' && (
+        <div className="mt-3 rounded-md border border-border px-3 py-3">
+          <div className="text-sm font-bold">Setka rejasi (guruh natijalariga ko‘ra)</div>
+          <div className="mt-1 text-xs text-muted">A1 — A guruhi 1-o‘rin egasi. Guruhlar tugagach juftliklar shu reja bo‘yicha o‘yinchilar bilan to‘ladi.</div>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {plan.firstRound.map((r) => (
+              <div key={r.n} className="flex items-center justify-between rounded-md bg-surface-raised px-3 py-2 text-sm font-bold">
+                <span>{r.a ?? 'BYE'}</span>
+                <span className="text-xs font-semibold text-muted">vs</span>
+                <span>{r.b ?? 'BYE'}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {drawMsg && (
+        <p className="mt-2 rounded-md bg-win/15 px-3 py-2 text-sm text-win">{drawMsg}</p>
       )}
 
       {entries.length === 0 ? (

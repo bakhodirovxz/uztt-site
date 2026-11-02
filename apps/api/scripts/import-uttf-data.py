@@ -28,6 +28,23 @@ if not DATABASE_URL:
     sys.exit(1)
 
 
+
+REGION_UZ = {'Tashkent City': 'Toshkent shahri', 'Tashkent Region': 'Toshkent viloyati', 'Andijan Region': 'Andijon viloyati', 'Bukhara Region': 'Buxoro viloyati', 'Fergana Region': "Farg'ona viloyati", 'Jizzakh Region': 'Jizzax viloyati', 'Khorezm Region': 'Xorazm viloyati', 'Namangan Region': 'Namangan viloyati', 'Navoi Region': 'Navoiy viloyati', 'Kashkadarya Region': 'Qashqadaryo viloyati', 'Republic of Karakalpakstan': "Qoraqalpog'iston Respublikasi", 'Samarkand Region': 'Samarqand viloyati', 'Syrdarya Region': 'Sirdaryo viloyati', 'Surkhandarya Region': 'Surxondaryo viloyati'}
+
+
+def region_uz(name):
+    """uttf.uz hudud nomi (inglizcha) -> o'zbekcha"""
+    return REGION_UZ.get(name, name)
+
+def pts(value):
+    """Reglament: ball faqat butun va 0 dan kichik emas. 59.2 -> 59, 59.5 -> 60, -3.2 -> 0."""
+    try:
+        v = float(value or 0)
+    except (TypeError, ValueError):
+        return 0
+    return max(0, int(v + 0.5))
+
+
 def slugify(text: str) -> str:
     text = text.lower()
     repl = {
@@ -96,7 +113,7 @@ def main():
 
         club_rows.append((
             cid, slug, c.get("name") or "Noma'lum klub", c.get("type"),
-            c.get("regionName"), c.get("districtName"), c.get("address"),
+            region_uz(c.get("regionName")), c.get("districtName"), c.get("address"),
             float(c["latitude"]) if c.get("latitude") not in (None, "") else None,
             float(c["longitude"]) if c.get("longitude") not in (None, "") else None,
             c.get("phoneNumber"), c.get("coachName"), c.get("clubManagerName"),
@@ -149,8 +166,8 @@ def main():
 
         player_rows.append((
             pid, slug, first, last, gender, birth_date,
-            p.get("regionName") or "Noma'lum", p.get("clubName"), club_id,
-            pinfl, round(points),
+            region_uz(p.get("regionName")) if p.get("regionName") else "Noma'lum", p.get("clubName"), club_id,
+            pinfl, pts(points),
             photo_url(manifest, p.get("photoId"), "player"),
             "UZ", "ACTIVE", now, now,
         ))

@@ -25,6 +25,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { UserStatus } from '@prisma/client';
+import { checkPassword, isPrivileged } from '../../common/password-policy';
 import * as argon2 from 'argon2';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
@@ -33,7 +34,7 @@ import type { AuthUser } from '../../common/types/auth-user';
 
 class CreateUserDto {
   @ApiProperty() @IsEmail() @MaxLength(254) email!: string;
-  @ApiProperty() @IsString() @MinLength(8) @MaxLength(128) password!: string;
+  @ApiProperty() @IsString() @MinLength(10) @MaxLength(128) password!: string;
   @ApiProperty() @IsString() @MinLength(2) @MaxLength(60) firstName!: string;
   @ApiProperty() @IsString() @MinLength(2) @MaxLength(60) lastName!: string;
 
@@ -64,7 +65,7 @@ class UpdateUserDto {
 }
 
 class ResetPasswordDto {
-  @ApiProperty() @IsString() @MinLength(8) @MaxLength(128) password!: string;
+  @ApiProperty() @IsString() @MinLength(10) @MaxLength(128) password!: string;
 }
 
 /**
@@ -124,8 +125,16 @@ export class UsersController {
       throw new BadRequestException('Nomaʼlum rol kodi');
     }
 
+    const policyError = checkPassword(dto.password, {
+      privileged: isPrivileged(roles.map((r) => r.code)),
+      email,
+      names: [dto.firstName, dto.lastName],
+    });
+    if (policyError) throw new BadRequestException(policyError);
+
     const user = await this.prisma.user.create({
       data: {
+        mustChangePassword: true,
         email,
         passwordHash: await argon2.hash(dto.password, {
           type: argon2.argon2id,
@@ -169,11 +178,21 @@ export class UsersController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: ResetPasswordDto,
   ) {
-    const user = await this.prisma.user.findUnique({ where: { id } });
+    const user = await this.prisma.user.findUnique({ where: { id }, include: { roles: { include: { role: true } } } });
     if (!user) throw new NotFoundException('Foydalanuvchi topilmadi');
+    const policyError = checkPassword(dto.password, {
+      privileged: isPrivileged(user.roles.map((r) => r.role.code)),
+      email: user.email,
+      names: [user.firstName, user.lastName],
+    });
+    if (policyError) throw new BadRequestException(policyError);
     await this.prisma.user.update({
       where: { id },
       data: {
+        // Administrator bergan parol vaqtinchalik: foydalanuvchi birinchi kirishda o'zi almashtiradi; blok ochiladi
+        mustChangePassword: true,
+        failedLoginCount: 0,
+        lockedUntil: null,
         passwordHash: await argon2.hash(dto.password, {
           type: argon2.argon2id,
         }),

@@ -1,6 +1,10 @@
+import type { Metadata } from 'next';
+import { pageMeta, SITE_URL } from '@/lib/seo';
+import { safeJsonLd } from '@/lib/json-ld';
 import Image from 'next/image';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
+import { PlayerPopupLink } from '@/components/player/player-popup';
 import { api, cached } from '@/lib/api';
 
 interface NewsItem {
@@ -77,6 +81,12 @@ function SectionHead({
   );
 }
 
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'seo' });
+  return pageMeta({ locale, href: '/', title: t('home.title'), description: t('home.description') });
+}
+
 export default async function HomePage({
   params,
 }: {
@@ -116,8 +126,40 @@ export default async function HomePage({
     .filter((tr) => tr.status !== 'FINISHED')
     .slice(0, 3);
 
+  const homeLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'SportsOrganization',
+        '@id': `${SITE_URL}/#org`,
+        name: "O'zbekiston Stol Tennisi Federatsiyasi",
+        alternateName: ['Uzbekistan Table Tennis Federation', 'UZTT'],
+        url: SITE_URL,
+        logo: `${SITE_URL}/uttf-logo.png`,
+        sport: 'Table tennis',
+        telephone: '+998991153030',
+        email: 'info@uttf.uz',
+        address: { '@type': 'PostalAddress', addressLocality: 'Toshkent', addressCountry: 'UZ' },
+      },
+      {
+        '@type': 'WebSite',
+        '@id': `${SITE_URL}/#site`,
+        url: SITE_URL,
+        name: 'UZTT',
+        inLanguage: locale,
+        publisher: { '@id': `${SITE_URL}/#org` },
+        potentialAction: {
+          '@type': 'SearchAction',
+          target: `${SITE_URL}${locale === 'uz' ? '' : `/${locale}`}/search?q={search_term_string}`,
+          'query-input': 'required name=search_term_string',
+        },
+      },
+    ],
+  };
+
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(homeLd) }} />
       {/* HERO — to'liq eni, katta sarlavha (WTT layout tili, UZTT brendi) */}
       {hero ? (
         <section className="relative overflow-hidden bg-navy-950">
@@ -260,9 +302,9 @@ export default async function HomePage({
                   {label}
                 </h3>
                 {rows.slice(0, 5).map((r) => (
-                  <Link
+                  <PlayerPopupLink
                     key={r.id}
-                    href={{ pathname: '/players/[slug]', params: { slug: r.slug } }}
+                    slug={r.slug}
                     className="flex min-h-9 items-center gap-3 border-b border-border py-2.5 last:border-0 hover:text-gold-500"
                   >
                     <span
@@ -280,7 +322,7 @@ export default async function HomePage({
                     <span className="font-heading text-sm font-extrabold tabular-nums">
                       {r.rankingPoints}
                     </span>
-                  </Link>
+                  </PlayerPopupLink>
                 ))}
               </div>
             ))}

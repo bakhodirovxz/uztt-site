@@ -47,6 +47,9 @@ services:
       THROTTLE_TTL_MS: ${THROTTLE_TTL_MS:-60000}
       SLOW_REQUEST_MS: ${SLOW_REQUEST_MS:-500}
       WEB_REVALIDATE_URL: ${WEB_REVALIDATE_URL:-}
+      # Telegram (ikkalasi birga yoki ikkalasi ham bo'sh)
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
       REVALIDATE_SECRET: ${REVALIDATE_SECRET:-}
     ports:
       - "4000:4000"

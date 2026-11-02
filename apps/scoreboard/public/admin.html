@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="uz"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Qura</title>
+<style>
+body{font-family:system-ui,sans-serif;background:#0d1117;color:#fff;max-width:980px;margin:24px auto;padding:0 16px}
+h1{margin:0 0 4px}h3{margin:22px 0 4px}p,small{color:#9aa4b2;line-height:1.5}code{background:#21262d;padding:1px 5px;border-radius:4px}
+textarea{width:100%;height:240px;background:#010409;color:#e6edf3;border:1px solid #30363d;border-radius:8px;padding:10px;font:14px/1.4 ui-monospace,Consolas,monospace}
+button{font:inherit;font-size:18px;padding:12px 22px;border:0;border-radius:10px;background:#238636;color:#fff;margin-top:12px;cursor:pointer}
+#msg{margin-top:12px;white-space:pre-wrap}.bad{color:#ffa657}.ok{color:#56d364}
+nav{position:sticky;top:0;background:#0d1117;padding:10px 0;display:flex;gap:10px;flex-wrap:wrap;border-bottom:1px solid #21262d;z-index:5}
+nav a{color:#58a6ff;text-decoration:none;background:#161b22;border:1px solid #30363d;border-radius:8px;padding:6px 14px}
+section{margin-top:34px;padding-top:6px;border-top:1px solid #21262d}
+h2{margin:14px 0 4px}
+button.sm{font-size:15px;padding:7px 14px;margin:0;background:#30363d}button.red{background:#da3633}button.blue{background:#1f6feb}
+.card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:12px 14px;margin:10px 0}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+input[type=number],input[type=text],select{background:#010409;color:#e6edf3;border:1px solid #30363d;border-radius:8px;padding:8px 10px;font:inherit;font-size:16px}
+label.sw{display:flex;align-items:center;gap:8px;font-size:17px}label.sw input{width:20px;height:20px}
+.adrow{display:grid;grid-template-columns:120px 1fr auto;gap:12px;align-items:center}
+.adrow .th{width:120px;height:68px;background:#000;border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.adrow .th img,.adrow .th video{max-width:100%;max-height:100%}
+.adrow.off{opacity:.5}
+.pk{display:inline-flex;gap:6px;align-items:center;background:#21262d;border-radius:8px;padding:5px 10px;margin:3px 4px 3px 0;cursor:pointer;border:0;color:#e6edf3;font:inherit;font-size:15px}
+.pk:hover{background:#30363d}.pk small{color:#9aa4b2}
+.ur{border-bottom:1px solid #21262d;padding:8px 0}.ur b{font-size:17px}
+#drop{border:2px dashed #30363d;border-radius:10px;padding:18px;text-align:center;color:#9aa4b2}#drop.over{border-color:#58a6ff;color:#fff}
+</style></head><body>
+<h1>Admin</h1>
+<nav><a href="#sec-qura">Qura / o'yinchilar</a><a href="#sec-link">Bazaga bog'lash</a><a href="#sec-stat">Statistika va reyting</a><a href="#sec-ads">Overlay reklamalari</a><a href="/">← Bosh sahifa</a></nav>
+<section id="sec-qura" style="border:0;margin-top:10px"><h2>Qura / o'yinchilar</h2>
+<p>Boshqa saytdagi ro'yxatni Excel yoki saytdan nusxalab shu yerga qo'ying (Ctrl+V). Ustunlar Tab, <code>;</code> yoki vergul bilan ajratilgan bo'lishi mumkin.</p>
+<h3>1) O'yinchilar (140 ta)</h3>
+<small>Har qatorda: <code>Familiya ; Ism ; Davlat ; Jins (M/F) ; Hudud ; Dasturlar</code> — masalan <code>TAHER ; Mohammed ; UZB ; M ; Navoiy ; YDA</code><br>
+Dasturlar harflari: <code>Y</code> yakkalik, <code>D</code> juftlik, <code>A</code> aralash juftlik, <code>T</code> jamoaviy. Faqat familiya/ism/davlat yozsangiz ham bo'ladi.<br>
+<b>Excel ro'yxati (Sportchi F.I.SH, Hudud, Sport dasturlar, Jinsi ustunlari bor jadval)</b> to'g'ridan-to'g'ri nusxalab qo'yilsa ham o'qiladi.</small>
+<textarea id="pl" placeholder="TAHER ; Mohammed ; IRQ&#10;LI ; Wei ; CHN"></textarea>
+<h3>2) Qura — o'yinlar jadvali</h3>
+<small>Har qatorda: <code>Stol ; Tur ; Bosqich ; 1-o'yinchi ; 2-o'yinchi</code> — masalan <code>3 ; MEN'S SINGLES ; ROUND OF 64 ; TAHER Mohammed ; LI Wei</code><br>
+O'yinchi ismi yuqoridagi ro'yxatdan topiladi (familiya + ism, yoki faqat familiya). Stol bo'sh qoldirilsa, o'yin hamma stollarda ko'rinadi.</small>
+<textarea id="ml" placeholder="1 ; MEN'S SINGLES ; ROUND OF 64 ; TAHER Mohammed ; LI Wei"></textarea>
+<button id="save">Saqlash</button>
+<div id="msg"></div>
+
+</section>
+
+<section id="sec-link">
+<h2>O'yinchilarni reyting bazasiga bog'lash</h2>
+<p>Rasm, reyting, yosh va hudud uttf.uz bazasidan ism-familiya bo'yicha avtomatik topiladi. Topilmaganlarini shu yerda qidirib qo'lda bog'lang (planshetda o'yinchi tanlanganda TV va overlayda ularning kartochkasi chiqadi).</p>
+<div id="chk" class="card">Yuklanmoqda...</div>
+</section>
+
+<section id="sec-stat">
+<h2>Statistika va reyting sozlamalari</h2>
+<div class="card">
+  <div class="row"><label class="sw"><input type="checkbox" id="s_introOn"> O'yin boshlanishida o'yinchilar statistikasini ko'rsatish</label>
+    <span>Davomiyligi: <input type="number" id="s_introS" min="5" max="60" style="width:80px"> soniya</span></div>
+  <p style="margin:6px 0 0">Planshetdan o'yinchilar tanlanib o'yin boshlanganda TV va stolning overlay'ida rasm, reyting, yosh, hudud, o'yin/yutuq/yutqazish soni chiqadi. Ball berish boshlansa avtomatik yopiladi.</p>
+</div>
+<div class="card">
+  <div class="row"><label class="sw"><input type="checkbox" id="s_ratingOn"> O'yin tugagach reyting ballarini hisoblab, animatsiya ko'rsatish</label></div>
+  <div class="row" style="margin-top:10px">
+    <span>Kechikish: <input type="number" id="s_ratingDelayS" min="0" max="30" style="width:70px"> s</span>
+    <span>Animatsiya davomiyligi: <input type="number" id="s_ratingS" min="5" max="60" style="width:70px"> s</span>
+    <span>К koeffitsienti: <input type="number" id="s_ratingK" min="0.1" max="10" step="0.1" style="width:80px"></span>
+  </div>
+  <div class="row" style="margin-top:10px"><label class="sw"><input type="checkbox" id="s_loserNoDeduct"> Mag'lubdan ball ayirilmasin (faqat g'olib ball oladi)</label></div>
+  <div class="row" style="margin-top:6px"><label class="sw"><input type="checkbox" id="s_loserNonPositive"> Ayirish yoqilgan bo'lsa ham mag'lubga musbat ball berilmasin</label></div>
+  <p style="margin:6px 0 0">Hisoblash: g'olibga (100 − (G'R − YuR)) / 10, mag'lubga −(100 − (G'R − YuR)) / 20 (reytinglar teng bo'lsa +10 / −10), so'ng К ga ko'paytiriladi. "Mag'lubdan ball ayirilmasin" yoqilgan bo'lsa mag'lubning balli o'zgarmaydi. Texnik g'alaba (ball o'ynalmagan) hisobga olinmaydi. Natija <code>history.json</code> da saqlanadi.</p>
+</div>
+<button id="s_save">Sozlamalarni saqlash</button> <span id="s_msg"></span>
+</section>
+
+<section id="sec-ads">
+<h2>Overlay reklamalari</h2>
+<p>Overlay'da stolda o'yin bo'lmagan <b>bo'sh vaqtda</b> (o'yin boshlanmagan yoki tugab, ko'rsatadigan jonli o'yin qolmaganda) reklamalar navbatma-navbat chiqadi. Hamma stollarning overlay'i bir vaqtda bir xil reklamani ko'rsatadi.</p>
+<div class="card">
+  <div class="row"><label class="sw"><input type="checkbox" id="ad_enabled"> Reklamalar yoqilgan</label>
+    <label class="sw"><input type="checkbox" id="ad_whenLive"> Jonli o'yinlar orasida ham ko'rsatish</label>
+    <span>har <input type="number" id="ad_liveEveryS" min="15" max="600" style="width:80px"> soniyada bitta reklama</span></div>
+</div>
+<div class="card">
+  <div id="drop">Rasm (PNG, JPG, WEBP, GIF) yoki video (MP4, WEBM) fayllarni shu yerga tashlang yoki
+    <input type="file" id="ad_file" accept="image/*,video/mp4,video/webm" multiple style="display:none"><button class="sm blue" id="ad_pick" type="button">tanlang</button>
+    <div style="margin-top:8px">Rasm uchun ko'rsatish vaqti: <input type="number" id="ad_dur" value="10" min="3" max="120" style="width:80px"> soniya (video uchun ham shuncha vaqt ajratiladi)</div>
+    <small>Tavsiya: 1920×1080 (16:9). Rasm 25 MB, video 150 MB gacha.</small></div>
+  <div id="ad_msg" style="margin-top:8px"></div>
+</div>
+<div id="ad_list"></div>
+</section>
+<script>
+const $ = (id) => document.getElementById(id);
+const split = (l) => l.split(/\t|;/).length > 1 ? l.split(/\t|;/) : l.split(',');
+const rows = (t) => t.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((l) => split(l).map((x) => x.trim()));
+const norm = (s) => s.toLowerCase().replace(/\s+/g, ' ').replace(/\([^)]*\)/g, '').trim();
+fetch('/api/data').then((r) => r.json()).then((d) => {
+  $('pl').value = d.players.map((p) => [p.name, p.given, p.country, p.sex || '', p.region || '', p.prog || ''].join(' ; ')).join('\n');
+  $('ml').value = d.matches.map((m) => [m.table, m.category, m.round, m.src ? m.src[0] : m.p[0].name + ' ' + (m.p[0].given || ''), m.src ? m.src[1] : m.p[1].name + ' ' + (m.p[1].given || '')].join(' ; ')).join('\n');
+  window.OLD = d.matches;
+});
+$('save').onclick = () => {
+  const short = (x) => String(x || '').replace(/[`‘’]/g, "'").replace(/\s+/g, ' ').replace(/ (viloyati|shahri|shahar|Respublikasi)/g, '').trim();
+  const progCode = (t) => t.split(',').map((x) => ({ 'yakkalik': 'Y', 'juftlik': 'D', 'aralash juftlik': 'A', 'jamoaviy': 'T' }[x.trim().toLowerCase()] || '')).join('');
+  const players = rows($('pl').value).filter((r) => r[0] && r[0] !== 'No').map((r) => {
+    if (r.length >= 9 && /^\d+$/.test(r[0])) { // Excel: No, F.I.SH, JSHSHIR, Hudud, Tuman, Tashkilot, Sport turi, Dasturlar, Jinsi
+      const t = r[1].split(/\s+/);
+      return { name: t[0], given: t[1] || '', country: 'UZB', sex: /^(e|m)/i.test(r[8]) ? 'M' : 'F', region: short(r[3]), prog: progCode(r[7]) };
+    }
+    const q = { name: r[0], given: r[1] || '', country: (r[2] || '').toUpperCase().slice(0, 3) };
+    if (r[3]) q.sex = /^(e|m)/i.test(r[3]) ? 'M' : 'F';
+    if (r[4]) q.region = r[4];
+    if (r[5]) q.prog = r[5].toUpperCase().replace(/[^YDAT]/g, '');
+    return q;
+  });
+  const idx = {}, byName = {};
+  players.forEach((p) => {
+    idx[norm(p.name + ' ' + p.given)] = p; idx[norm(p.given + ' ' + p.name)] = p;
+    (byName[norm(p.name)] = byName[norm(p.name)] || []).push(p);
+  });
+  const miss = [];
+  const find = (t) => {
+    const k = norm(t);
+    if (idx[k]) return idx[k];
+    if (byName[k] && byName[k].length === 1) return byName[k][0];
+    miss.push(t);
+    return { name: t, given: '', country: '' };
+  };
+  const done = {};
+  (window.OLD || []).forEach((m) => { if (m.done) done[m.table + '|' + m.p[0].name + m.p[0].given + '|' + m.p[1].name + m.p[1].given] = 1; });
+  const matches = rows($('ml').value).filter((r) => r.length >= 5).map((r) => {
+    const p = [find(r[3]), find(r[4])];
+    const m = { table: r[0], category: r[1], round: r[2], p, src: [r[3], r[4]] };
+    if (done[m.table + '|' + p[0].name + p[0].given + '|' + p[1].name + p[1].given]) m.done = true;
+    return m;
+  });
+  fetch('/api/data', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ players, matches }) })
+    .then((r) => r.json()).then((res) => {
+      renderCheck();
+      $('msg').innerHTML = '<span class="ok">Saqlandi: ' + players.length + ' ta o\'yinchi, ' + matches.length + ' ta o\'yin.' + (res.linked !== undefined ? ' Bazaga bog\'landi: ' + res.linked + ', bog\'lanmadi: ' + res.unlinked + '.' : '') + '</span>'
+        + (miss.length ? '\n<span class="bad">Ro\'yxatdan topilmadi (ism shundayligicha qo\'yildi, davlat kodisiz): ' + [...new Set(miss)].join(', ') + '</span>' : '');
+    }).catch(() => { $('msg').innerHTML = '<span class="bad">Saqlanmadi — server ishlayaptimi?</span>'; });
+};
+
+// ===== Bazaga bog'lash =====
+const eh = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function renderCheck() {
+  fetch('/api/data/check').then((r) => r.json()).then((d) => {
+    const un = d.players.filter((p) => !p.uid);
+    let h = '<div>Jami <b>' + d.total + '</b> ta o\'yinchi, bazaga bog\'langan: <b class="ok">' + (d.total - un.length) + '</b>, bog\'lanmagan: <b class="' + (un.length ? 'bad' : 'ok') + '">' + un.length + '</b> (baza: ' + d.dbSize + ' ta o\'yinchi)</div>';
+    un.forEach((p) => {
+      h += '<div class="ur" data-i="' + p.i + '"><b>' + eh(p.name + ' ' + p.given) + '</b> <small>' + eh(p.country) + '</small><div>'
+        + (p.cands && p.cands.length ? 'Nomzodlar: ' + p.cands.map(pk).join('') + '<br>' : '')
+        + '<input type="text" class="qs" placeholder="Bazadan qidirish (familiya)..." style="width:min(360px,100%)"> <button class="sm" data-clear="1" style="display:none"></button><span class="res"></span></div></div>';
+    });
+    if (!un.length && d.total) h += '<p class="ok">Hamma o\'yinchi bazaga bog\'langan ✓</p>';
+    $('chk').innerHTML = h;
+  }).catch(() => { $('chk').textContent = 'Server javob bermadi'; });
+}
+const pk = (r) => '<button class="pk" data-uid="' + eh(r.id) + '">' + eh(r.fio) + ' <small>' + eh(r.region) + (r.age ? ', ' + r.age + ' yosh' : '') + (r.Y ? ', ' + r.Y + ' ball' : '') + '</small></button>';
+$('chk').addEventListener('click', (e) => {
+  const b = e.target.closest('.pk'); if (!b) return;
+  const row = b.closest('.ur');
+  fetch('/api/pdb/link', { method: 'POST', body: JSON.stringify({ i: +row.dataset.i, uid: b.dataset.uid }) }).then(renderCheck);
+});
+let qt = null;
+$('chk').addEventListener('input', (e) => {
+  if (!e.target.classList.contains('qs')) return;
+  const row = e.target.closest('.ur'), q = e.target.value;
+  clearTimeout(qt);
+  qt = setTimeout(() => fetch('/api/pdb/search?q=' + encodeURIComponent(q)).then((r) => r.json()).then((l) => { row.querySelector('.res').innerHTML = l.map(pk).join('') || '<small>Topilmadi</small>'; }), 250);
+});
+renderCheck();
+
+// ===== Statistika / reyting sozlamalari =====
+const SK = ['introOn', 'introS', 'ratingOn', 'ratingS', 'ratingDelayS', 'ratingK', 'loserNonPositive', 'loserNoDeduct'];
+fetch('/api/settings').then((r) => r.json()).then((m) => { SK.forEach((k) => { const el = $('s_' + k); if (el.type === 'checkbox') el.checked = !!m[k]; else el.value = m[k]; }); });
+$('s_save').onclick = () => {
+  const b = {}; SK.forEach((k) => { const el = $('s_' + k); b[k] = el.type === 'checkbox' ? el.checked : el.value; });
+  fetch('/api/settings', { method: 'POST', body: JSON.stringify(b) }).then((r) => r.json()).then(() => { $('s_msg').innerHTML = '<span class="ok">Saqlandi ✓</span>'; setTimeout(() => { $('s_msg').textContent = ''; }, 2500); });
+};
+
+// ===== Overlay reklamalari =====
+let ADS = { settings: {}, items: [] };
+function adPost(path, body) { return fetch(path, { method: 'POST', body: JSON.stringify(body) }).then((r) => r.json()).then((d) => { if (d.ads) { ADS = d.ads; renderAds(); } return d; }); }
+function renderAds() {
+  const s = ADS.settings;
+  $('ad_enabled').checked = !!s.enabled; $('ad_whenLive').checked = !!s.whenLive; $('ad_liveEveryS').value = s.liveEveryS;
+  $('ad_list').innerHTML = ADS.items.length ? ADS.items.map((a, i) => '<div class="card adrow' + (a.enabled ? '' : ' off') + '" data-id="' + a.id + '">'
+    + '<div class="th">' + (a.type === 'video' ? '<video src="' + eh(a.file) + '" muted preload="metadata"></video>' : '<img src="' + eh(a.file) + '" alt="">') + '</div>'
+    + '<div><input type="text" class="t" value="' + eh(a.title) + '" style="width:100%;margin-bottom:6px"><div class="row">'
+    + '<label class="sw"><input type="checkbox" class="en"' + (a.enabled ? ' checked' : '') + '> Yoqilgan</label>'
+    + '<span>Vaqt: <input type="number" class="du" value="' + a.durationS + '" min="3" max="120" style="width:70px"> s</span>'
+    + '<span>Stollar: <input type="text" class="co" value="' + eh(a.courts) + '" placeholder="hammasi" style="width:110px" title="Masalan: 1,2 — faqat shu stollarning overlay\'ida. Bo\'sh = hammasi"></span></div></div>'
+    + '<div class="row" style="flex-direction:column;align-items:stretch"><div class="row"><button class="sm up">↑</button><button class="sm dn">↓</button></div>'
+    + '<button class="sm blue pv">Sinab ko\'rish</button><button class="sm red del">O\'chirish</button></div></div>').join('') : '<p>Hozircha reklama yo\'q.</p>';
+}
+fetch('/api/ads').then((r) => r.json()).then((d) => { ADS = d; renderAds(); });
+const adSet = () => adPost('/api/ads/update', { settings: { enabled: $('ad_enabled').checked, whenLive: $('ad_whenLive').checked, liveEveryS: $('ad_liveEveryS').value } });
+['ad_enabled', 'ad_whenLive', 'ad_liveEveryS'].forEach((id) => { $(id).onchange = adSet; });
+$('ad_list').addEventListener('change', (e) => {
+  const row = e.target.closest('.adrow'); if (!row) return;
+  adPost('/api/ads/update', { id: row.dataset.id, enabled: row.querySelector('.en').checked, title: row.querySelector('.t').value, durationS: row.querySelector('.du').value, courts: row.querySelector('.co').value });
+});
+$('ad_list').addEventListener('click', (e) => {
+  const row = e.target.closest('.adrow'); if (!row) return;
+  const id = row.dataset.id;
+  if (e.target.classList.contains('del')) { if (confirm('Reklama o\'chirilsinmi?')) adPost('/api/ads/delete', { id }); }
+  else if (e.target.classList.contains('up')) adPost('/api/ads/update', { id, move: -1 });
+  else if (e.target.classList.contains('dn')) adPost('/api/ads/update', { id, move: 1 });
+  else if (e.target.classList.contains('pv')) window.open('/overlay?court=1&ad=' + id, '_blank');
+});
+async function upload(files) {
+  for (const f of files) {
+    $('ad_msg').innerHTML = '⏳ Yuklanmoqda: ' + eh(f.name) + '...';
+    try {
+      const r = await fetch('/api/ads/upload?name=' + encodeURIComponent(f.name) + '&dur=' + encodeURIComponent($('ad_dur').value), { method: 'POST', body: f });
+      const d = await r.json();
+      if (!d.ok) { $('ad_msg').innerHTML = '<span class="bad">' + eh(d.error || 'Yuklanmadi') + '</span>'; continue; }
+      $('ad_msg').innerHTML = '<span class="ok">Qo\'shildi: ' + eh(d.item.title) + '</span>';
+    } catch (e) { $('ad_msg').innerHTML = '<span class="bad">Yuklanmadi — server ishlayaptimi?</span>'; }
+  }
+  fetch('/api/ads').then((r) => r.json()).then((d) => { ADS = d; renderAds(); });
+}
+$('ad_pick').onclick = () => $('ad_file').click();
+$('ad_file').onchange = () => { upload(Array.from($('ad_file').files)); $('ad_file').value = ''; };
+['dragover', 'dragenter'].forEach((ev) => $('drop').addEventListener(ev, (e) => { e.preventDefault(); $('drop').classList.add('over'); }));
+['dragleave', 'drop'].forEach((ev) => $('drop').addEventListener(ev, (e) => { e.preventDefault(); $('drop').classList.remove('over'); }));
+$('drop').addEventListener('drop', (e) => upload(Array.from(e.dataTransfer.files)));
+</script></body></html>

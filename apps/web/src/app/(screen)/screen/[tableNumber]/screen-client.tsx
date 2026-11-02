@@ -1,12 +1,16 @@
 'use client';
 
+import { TimeoutAlert } from '@/components/match/timeout-alert';
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { subscribeToMatch, type MatchPayload } from '@/lib/socket';
+import { ShowcaseLayer } from '@/components/showcase/showcase-layer';
+import { OverlayAds } from '@/components/showcase/overlay-ads';
 
 const STAGE: Record<string, string> = {
   FINAL: 'FINAL',
   SEMIFINAL: 'YARIM FINAL',
+  THIRD_PLACE: '3-O\'RIN UCHUN',
   QUARTERFINAL: 'CHORAK FINAL',
   ROUND_OF_16: '1/8 FINAL',
   ROUND_OF_32: '1/16 FINAL',
@@ -65,6 +69,7 @@ export function ScreenClient({ tableNumber }: { tableNumber: number }) {
         <p className="font-heading text-3xl font-extrabold uppercase tracking-wide text-broadcast-muted">
           Hozircha o&apos;yin yo&apos;q
         </p>
+        <OverlayAds table={tableNumber} idle />
       </div>
     );
   }
@@ -97,6 +102,10 @@ export function ScreenClient({ tableNumber }: { tableNumber: number }) {
 
   return (
     <div className="flex h-screen flex-col p-[3vh] text-white">
+      <ShowcaseLayer match={match} variant="screen" />
+      {/* Bo'sh vaqt: hakam hali kirmagan o'yin — natijalar/navbat/jadval/reklama aylanmasi */}
+      <OverlayAds table={tableNumber} idle={match.status === 'SCHEDULED' && !match.refereeVerified} />
+      <TimeoutAlert match={match} position="bottom" />
       <Header
         tableNumber={tableNumber}
         tournament={match.tournament?.name}

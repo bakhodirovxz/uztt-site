@@ -57,10 +57,15 @@
     "menuInbox": "Inbox",
     "menuProfile": "Profile",
     "menuFederation": "Federation",
+    "menuScoreboard": "Scoreboard (tablet/TV)",
     "menuStream": "Streaming",
+    "menuOverlayAds": "Overlay ads",
     "menuOverview": "Overview",
     "menuPages": "Pages",
-    "menuLevels": "Levels"
+    "menuLevels": "Levels",
+    "menuApplications": "Applications",
+    "menuReferees": "Referee assignment",
+    "menuAccount": "Password"
   },
   "match": {
     "live": "LIVE",
@@ -78,7 +83,8 @@
     "stage_ROUND_OF_16": "Round of 16",
     "stage_ROUND_OF_32": "Round of 32",
     "stage_ROUND_1": "Round 1",
-    "stage_GROUP": "Group stage"
+    "stage_GROUP": "Group stage",
+    "stage_THIRD_PLACE": "3rd place"
   },
   "playersPage": {
     "searchPlaceholder": "Search players...",
@@ -194,7 +200,8 @@
     "regulation": "Points regulation",
     "regulationHint": "match results are converted to ranking points by this table",
     "regulationCase": "Case",
-    "regulationPoints": "Points"
+    "regulationPoints": "Points",
+    "tabGroups": "Groups"
   },
   "referee": {
     "title": "Referee panel",
@@ -205,6 +212,8 @@
     "point": "Point",
     "undo": "Undo",
     "yellowCard": "Yellow",
+    "timeout": "Time-out",
+    "timeoutUsed": "Time-out used",
     "redCard": "Red",
     "disqualify": "Disqualify",
     "dqReason": "Reason (text)",
@@ -225,7 +234,8 @@
     "statMatches": "Matches",
     "statFinished": "Finished",
     "statCards": "Cards",
-    "statDq": "Disqualifications"
+    "statDq": "Disqualifications",
+    "sideChange": "Change ends (deciding game, 5 points)"
   },
   "signup": {
     "title": "Register as a player",
@@ -245,13 +255,14 @@
     "ageCategoriesNeedDate": "Enter your date of birth first"
   },
   "groups": {
-    "event_SINGLES": "Singles",
-    "event_DOUBLES": "Doubles",
-    "event_MIXED_DOUBLES": "Mixed doubles",
-    "event_TEAM": "Team",
-    "men": "Men's",
-    "women": "Women's",
-    "open": "Open"
+    "bracketPlan": "Bracket plan (from group results)",
+    "bracketPlanHint": "A1 = winner of group A. Pairings fill in from this plan once groups finish.",
+    "summary": "{groups} groups · top {advancing} of each advance",
+    "group": "Group {n}",
+    "player": "Player",
+    "played": "W–L",
+    "sets": "Sets",
+    "points": "Pts"
   },
   "profile": {
     "title": "Player profile",
@@ -332,5 +343,151 @@
     "contact": "Contact",
     "documents": "Documents",
     "rights": "All rights reserved"
+  },
+  "join": {
+    "refTitle": "Register as a referee",
+    "coachTitle": "Register as a coach",
+    "intro": "Your application is reviewed by a federation administrator. Until approved, your account has no privileges.",
+    "email": "Email",
+    "password": "Password (at least 10 characters)",
+    "firstName": "First name",
+    "lastName": "Last name",
+    "phone": "Phone",
+    "region": "Region",
+    "category": "Referee category",
+    "cat_INTERNATIONAL": "International",
+    "cat_NATIONAL": "National",
+    "cat_FIRST": "Category 1",
+    "cat_SECOND": "Category 2",
+    "cat_THIRD": "Category 3",
+    "catNone": "No category",
+    "certification": "Licence / certificate",
+    "since": "Active since (year)",
+    "bio": "About you",
+    "licenseNumber": "Licence number",
+    "club": "Club (optional)",
+    "clubSearch": "Type a club name",
+    "clubNone": "No club",
+    "submit": "Submit application",
+    "success": "Application received. After an administrator approves it you can sign in with this email and password.",
+    "linkReferee": "Become a referee",
+    "linkCoach": "Become a coach",
+    "linkClubs": "Clubs",
+    "linkOpenClub": "Open a club",
+    "clubsTitle": "Clubs",
+    "clubsEmpty": "No clubs found",
+    "search": "Search",
+    "players": "Players",
+    "tables": "Tables",
+    "coaches": "Coaches",
+    "openTitle": "Open a new club",
+    "openIntro": "To open a club you must be an approved coach and signed in. The request goes to an administrator.",
+    "clubName": "Club name",
+    "clubType": "Type (e.g. sports school)",
+    "district": "District",
+    "address": "Address",
+    "tableCount": "Number of tables",
+    "openSubmit": "Send request",
+    "openSuccess": "Request sent. The club appears in the list once approved.",
+    "needLogin": "Please sign in first",
+    "back": "Back"
+  },
+  "playerPopup": {
+    "loading": "Loading…",
+    "error": "Not found",
+    "close": "Close",
+    "rank": "Rank",
+    "place": "#{n}",
+    "points": "Points",
+    "gender": "Gender",
+    "male": "Male",
+    "female": "Female",
+    "age": "Age group",
+    "region": "Region",
+    "club": "Club"
+  },
+  "account": {
+    "title": "Change password",
+    "required": "For security, please change your initial password first.",
+    "current": "Current password",
+    "new": "New password (at least 10 characters)",
+    "again": "Repeat new password",
+    "mismatch": "New passwords do not match",
+    "saved": "Password changed. Other sessions were signed out.",
+    "submit": "Save",
+    "hint": "Never share your password. Other devices will need to sign in again."
+  },
+  "seo": {
+    "siteDescription": "Official website of the Uzbekistan Table Tennis Federation (UZTT): national rankings, tournaments, players, clubs, live scores and news.",
+    "home": {
+      "title": "Home",
+      "description": "Live scores, national rankings, tournament calendar and news from the Uzbekistan Table Tennis Federation."
+    },
+    "events": {
+      "title": "Tournaments",
+      "description": "Table tennis competitions: upcoming, live and past tournaments, draws, groups and results."
+    },
+    "rankings": {
+      "title": "National Rankings",
+      "description": "Uzbekistan table tennis rankings: singles, doubles, mixed doubles and teams, by age group."
+    },
+    "players": {
+      "title": "Players",
+      "description": "All players registered with the federation: ranking, region, club and results."
+    },
+    "news": {
+      "title": "News",
+      "description": "Uzbekistan table tennis news: tournaments, results and federation announcements."
+    },
+    "clubs": {
+      "title": "Table Tennis Clubs",
+      "description": "Table tennis clubs in Uzbekistan: address, region, coaches and players."
+    },
+    "galleries": {
+      "title": "Photo Gallery",
+      "description": "Photos from table tennis competitions."
+    },
+    "videos": {
+      "title": "Videos",
+      "description": "Videos and highlights from table tennis competitions."
+    },
+    "about": {
+      "title": "About the Federation",
+      "description": "Uzbekistan Table Tennis Federation: structure, leadership, documents and regulations."
+    },
+    "contact": {
+      "title": "Contact",
+      "description": "Get in touch with the federation: phone, email and contact form."
+    },
+    "live": {
+      "title": "Live Scores",
+      "description": "Table tennis matches in progress: real-time scores."
+    },
+    "joinReferee": {
+      "title": "Register as a Referee",
+      "description": "Apply as a table tennis referee — a federation administrator will review your application."
+    },
+    "joinCoach": {
+      "title": "Register as a Coach",
+      "description": "Apply as a table tennis coach."
+    },
+    "clubsOpen": {
+      "title": "Open a Club",
+      "description": "Send a request to register a table tennis club."
+    },
+    "private": {
+      "title": "My Account",
+      "description": "Personal page"
+    }
+  },
+  "photoUpload": {
+    "title": "Profile photo",
+    "choose": "Choose photo",
+    "uploading": "Uploading…",
+    "hint": "JPEG, PNG or WebP, up to 5 MB, at least 200×200 px. Pick a photo with a clearly visible face.",
+    "type": "JPEG, PNG or WebP only",
+    "size": "Photo must be under 5 MB",
+    "done": "Photo uploaded. It will appear on the site in a few minutes.",
+    "failed": "Upload failed"
   }
 }

@@ -57,10 +57,15 @@
     "menuInbox": "Murojaatlar",
     "menuProfile": "Profil",
     "menuFederation": "Federatsiya",
+    "menuScoreboard": "Scoreboard (planshet/TV)",
     "menuStream": "Translatsiya",
+    "menuOverlayAds": "Overlay reklamalari",
     "menuOverview": "Umumiy",
     "menuPages": "Sahifalar",
-    "menuLevels": "Darajalar"
+    "menuLevels": "Darajalar",
+    "menuApplications": "Arizalar",
+    "menuReferees": "Hakamlar tayinlash",
+    "menuAccount": "Parol"
   },
   "match": {
     "live": "JONLI",
@@ -78,7 +83,8 @@
     "stage_ROUND_OF_16": "1/8 final",
     "stage_ROUND_OF_32": "1/16 final",
     "stage_ROUND_1": "1-bosqich",
-    "stage_GROUP": "Guruh bosqichi"
+    "stage_GROUP": "Guruh bosqichi",
+    "stage_THIRD_PLACE": "3-o'rin uchun"
   },
   "playersPage": {
     "searchPlaceholder": "O'yinchi qidirish...",
@@ -194,7 +200,8 @@
     "regulation": "Ball reglamenti",
     "regulationHint": "o'yin natijalari shu jadval bo'yicha reyting balliga aylanadi",
     "regulationCase": "Holat",
-    "regulationPoints": "Ball"
+    "regulationPoints": "Ball",
+    "tabGroups": "Guruhlar"
   },
   "referee": {
     "title": "Hakam paneli",
@@ -205,6 +212,8 @@
     "point": "Ochko",
     "undo": "Bekor qilish",
     "yellowCard": "Sariq",
+    "timeout": "Taym-aut",
+    "timeoutUsed": "Taym-aut olingan",
     "redCard": "Qizil",
     "disqualify": "Chetlatish",
     "dqReason": "Sabab (matn)",
@@ -225,7 +234,8 @@
     "statMatches": "O'yinlar",
     "statFinished": "Yakunlangan",
     "statCards": "Kartochkalar",
-    "statDq": "Diskvalifikatsiya"
+    "statDq": "Diskvalifikatsiya",
+    "sideChange": "Tomonlarni almashtiring (oxirgi set, 5 ochko)"
   },
   "signup": {
     "title": "O'yinchi sifatida ro'yxatdan o'tish",
@@ -245,13 +255,14 @@
     "ageCategoriesNeedDate": "Avval tug'ilgan sanani kiriting"
   },
   "groups": {
-    "event_SINGLES": "Yakka",
-    "event_DOUBLES": "Juftlik",
-    "event_MIXED_DOUBLES": "Aralash juftlik",
-    "event_TEAM": "Jamoaviy",
-    "men": "Erkaklar",
-    "women": "Ayollar",
-    "open": "Ochiq"
+    "bracketPlan": "Setka rejasi (guruh natijalariga ko'ra)",
+    "bracketPlanHint": "A1 — A guruhi 1-o'rin egasi. Guruhlar tugagach juftliklar shu reja bo'yicha to'ldiriladi.",
+    "summary": "{groups} ta guruh · har guruhdan {advancing} nafar setkaga",
+    "group": "{n}-guruh",
+    "player": "O'yinchi",
+    "played": "G–M",
+    "sets": "Setlar",
+    "points": "Ochko"
   },
   "profile": {
     "title": "O'yinchi profili",
@@ -332,5 +343,151 @@
     "contact": "Aloqa",
     "documents": "Hujjatlar",
     "rights": "Barcha huquqlar himoyalangan"
+  },
+  "join": {
+    "refTitle": "Hakam bo'lib ro'yxatdan o'tish",
+    "coachTitle": "Murabbiy bo'lib ro'yxatdan o'tish",
+    "intro": "Arizangiz federatsiya administratori tomonidan ko'rib chiqiladi. Tasdiqlanmaguncha hisobingiz hech qanday huquq bermaydi.",
+    "email": "Email",
+    "password": "Parol (kamida 10 belgi)",
+    "firstName": "Ism",
+    "lastName": "Familiya",
+    "phone": "Telefon",
+    "region": "Hudud",
+    "category": "Hakamlik toifasi",
+    "cat_INTERNATIONAL": "Xalqaro",
+    "cat_NATIONAL": "Milliy",
+    "cat_FIRST": "1-toifa",
+    "cat_SECOND": "2-toifa",
+    "cat_THIRD": "3-toifa",
+    "catNone": "Toifam yo'q",
+    "certification": "Guvohnoma / sertifikat",
+    "since": "Faoliyat boshlangan yil",
+    "bio": "O'zingiz haqingizda",
+    "licenseNumber": "Litsenziya raqami",
+    "club": "Klub (ixtiyoriy)",
+    "clubSearch": "Klub nomini yozing",
+    "clubNone": "Klubsiz",
+    "submit": "Ariza yuborish",
+    "success": "Ariza qabul qilindi. Administrator tasdiqlagach, shu email va parol bilan tizimga kira olasiz.",
+    "linkReferee": "Hakam bo'lish",
+    "linkCoach": "Murabbiy bo'lish",
+    "linkClubs": "Klublar",
+    "linkOpenClub": "Klub ochish",
+    "clubsTitle": "Klublar",
+    "clubsEmpty": "Klublar topilmadi",
+    "search": "Qidirish",
+    "players": "O'yinchilar",
+    "tables": "Stollar",
+    "coaches": "Murabbiylar",
+    "openTitle": "Yangi klub ochish",
+    "openIntro": "Klub ochish uchun tasdiqlangan murabbiy bo'lishingiz va tizimga kirgan bo'lishingiz kerak. So'rov administratorga yuboriladi.",
+    "clubName": "Klub nomi",
+    "clubType": "Turi (masalan: sport maktabi)",
+    "district": "Tuman",
+    "address": "Manzil",
+    "tableCount": "Stollar soni",
+    "openSubmit": "So'rov yuborish",
+    "openSuccess": "So'rov yuborildi. Administrator tasdiqlagach klub ro'yxatda chiqadi.",
+    "needLogin": "Avval tizimga kiring",
+    "back": "Orqaga"
+  },
+  "playerPopup": {
+    "loading": "Yuklanmoqda…",
+    "error": "Ma'lumot topilmadi",
+    "close": "Yopish",
+    "rank": "Reyting",
+    "place": "{n}-o'rin",
+    "points": "Ballar",
+    "gender": "Jinsi",
+    "male": "Erkak",
+    "female": "Ayol",
+    "age": "Yosh toifasi",
+    "region": "Hudud",
+    "club": "Klub"
+  },
+  "account": {
+    "title": "Parolni almashtirish",
+    "required": "Xavfsizlik uchun avval boshlang'ich parolni almashtiring.",
+    "current": "Joriy parol",
+    "new": "Yangi parol (kamida 10 belgi)",
+    "again": "Yangi parolni takrorlang",
+    "mismatch": "Yangi parollar mos kelmadi",
+    "saved": "Parol almashtirildi. Boshqa qurilmalardagi sessiyalar yopildi.",
+    "submit": "Saqlash",
+    "hint": "Parolni hech kimga bermang. Almashtirgach boshqa qurilmalarda qayta kirish talab etiladi."
+  },
+  "seo": {
+    "siteDescription": "O'zbekiston Stol Tennisi Federatsiyasi (UZTT) rasmiy sayti: milliy reyting, musobaqalar, o'yinchilar, klublar, jonli natijalar va yangiliklar.",
+    "home": {
+      "title": "Bosh sahifa",
+      "description": "Stol tennisi bo'yicha jonli natijalar, milliy reyting, musobaqalar kalendari va yangiliklar — O'zbekiston Stol Tennisi Federatsiyasi."
+    },
+    "events": {
+      "title": "Musobaqalar",
+      "description": "Stol tennisi musobaqalari: kelgusi, jonli va o'tgan turnirlar, setkalar, guruhlar va natijalar."
+    },
+    "rankings": {
+      "title": "Milliy reyting",
+      "description": "Stol tennisi bo'yicha O'zbekiston reytingi: yakkalik, juftlik, aralash juftlik va jamoaviy, yosh toifalari bo'yicha."
+    },
+    "players": {
+      "title": "Stol tennisi o'yinchilari",
+      "description": "Federatsiyada ro'yxatga olingan barcha o'yinchilar: reyting, hudud, klub va natijalar."
+    },
+    "news": {
+      "title": "Yangiliklar",
+      "description": "O'zbekiston stol tennisi yangiliklari: musobaqalar, natijalar va federatsiya e'lonlari."
+    },
+    "clubs": {
+      "title": "Stol tennisi klublari",
+      "description": "O'zbekistondagi stol tennisi klublari: manzil, hudud, murabbiylar va o'yinchilar."
+    },
+    "galleries": {
+      "title": "Foto galereya",
+      "description": "Stol tennisi musobaqalaridan fotosuratlar."
+    },
+    "videos": {
+      "title": "Videolar",
+      "description": "Stol tennisi musobaqalaridan videolar va eng yaxshi daqiqalar."
+    },
+    "about": {
+      "title": "Federatsiya haqida",
+      "description": "O'zbekiston Stol Tennisi Federatsiyasi: tuzilma, rahbariyat, hujjatlar va nizomlar."
+    },
+    "contact": {
+      "title": "Aloqa",
+      "description": "Federatsiya bilan bog'lanish: telefon, elektron pochta va murojaat formasi."
+    },
+    "live": {
+      "title": "Jonli natijalar",
+      "description": "Hozir o'ynalayotgan stol tennisi o'yinlari: jonli hisob."
+    },
+    "joinReferee": {
+      "title": "Hakam bo'lib ro'yxatdan o'tish",
+      "description": "Stol tennisi hakami sifatida ariza yuboring — federatsiya administratori ko'rib chiqadi."
+    },
+    "joinCoach": {
+      "title": "Murabbiy bo'lib ro'yxatdan o'tish",
+      "description": "Stol tennisi murabbiyi sifatida ariza yuboring."
+    },
+    "clubsOpen": {
+      "title": "Yangi klub ochish",
+      "description": "Stol tennisi klubini ro'yxatdan o'tkazish uchun so'rov yuboring."
+    },
+    "private": {
+      "title": "Shaxsiy kabinet",
+      "description": "Shaxsiy sahifa"
+    }
+  },
+  "photoUpload": {
+    "title": "Profil rasmi",
+    "choose": "Rasm tanlash",
+    "uploading": "Yuklanmoqda…",
+    "hint": "JPEG, PNG yoki WebP, 5 MB gacha, kamida 200×200 piksel. Yuz aniq ko'rinadigan rasm tanlang.",
+    "type": "Faqat JPEG, PNG yoki WebP",
+    "size": "Rasm 5 MB dan oshmasin",
+    "done": "Rasm yuklandi. Bir necha daqiqadan keyin saytda ko'rinadi.",
+    "failed": "Yuklab bo'lmadi"
   }
 }

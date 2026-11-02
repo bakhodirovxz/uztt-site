@@ -7,7 +7,15 @@ import {
   Post,
   Put,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
+import { Throttle } from '@nestjs/throttler';
+import { PlayerPhotoService } from './player-photo.service';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import type { AuthUser } from '../../common/types/auth-user';
 import { ApiTags } from '@nestjs/swagger';
 import { PlayersService } from './players.service';
 import {
@@ -22,7 +30,10 @@ import { CacheFor } from '../../common/interceptors/cache-control.interceptor';
 @ApiTags('players')
 @Controller('players')
 export class PlayersController {
-  constructor(private readonly players: PlayersService) {}
+  constructor(
+    private readonly players: PlayersService,
+    private readonly photos: PlayerPhotoService,
+  ) {}
 
   @Public()
   @Get()
@@ -68,6 +79,14 @@ export class PlayersController {
   @RequirePermissions('player.manage')
   update(@Param('id') id: string, @Body() dto: UpdatePlayerDto) {
     return this.players.update(id, dto);
+  }
+
+  /** Rasm yuklash: admin, o'yinchining o'zi yoki uning murabbiyi. Server qayta kodlaydi (sharp) */
+  @Post(':id/photo')
+  @Throttle({ default: { limit: 20, ttl: 3_600_000 } })
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1 } }))
+  uploadPhoto(@Param('id') id: string, @CurrentUser() user: AuthUser, @UploadedFile() file?: Express.Multer.File) {
+    return this.photos.upload(id, file, user);
   }
 
   @Delete(':id')

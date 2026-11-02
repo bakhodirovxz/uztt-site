@@ -1,3 +1,4 @@
+import { TelegramService } from '../showcase/telegram.service';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { NewsStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -13,7 +14,10 @@ function normalizeLocale(locale?: string): Locale {
 
 @Injectable()
 export class NewsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly telegram: TelegramService,
+  ) {}
 
   /** Nashr qilingan yangiliklar — so'ralgan til, bo'lmasa uz fallback */
   async list(locale?: string, tournamentId?: string) {
@@ -50,6 +54,16 @@ export class NewsService {
     });
   }
 
+  /** Telegramga e'lon: sarlavha + qisqa matn + havola (+ muqova rasm). Fonda, xato otmaydi. */
+  private announce(a: { coverImageUrl: string | null; translations: Array<{ locale: string; title: string; slug: string; excerpt: string | null; body: string }> }) {
+    const tr = a.translations.find((t) => t.locale === 'uz') ?? a.translations[0];
+    if (!tr) return;
+    const loc = tr.locale === 'uz' ? '' : `/${tr.locale}`;
+    const path = tr.locale === 'ru' ? 'novosti' : tr.locale === 'en' ? 'news' : 'yangiliklar';
+    const summary = (tr.excerpt ?? tr.body).replace(/\s+/g, ' ').slice(0, 300);
+    this.telegram.announce('news', `📰 ${tr.title}\n\n${summary}\n\n${this.telegram.siteUrl()}${loc}/${path}/${tr.slug}`, { photo: a.coverImageUrl });
+  }
+
   async create(data: {
     category?: string;
     isFeatured?: boolean;
@@ -84,6 +98,7 @@ export class NewsService {
       },
       include: { translations: true },
     });
+    if (created.status === 'PUBLISHED') this.announce(created);
     return created;
   }
 
@@ -144,6 +159,8 @@ export class NewsService {
       },
       include: { translations: true },
     });
+    // Birinchi marta nashr qilinganda (qoralamadan chiqqanda) e'lon qilinadi; keyingi tahrirlarda takrorlanmaydi
+    if (updated.status === 'PUBLISHED' && !exists.publishedAt) this.announce(updated);
     return updated;
   }
 

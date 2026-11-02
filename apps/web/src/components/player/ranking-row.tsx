@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { Link } from '@/i18n/navigation';
+import { PlayerPopupLink } from '@/components/player/player-popup';
 import { api } from '@/lib/api';
 import { Movement, RankNumber } from '@/components/ui';
 import { PlayerCell, Td, Tr } from '@/components/ui';
@@ -108,8 +108,8 @@ export function RankingRow({
           </span>
         </Td>
         <Td>
-          <Link
-            href={{ pathname: '/players/[slug]', params: { slug: row.slug } }}
+          <PlayerPopupLink
+            slug={row.slug}
             className="block hover:text-accent-500"
           >
             <PlayerCell
@@ -118,7 +118,7 @@ export function RankingRow({
               lastName={row.lastName}
               sub={row.club ?? undefined}
             />
-          </Link>
+          </PlayerPopupLink>
         </Td>
         <Td className="hidden text-[13px] text-muted sm:table-cell">{row.region}</Td>
         <Td align="right" className="font-heading font-bold tabular-nums">

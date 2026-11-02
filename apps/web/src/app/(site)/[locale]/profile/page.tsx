@@ -6,6 +6,8 @@ import { useRouter } from '@/i18n/navigation';
 import { api, ApiError } from '@/lib/api';
 import { groupLabel, type EventType } from '@/lib/groups';
 
+import { PhotoUploader } from '@/components/player/photo-uploader';
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 interface MyPlayer {
@@ -219,6 +221,8 @@ export default function ProfilePage() {
           {t(`status_${player.status}`)}
         </span>
       </div>
+
+      <PhotoUploader playerId={player.id} />
 
       {msg && <p className="mt-4 rounded-md bg-win/10 px-3 py-2 text-sm font-semibold text-win">{msg}</p>}
       {error && <p className="mt-4 rounded-md bg-accent-100 px-3 py-2 text-sm text-danger">{error}</p>}

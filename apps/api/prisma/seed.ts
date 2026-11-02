@@ -33,6 +33,9 @@ const PERMISSIONS: Array<[code: string, description: string]> = [
   ['player.verify', "O'yinchi hujjatlarini tasdiqlash (litsenziya)"],
   ['player.document.view', "O'yinchi pasport hujjatlarini ko'rish (maxfiy)"],
   ['ranking.adjust', "Reyting ballarini qo'lda tuzatish (izoh bilan)"],
+  ['applicant.review', "Hakam/murabbiy/klub arizalarini ko'rib chiqish"],
+  ['referee.assign', "Hakamlarni o'yinlarga tayinlash"],
+  ['club.manage', 'Klublarni yaratish va tahrirlash'],
   // Musobaqalar
   ['tournament.manage', 'Musobaqalarni boshqarish'],
   ['registration.manage', 'Arizalarni tasdiqlash/rad etish, turnirdan chetlatish'],
@@ -86,6 +89,7 @@ const ROLES: Array<{
       'player.manage',
       'player.verify',
       'ranking.adjust',
+      'referee.assign',
       'news.manage',
       'news.publish',
       'media.manage',
@@ -435,6 +439,7 @@ async function seedDomain() {
     name: string;
     description: string;
     coefficient: number;
+    ratingK: number; // Nizom 1-ilova: katta yoshlar uchun K
     sortOrder: number;
     rules: Partial<Record<PointRuleKey, number>>;
   }> = [
@@ -443,6 +448,7 @@ async function seedDomain() {
       name: 'Respublika chempionati',
       description: "Eng yuqori daraja — milliy chempionat va kubok",
       coefficient: 3.0,
+      ratingK: 1.0,
       sortOrder: 0,
       rules: {
         PARTICIPATION: 100,
@@ -452,10 +458,20 @@ async function seedDomain() {
       },
     },
     {
+      code: 'CUP',
+      name: "O'zbekiston kubogi",
+      description: 'Respublika kubogi (Nizom 1-ilova, K = 0.9)',
+      coefficient: 2.8,
+      ratingK: 0.9,
+      sortOrder: 1,
+      rules: { PARTICIPATION: 90, GROUP_ADVANCE: 280, WIN: 450, CHAMPION: 1900 },
+    },
+    {
       code: 'REGIONAL',
       name: 'Viloyat musobaqasi',
       description: 'Viloyat chempionati va hududiy turnirlar',
       coefficient: 2.5,
+      ratingK: 0.5,
       sortOrder: 1,
       rules: {
         PARTICIPATION: 80,
@@ -469,6 +485,7 @@ async function seedDomain() {
       name: 'Ochiq turnir',
       description: 'Ochiq va xalqaro ishtirokli turnirlar',
       coefficient: 1.5,
+      ratingK: 0.5,
       sortOrder: 2,
       rules: {
         PARTICIPATION: 50,
@@ -482,6 +499,7 @@ async function seedDomain() {
       name: 'Klub turniri',
       description: 'Klublararo va mahalliy turnirlar',
       coefficient: 1.0,
+      ratingK: 0.1,
       sortOrder: 3,
       rules: {
         PARTICIPATION: 30,
@@ -505,6 +523,7 @@ async function seedDomain() {
         name: level.name,
         description: level.description,
         coefficient: level.coefficient,
+        ratingK: level.ratingK,
         sortOrder: level.sortOrder,
       },
     });

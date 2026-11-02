@@ -35,6 +35,24 @@ interface RoleRow {
  * Root paneli: foydalanuvchi ochish, rol biriktirish, bloklash, parol tiklash.
  * Rollar har qatorda emas — faqat "Rollar" ochilganda ko'rsatiladi (shovqin kam).
  */
+/** Tasodifiy kuchli parol (kriptografik): 18 belgi, harf/raqam/maxsus — boshqaruvchi siyosatiga mos */
+function generatePassword(): string {
+  const sets = ['ABCDEFGHJKLMNPQRSTUVWXYZ', 'abcdefghijkmnpqrstuvwxyz', '23456789', '!@#$%*-_+='];
+  const all = sets.join('');
+  const rnd = (n: number) => {
+    const a = new Uint32Array(1);
+    crypto.getRandomValues(a);
+    return a[0] % n;
+  };
+  const chars = sets.map((s) => s[rnd(s.length)]);
+  while (chars.length < 18) chars.push(all[rnd(all.length)]);
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = rnd(i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join('');
+}
+
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [roles, setRoles] = useState<RoleRow[]>([]);
@@ -178,7 +196,7 @@ export default function AdminUsersPage() {
                 className={inputClass}
               />
             </Field>
-            <Field label="Parol" hint="Kamida 8 belgi" required>
+            <Field label="Parol" hint="O'yinchi: ≥10 belgi. Boshqaruvchi (admin, hakam...): ≥14 belgi + maxsus belgi. Hisob birinchi kirishda parolni almashtiradi." required>
               <input
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
@@ -239,7 +257,7 @@ export default function AdminUsersPage() {
               variant="primary"
               disabled={
                 !form.email ||
-                form.password.length < 8 ||
+                form.password.length < 10 ||
                 !form.firstName ||
                 !form.lastName
               }
@@ -363,13 +381,19 @@ export default function AdminUsersPage() {
                       autoFocus
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Yangi parol (kamida 8 belgi)"
+                      placeholder="Vaqtinchalik parol (boshqaruvchi: ≥14 belgi + maxsus belgi)"
                       aria-label="Yangi parol"
                       className={`${inputClass} sm:max-w-xs`}
                     />
                     <Button
+                      variant="secondary"
+                      onClick={() => setNewPassword(generatePassword())}
+                    >
+                      Kuchli parol yaratish
+                    </Button>
+                    <Button
                       variant="primary"
-                      disabled={newPassword.length < 8}
+                      disabled={newPassword.length < 10}
                       onClick={() => resetPassword(u)}
                     >
                       Saqlash

@@ -19,11 +19,15 @@ export class PrismaService
   constructor() {
     // Query eventlari faqat kerak bo'lganda yoqiladi — har so'rovni
     // kuzatish production'da ortiqcha yuk beradi.
-    super(
-      SLOW_QUERY_MS > 0
-        ? { log: [{ emit: 'event', level: 'query' }] }
-        : { log: ['warn', 'error'] },
-    );
+    super({
+      ...(SLOW_QUERY_MS > 0
+        ? { log: [{ emit: 'event' as const, level: 'query' as const }] }
+        : { log: ['warn' as const, 'error' as const] }),
+      // Hakam ballari interaktiv tranzaksiya. Standart kutish (2 s) musobaqa vaqtida,
+      // yuzlab tomoshabin bazani band qilganda "Unable to start a transaction" (500) berardi —
+      // yuk sinovida tasdiqlangan. Kutish muddati oshirildi, hisob yo'qolmaydi.
+      transactionOptions: { maxWait: 10_000, timeout: 20_000 },
+    });
   }
 
   async onModuleInit() {

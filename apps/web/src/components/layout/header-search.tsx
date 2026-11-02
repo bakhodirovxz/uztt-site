@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { PlayerPopupLink } from '@/components/player/player-popup';
 import { useTranslations } from 'next-intl';
-import { Link, useRouter } from '@/i18n/navigation';
+import { useRouter } from '@/i18n/navigation';
 import { api } from '@/lib/api';
 
 interface PlayerHit {
@@ -117,8 +118,8 @@ export function HeaderSearch() {
         <ul id="header-search-suggestions" className="absolute right-0 top-11 z-50 w-72 overflow-hidden rounded-card border border-border bg-surface-card shadow-card">
           {suggestions.map((p) => (
             <li key={p.id}>
-              <Link
-                href={{ pathname: '/players/[slug]', params: { slug: p.slug } }}
+              <PlayerPopupLink
+                slug={p.slug}
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-surface-raised"
               >
@@ -129,7 +130,7 @@ export function HeaderSearch() {
                 <span className="font-heading font-bold tabular-nums">
                   {p.rankingPoints}
                 </span>
-              </Link>
+              </PlayerPopupLink>
             </li>
           ))}
           <li>

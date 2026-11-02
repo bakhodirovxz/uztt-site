@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import ReactMarkdown from 'react-markdown';
+import { pageMeta } from '@/lib/seo';
 import { api, ApiError, cached } from '@/lib/api';
 import { safeJsonLd } from '@/lib/json-ld';
 
@@ -32,16 +33,18 @@ export async function generateMetadata({
   const article = await api.get<NewsDetail>(`/news/${slug}?locale=${locale}`, cached('news'))
     .catch(() => null);
   if (!article) return {};
-  const description = (article.excerpt ?? article.body).slice(0, 160);
-  return {
+  const description = (article.excerpt ?? article.body).replace(/\s+/g, ' ').slice(0, 160);
+  const base = pageMeta({
+    locale,
+    href: { pathname: '/news/[slug]', params: { slug } },
     title: article.title,
     description,
-    openGraph: {
-      title: article.title,
-      description,
-      type: 'article',
-      publishedTime: article.publishedAt ?? undefined,
-    },
+    type: 'article',
+    image: (article as { coverImageUrl?: string | null }).coverImageUrl ?? null,
+  });
+  return {
+    ...base,
+    openGraph: { ...base.openGraph, type: 'article', publishedTime: article.publishedAt ?? undefined },
   };
 }
 

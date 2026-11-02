@@ -100,6 +100,16 @@ export interface MatchPayload {
   player2SetsWon: number;
   sets: Array<{ setNumber: number; p1Points: number; p2Points: number }>;
   cards: Array<{ player: 1 | 2; type: 'YELLOW' | 'RED'; setNumber: number }>;
+  /** Oxirgi setda 5 ochkoda tomon almashtirish eslatmasi (2.13.7–8) */
+  sideChange?: boolean;
+  /** Taym-aut (qoida 3.4.4.2): har o'yinchiga bir marta, 1 daqiqa */
+  timeout?: {
+    p1Used: boolean;
+    p2Used: boolean;
+    activePlayer: 1 | 2 | null;
+    activeUntil: string | null;
+    remainingMs?: number;
+  };
   winnerId: string | null;
   winnerInfo: {
     playerId: string;

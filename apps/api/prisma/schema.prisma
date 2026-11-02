@@ -28,6 +28,11 @@ model User {
   avatarUrl    String?    @map("avatar_url")
   locale       String     @default("uz")
   status       UserStatus @default(ACTIVE)
+  /// Birinchi kirishda parolni almashtirish majburiy (administrator bergan boshlang'ich parol)
+  mustChangePassword Boolean @default(false) @map("must_change_password")
+  /// Ketma-ket xato kirishlar: 8 tadan keyin hisob vaqtincha bloklanadi (IP throttling'dan tashqari)
+  failedLoginCount Int       @default(0) @map("failed_login_count")
+  lockedUntil      DateTime? @map("locked_until")
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
 
@@ -35,7 +40,10 @@ model User {
   refreshTokens       RefreshToken[]
   registrationActions TournamentRegistration[] @relation("RegistrationStatusActor")
   pointsAdjustments   PlayerPointsLog[]        @relation("PointsAdjustedBy")
+  appealsDecided      Appeal[]                 @relation("AppealDecidedBy")
   refereeProfile      RefereeProfile?
+  matchesRefereed     Match[]                  @relation("MatchReferee")
+  matchesAssisted     Match[]                  @relation("MatchAssistant")
 
   @@map("users")
 }
@@ -193,12 +201,22 @@ model TournamentLevel {
   description String?
   /// Eski (reglamentsiz) darajalar uchun zaxira: bosqich balli × koeffitsiyent
   coefficient Float
+  /// Nizom 1-ilova: katta yoshlar uchun K (1.0 chempionat, 0.9 kubok, 0.5 hududiy; pro-tur 0.1–1)
+  ratingK     Float      @default(0.5) @map("rating_k")
+  ratingMode  RatingMode @default(OFFICIAL) @map("rating_mode")
   sortOrder   Int     @default(0) @map("sort_order")
 
   tournaments Tournament[]
   pointsRules LevelPointsRule[]
 
   @@map("tournament_levels")
+}
+
+/// Ball hisoblash rejimi: OFFICIAL — O'zSTF Nizomi (1–3-formulalar, K, bonus);
+/// LEGACY — eski qat'iy ballar (ishtirok/g'alaba/chempion).
+enum RatingMode {
+  LEGACY
+  OFFICIAL
 }
 
 /// Reglamentdagi ball turlari (to'rtta — sodda va tushunarli)
@@ -271,6 +289,8 @@ model Player {
   documents            PlayerDocument[]
   declaredCategories   PlayerAgeCategory[]
   snapshotEntries      RankingSnapshotEntry[]
+  groupEntries         GroupEntry[]
+  appeals              Appeal[]
   partnershipsAsPlayer1 Partnership[]           @relation("PartnershipPlayer1")
   partnershipsAsPlayer2 Partnership[]           @relation("PartnershipPlayer2")
 
@@ -296,10 +316,18 @@ model Club {
   tableCount  Int?     @map("table_count")
   logoUrl     String?  @map("logo_url")
   externalId  Int?     @unique @map("external_id") // uttf.uz'dagi asl klub ID (qayta importda dublikatning oldini olish uchun)
+  /// Yangi klub ochish arizasi PENDING bo'lib, admin tasdiqlagach ACTIVE (mavjudlari ACTIVE)
+  status       ClubStatus @default(ACTIVE)
+  ownerUserId  String?    @map("owner_user_id")
+  rejectReason String?    @map("reject_reason")
+  reviewedAt   DateTime?  @map("reviewed_at")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   players Player[]
+  coaches CoachProfile[]
+
+  @@index([status])
 
   @@map("clubs")
 }
@@ -327,11 +355,21 @@ model RefereeProfile {
   since         Int? // faoliyat boshlangan yil
   photoUrl      String?  @map("photo_url")
   bio           String?
+  /// Ommaviy ariza orqali kelganlar PENDING; mavjudlari APPROVED (migratsiya default)
+  status        ApplicationStatus @default(APPROVED)
+  category      RefereeCategory?
+  phone         String?
+  /// Avtomatik tayinlashda ishtirok etadimi (kasal/dam olish)
+  available     Boolean  @default(true)
+  rejectReason  String?  @map("reject_reason")
+  reviewedById  String?  @map("reviewed_by_id")
+  reviewedAt    DateTime? @map("reviewed_at")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([status])
   @@map("referee_profiles")
 }
 
@@ -350,6 +388,8 @@ model PlayerPointsLog {
   tournamentId String?         @map("tournament_id")
   // Qo'lda tuzatish uchun: izoh va kim o'zgartirgani
   note         String?
+  /// Nizom bo'yicha aniq (kasrli) ball: butun `delta` yig'indiga yaxlitlanadi
+  exact        Float?
   createdById  String?         @map("created_by_id")
   createdAt    DateTime        @default(now()) @map("created_at")
 
@@ -463,6 +503,7 @@ enum MatchStage {
   ROUND_OF_16
   QUARTERFINAL
   SEMIFINAL
+  THIRD_PLACE // 3-o'rin uchun o'yin (yarim final yutqazganlari) — bonus jadvali 3- va 4-o'rinni ajratadi
   FINAL
 }
 
@@ -495,6 +536,17 @@ model Match {
 
   overlayToken String @unique @default(uuid()) @map("overlay_token")
 
+  // Taym-aut (qoida 3.4.4.2): har o'yinchiga o'yin davomida BIR marta, 1 daqiqagacha
+  timeoutP1Used            Boolean   @default(false) @map("timeout_p1_used")
+  timeoutP2Used            Boolean   @default(false) @map("timeout_p2_used")
+  timeoutPlayer            Int?      @map("timeout_player") // 1 | 2 — hozir taym-aut olgan
+  timeoutUntil             DateTime? @map("timeout_until")
+
+  // Tayinlangan hakamlar (4.6.12–13: yetakchi hakam va hakam-yordamchi). Null — tayinlanmagan.
+  refereeUserId            String?   @map("referee_user_id")
+  assistantUserId          String?   @map("assistant_user_id")
+  refereeAssignedAt        DateTime? @map("referee_assigned_at")
+
   pointsAwarded            Int     @default(0) @map("points_awarded")
   disqualifiedPlayerId     String? @map("disqualified_player_id")
   disqualificationReason   String? @map("disqualification_reason")
@@ -502,10 +554,16 @@ model Match {
 
   // Setka (bracket) maydonlari: g'olib avtomatik keyingi o'yin slotiga o'tadi
   drawId          String? @map("draw_id")
+  /// Guruh bosqichi (doira tizimi): shu o'yin qaysi guruhda va nechanchi turda
+  groupId         String? @map("group_id")
+  groupRound      Int?    @map("group_round")
   roundNumber     Int?    @map("round_number") // 1 = birinchi raund
   bracketPosition Int?    @map("bracket_position") // raund ichidagi tartib (1..)
   nextMatchId     String? @map("next_match_id")
   nextMatchSlot   Int?    @map("next_match_slot") // 1 | 2
+  // Yutqazgan keyingi o'yinga (yarim final → 3-o'rin uchun o'yin)
+  loserNextMatchId   String? @map("loser_next_match_id")
+  loserNextMatchSlot Int?    @map("loser_next_match_slot")
 
   // Har mutatsiyada oshadigan monotonik hisoblagich — socket eventlarni tartiblash uchun
   seq Int @default(0)
@@ -514,15 +572,22 @@ model Match {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   tournament Tournament   @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  group      TournamentGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  referee    User?        @relation("MatchReferee", fields: [refereeUserId], references: [id], onDelete: SetNull)
+  assistant  User?        @relation("MatchAssistant", fields: [assistantUserId], references: [id], onDelete: SetNull)
   player1    Player?      @relation("MatchPlayer1", fields: [player1Id], references: [id])
   player2    Player?      @relation("MatchPlayer2", fields: [player2Id], references: [id])
   sets       MatchSet[]
+  appeals    Appeal[]
   cards      MatchCard[]
   events     MatchEvent[]
 
   @@index([tournamentId, status])
   @@index([status])
   @@index([verifiedByUserId])
+  @@index([groupId])
+  @@index([refereeUserId])
+  @@index([assistantUserId])
   // Overlay va zal monitori har necha soniyada shu bo'yicha so'raydi
   @@index([tableNumber, status])
   @@map("matches")
@@ -567,6 +632,7 @@ enum MatchEventType {
   UNDO
   CARD
   DISQUALIFY
+  TIMEOUT
 }
 
 // To'liq audit trail. POINT eventining payload'ida amaldan OLDINGI holat
@@ -626,6 +692,7 @@ model TournamentCategory {
   ageCategory   AgeCategory              @relation(fields: [ageCategoryId], references: [id])
   registrations TournamentRegistration[]
   draws         Draw[]
+  groupStage    GroupStage?
 
   @@unique([tournamentId, ageCategoryId, gender, eventType])
   @@map("tournament_categories")
@@ -690,6 +757,116 @@ model DrawEntry {
   @@map("draw_entries")
 }
 
+// ==================== ARIZALAR: HAKAM, MURABBIY, KLUB ====================
+
+enum ApplicationStatus {
+  PENDING // ariza berildi — hech qanday ruxsat yo'q
+  APPROVED // admin tasdiqladi (rol berildi)
+  REJECTED
+}
+
+/// Hakam toifasi (assignment: yuqori bosqichlar yuqori toifali hakamga)
+enum RefereeCategory {
+  INTERNATIONAL
+  NATIONAL
+  FIRST
+  SECOND
+  THIRD
+}
+
+enum ClubStatus {
+  PENDING // ochish arizasi
+  ACTIVE
+  REJECTED
+}
+
+// ==================== APELLYATSIYA / PROTEST ====================
+
+enum AppealKind {
+  RATING // Nizom 44–47: reyting ballariga e'tiroz
+  INTERPRETATION // qoidalar 3.3.3: qoidani talqin qilish bo'yicha protest (bosh hakamga, qaror yakuniy)
+  ORGANIZATION // qoidalar 3.3.4: o'tkazish masalalari bo'yicha protest (tashkiliy qo'mitaga, qaror yakuniy)
+}
+
+enum AppealStatus {
+  NEW
+  REJECTED // o'zgarishsiz qoldirildi
+  ACCEPTED // qanoatlantirildi (o'rin/ball o'zgartiriladi)
+  RECALCULATE // reytingni qayta hisoblash
+}
+
+/// Faqat o'yinda qatnashgan o'yinchi protest bera oladi (3.3.5). O'yin FAKTI (to'p chiziqqa tegdimi...) bo'yicha protest yo'q (3.3.2).
+model Appeal {
+  id          String       @id @default(uuid())
+  kind        AppealKind
+  status      AppealStatus @default(NEW)
+  playerId    String       @map("player_id")
+  matchId     String?      @map("match_id")
+  text        String
+  decision    String?
+  decidedById String?      @map("decided_by_id")
+  decidedAt   DateTime?    @map("decided_at")
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  player    Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  match     Match? @relation(fields: [matchId], references: [id], onDelete: SetNull)
+  decidedBy User?  @relation("AppealDecidedBy", fields: [decidedById], references: [id])
+
+  @@index([status, createdAt])
+  @@index([playerId])
+  @@map("appeals")
+}
+
+// ==================== GURUH BOSQICHI (doira tizimi) ====================
+
+enum GroupStageStatus {
+  ACTIVE // guruh o'yinlari davom etmoqda
+  ADVANCED // setka (play-off) yaratilgan
+}
+
+/// Qoidalar 4.2, 4.7.2–4.7.3: zmeyka bilan taqsimlash, doira tizimi, guruhdan setkaga.
+model GroupStage {
+  id                   String           @id @default(uuid())
+  tournamentCategoryId String           @unique @map("tournament_category_id")
+  groupCount           Int              @map("group_count")
+  advancing            Int // har guruhdan nechta o'yinchi setkaga chiqadi
+  bestOf               Int              @default(5) @map("best_of")
+  status               GroupStageStatus @default(ACTIVE)
+  createdAt            DateTime         @default(now()) @map("created_at")
+
+  category TournamentCategory @relation(fields: [tournamentCategoryId], references: [id], onDelete: Cascade)
+  groups   TournamentGroup[]
+
+  @@map("group_stages")
+}
+
+model TournamentGroup {
+  id      String @id @default(uuid())
+  stageId String @map("stage_id")
+  number  Int // 1..groupCount
+
+  stage   GroupStage   @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  entries GroupEntry[]
+  matches Match[]
+
+  @@unique([stageId, number])
+  @@map("tournament_groups")
+}
+
+model GroupEntry {
+  id       String @id @default(uuid())
+  groupId  String @map("group_id")
+  playerId String @map("player_id")
+  position Int // guruhdagi tartib raqami (1..)
+
+  group  TournamentGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  player Player          @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, playerId])
+  @@unique([groupId, position])
+  @@map("group_entries")
+}
+
 // ==================== MAXFIY HUJJATLAR (AES-256) ====================
 
 enum PlayerDocumentType {
@@ -741,9 +918,17 @@ model CoachProfile {
   club          String?
   licenseNumber String?  @map("license_number")
   bio           String?
+  status        ApplicationStatus @default(APPROVED)
+  phone         String?
+  region        String?
+  clubId        String?  @map("club_id")
+  rejectReason  String?  @map("reject_reason")
+  reviewedById  String?  @map("reviewed_by_id")
+  reviewedAt    DateTime? @map("reviewed_at")
   createdAt     DateTime @default(now()) @map("created_at")
 
-  players CoachPlayer[]
+  clubRecord Club?        @relation(fields: [clubId], references: [id], onDelete: SetNull)
+  players    CoachPlayer[]
 
   @@map("coach_profiles")
 }
@@ -1006,6 +1191,33 @@ model MediaAsset {
   @@map("media_assets")
 }
 
+/// OBS overlay'da o'yin bo'lmagan bo'sh vaqtda ko'rsatiladigan reklama (rasm).
+/// Rasm mavjud /uploads/image orqali yuklanadi (MediaAsset), bu yerda faqat url saqlanadi.
+enum AdKind {
+  IMAGE // rasm (8–10 s)
+  VIDEO // qisqa reklama rolik (≤ 15 s)
+  PROMO // o'yinlarning promo roligi (≤ 30 s)
+}
+
+model OverlayAd {
+  id        String   @id @default(uuid())
+  title     String
+  kind      AdKind   @default(IMAGE)
+  /// Rasm reklama uchun — rasm; rolik uchun — ixtiyoriy poster
+  imageUrl  String?  @map("image_url")
+  videoUrl  String?  @map("video_url")
+  durationS Int      @default(10) @map("duration_s")
+  /// Vergul bilan stol raqamlari ("1,2"); bo'sh — hamma stol
+  tables    String   @default("")
+  enabled   Boolean  @default(true)
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([enabled, sortOrder])
+  @@map("overlay_ads")
+}
+
 // ==================== YANGILIKLAR ====================
 
 enum NewsStatus {
@@ -1021,6 +1233,8 @@ model NewsArticle {
   isFeatured    Boolean    @default(false) @map("is_featured")
   // Musobaqaga bog'langan yangilik — event sahifasidagi "Yangiliklar" tabi
   tournamentId  String?    @map("tournament_id")
+  /// uttf.uz dagi yangilik ID si — qayta sinxronizatsiyada dublikat bo'lmasligi uchun
+  externalId    Int?       @unique @map("external_id")
   publishedAt   DateTime?  @map("published_at")
   authorId      String?    @map("author_id")
   createdAt     DateTime   @default(now()) @map("created_at")

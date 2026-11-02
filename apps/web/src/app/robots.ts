@@ -1,6 +1,5 @@
 import type { MetadataRoute } from 'next';
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3100';
+import { SITE_URL } from '@/lib/seo';
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -8,10 +7,16 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        // Panel, hakam va overlay sahifalari indekslanmaydi
-        disallow: ['/panel', '/referee', '/overlay/', '/profile', '/login', '/signup'],
+        // Panel, hakam, overlay/TV, kirish va shaxsiy sahifalar indekslanmaydi (3 tilda ham)
+        disallow: [
+          '/panel', '/referee', '/overlay/', '/screen/', '/profile', '/login', '/signup', '/account',
+          '/ru/panel', '/ru/referee', '/ru/profile', '/ru/login', '/ru/signup', '/ru/account',
+          '/en/panel', '/en/referee', '/en/profile', '/en/login', '/en/signup', '/en/account',
+          '/api/',
+        ],
       },
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,
+    host: SITE_URL,
   };
 }

@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { NextIntlClientProvider, hasLocale } from 'next-intl';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { routing } from '@/i18n/routing';
+import { SITE_URL } from '@/lib/seo';
 import { LiveTicker } from '@/components/match/live-ticker';
 import { SiteHeader } from '@/components/layout/site-header';
 import { SiteFooter } from '@/components/layout/site-footer';
@@ -60,12 +61,17 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: 'common' });
+  const ts = await getTranslations({ locale, namespace: 'seo' });
   return {
+    metadataBase: new URL(SITE_URL),
     title: {
       default: t('siteName'),
       template: `%s | ${t('siteShort')}`,
     },
-    description: t('siteName'),
+    description: ts('siteDescription'),
+    applicationName: 'UZTT',
+    openGraph: { siteName: 'UZTT', type: 'website', locale: locale === 'ru' ? 'ru_RU' : locale === 'en' ? 'en_US' : 'uz_UZ' },
+    twitter: { card: 'summary_large_image' },
   };
 }
 

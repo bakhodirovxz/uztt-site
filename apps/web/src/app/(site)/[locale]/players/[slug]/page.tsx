@@ -3,6 +3,8 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
+import { localizedUrl, pageMeta, SITE_URL } from '@/lib/seo';
+import { safeJsonLd } from '@/lib/json-ld';
 import { api, ApiError } from '@/lib/api';
 import { PointsChart } from '@/components/player/points-chart';
 
@@ -92,18 +94,21 @@ export async function generateMetadata({
 }: {
   params: Promise<{ locale: string; slug: string }>;
 }): Promise<Metadata> {
-  const { slug } = await params;
+  const { slug, locale } = await params;
   const player = await api
     .get<PlayerDetail>(`/players/${slug}`)
     .catch(() => null);
   if (!player) return {};
   const title = `${player.firstName} ${player.lastName}`;
-  const description = `${title} — ${player.region}${player.club ? `, ${player.club}` : ''} · ${player.rankingPoints} ball`;
-  return {
+  const description = `${title} — ${player.region}${player.club ? `, ${player.club}` : ''} · ${player.rankingPoints}`;
+  return pageMeta({
+    locale,
+    href: { pathname: '/players/[slug]', params: { slug } },
     title,
     description,
-    openGraph: { title, description, type: 'profile' },
-  };
+    type: 'profile',
+    image: player.photoUrl,
+  });
 }
 
 export default async function PlayerDetailPage({
@@ -127,9 +132,21 @@ export default async function PlayerDetailPage({
     .catch(() => null);
 
   const stats = history?.stats;
+  const personLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    name: `${player.firstName} ${player.lastName}`,
+    gender: player.gender === 'FEMALE' ? 'Female' : 'Male',
+    image: player.photoUrl ? (player.photoUrl.startsWith('http') ? player.photoUrl : `${SITE_URL}${player.photoUrl}`) : undefined,
+    url: localizedUrl({ pathname: '/players/[slug]', params: { slug } }, locale),
+    nationality: 'UZ',
+    homeLocation: { '@type': 'Place', name: player.region },
+    ...(player.club ? { memberOf: { '@type': 'SportsTeam', name: player.club, sport: 'Table tennis' } } : {}),
+  };
 
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(personLd) }} />
       {/* Orqaga + sahifa nomi + bo'lim havolalari (uttf.uz'dagi Sportchi sahifasi tuzilishiga mos) */}
       <div className="bg-navy-950 text-white">
         <div className="mx-auto flex max-w-site flex-wrap items-center justify-between gap-x-6 px-4">

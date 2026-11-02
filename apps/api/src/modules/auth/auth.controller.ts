@@ -13,6 +13,8 @@ import { Throttle } from '@nestjs/throttler';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { AuthService, TokenPair } from './auth.service';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { AllowPasswordChange } from '../../common/decorators/allow-password-change.decorator';
 import { LoginDto } from './dto/login.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -83,7 +85,35 @@ export class AuthController {
     return { ok: true };
   }
 
+  @Public()
+  @Get('session')
+  @ApiOperation({ summary: 'Kirgan-kirmaganligi (ha/yo\'q) — 401 xatosiz' })
+  async session(@Req() req: Request) {
+    const raw = (req.cookies as Record<string, string>)?.[ACCESS_COOKIE];
+    return { authenticated: await this.auth.hasSession(raw) };
+  }
+
+  @Post('change-password')
+  @HttpCode(200)
+  @AllowPasswordChange()
+  @Throttle({ default: { limit: 10, ttl: 900_000 } })
+  @ApiOperation({ summary: 'Parolni almashtirish (boshqa sessiyalar bekor qilinadi)' })
+  async changePassword(
+    @Body() dto: ChangePasswordDto,
+    @CurrentUser() user: AuthUser,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { user: fresh, tokens } = await this.auth.changePassword(user.id, dto.currentPassword, dto.newPassword, {
+      userAgent: req.headers['user-agent'],
+      ip: req.ip,
+    });
+    this.setCookies(res, tokens);
+    return { user: fresh };
+  }
+
   @Get('me')
+  @AllowPasswordChange()
   @ApiOperation({ summary: 'Joriy foydalanuvchi (permissionlar bilan)' })
   async me(@CurrentUser() user: AuthUser) {
     // Bazadan yangilangan holat — rol o'zgargan bo'lsa darhol ko'rinadi

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TV scoreboard</title>
+<link rel="stylesheet" href="/board.css">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;cursor:none}
+</style>
+</head>
+<body class="board tvbg">
+<div class="wrap">
+  <div class="head">
+    <img class="logo" src="/logo-left.png" onerror="this.style.visibility='hidden'" alt="">
+    <div class="banner"><div class="t1"></div><div class="t2"></div></div>
+    <img class="logo" src="/logo-right.png" onerror="this.style.visibility='hidden'" alt="">
+  </div>
+  <div class="main"><div class="grid"></div></div>
+</div>
+<script src="/flags.js"></script>
+<script src="/common.js"></script>
+<script src="/board.js"></script>
+<script src="/scenes.js"></script>
+<script>
+// ?courts=1,2,3,4 — faqat shu stollar (2 ta TV uchun)
+const FILTER = Q.get('courts') ? Q.get('courts').split(',').map((x) => x.trim()) : null;
+
+function render(d) {
+  const list = Object.entries(d.courts)
+    .filter(([id, c]) => c.active && (!FILTER || FILTER.includes(id)) && !finishedLongAgo(c))
+    .sort((a, b) => natural(a[0], b[0]))
+    .map((x) => x[1]);
+  renderBoard(document.body, d.meta, list);
+  showBigTimeout(list);
+}
+
+let LAST = null;
+Scenes.mount(document.body, { clear: Q.get('clear') === '1' }); // ?clear=1 — fonsiz (videokeyer uchun) // o'yin oldidan o'yinchi statistikasi va o'yindan keyin reyting animatsiyasi
+const sceneTick = () => LAST && Scenes.update(Scenes.pick(LAST.courts, { filter: FILTER, meta: LAST.meta }));
+connectAll((d) => { LAST = d; render(d); sceneTick(); });
+setInterval(sceneTick, 500);
+addEventListener('resize', () => LAST && render(LAST));
+</script>
+</body>
+</html>

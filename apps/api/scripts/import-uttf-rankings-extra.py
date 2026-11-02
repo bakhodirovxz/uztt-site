@@ -23,6 +23,23 @@ from psycopg2.extras import execute_values
 DATA_PATH = os.environ.get("UTTF_EXPORT_PATH", "/root/uttf-scrape/uttf-full-export.json")
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
+
+REGION_UZ = {'Tashkent City': 'Toshkent shahri', 'Tashkent Region': 'Toshkent viloyati', 'Andijan Region': 'Andijon viloyati', 'Bukhara Region': 'Buxoro viloyati', 'Fergana Region': "Farg'ona viloyati", 'Jizzakh Region': 'Jizzax viloyati', 'Khorezm Region': 'Xorazm viloyati', 'Namangan Region': 'Namangan viloyati', 'Navoi Region': 'Navoiy viloyati', 'Kashkadarya Region': 'Qashqadaryo viloyati', 'Republic of Karakalpakstan': "Qoraqalpog'iston Respublikasi", 'Samarkand Region': 'Samarqand viloyati', 'Syrdarya Region': 'Sirdaryo viloyati', 'Surkhandarya Region': 'Surxondaryo viloyati'}
+
+
+def region_uz(name):
+    """uttf.uz hudud nomi (inglizcha) -> o'zbekcha"""
+    return REGION_UZ.get(name, name)
+
+def pts(value):
+    """Reglament: ball faqat butun va 0 dan kichik emas. 59.2 -> 59, 59.5 -> 60, -3.2 -> 0."""
+    try:
+        v = float(value or 0)
+    except (TypeError, ValueError):
+        return 0
+    return max(0, int(v + 0.5))
+
+
 if not DATABASE_URL:
     print("DATABASE_URL environment variable required", file=sys.stderr)
     sys.exit(1)
@@ -123,7 +140,7 @@ def main():
 
             out.append((
                 str(uuid.uuid4()), event_type, p1, p2,
-                round(r.get("points") or 0), r.get("ranking"),
+                pts(r.get("points")), r.get("ranking"),
                 age_cat_id, now, now,
             ))
         if out:
@@ -149,8 +166,8 @@ def main():
 
         team_rows.append((
             str(uuid.uuid4()), t.get("name") or "Noma'lum jamoa",
-            t.get("regionName"), t.get("districtName"), gender,
-            age_cat_id, round(t.get("points") or 0), t.get("ranking"),
+            region_uz(t.get("regionName")), t.get("districtName"), gender,
+            age_cat_id, pts(t.get("points")), t.get("ranking"),
             t.get("id"), now, now,
         ))
     if team_rows:

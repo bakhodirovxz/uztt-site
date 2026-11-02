@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>YouTube overlay</title>
+<link rel="stylesheet" href="/board.css">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:transparent;font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif;color:#fff}
+html{font-size:1.0417vw} /* 1920x1080 da 20px */
+
+/* 1) Stolning o'z o'yini: pastki chap burchakdagi ixcham overlay */
+/* WTT tavsiyasi: pastki chap burchak, chap chekka ~4%, pastki chiziq ~5% (xavfsiz hudud), kengligi ~27% */
+#lower{position:absolute;left:4vw;bottom:5vh;width:44rem;transform:scale(.6);transform-origin:0 100%}
+#lower .top{position:relative;background:linear-gradient(180deg,#0f5a2a,#0a3f1e);font-size:1.05rem;font-weight:800;letter-spacing:.04em;padding:.4rem 1rem;border-radius:.7rem .7rem 0 0;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-transform:uppercase}
+#lower .row{display:grid;grid-template-columns:19rem 1fr 3.6rem;gap:.35rem;margin-top:.3rem;height:3.7rem}
+#lower .name{position:relative;display:flex;align-items:center;gap:.7rem;padding:0 .8rem 0 1.1rem;background:linear-gradient(180deg,#86c845,#5fa52b);border-radius:.5rem 0 0 .5rem;overflow:hidden}
+#lower .name .flag{height:1.7rem;width:2.27rem;object-fit:cover;border-radius:.2rem;flex:none}
+#lower .nm{display:flex;flex-direction:column;justify-content:center;min-width:0;line-height:1.05;text-transform:uppercase}
+#lower .nm b{font-size:1.5rem;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#lower .nm.sm b{font-size:1.2rem}
+#lower .nm.xs b{font-size:1rem}
+#lower .nm span{font-size:1.05rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#lower .srv{position:absolute;left:.3rem;top:50%;width:.5rem;height:.5rem;margin-top:-.25rem;border-radius:50%;background:#ffe14d;box-shadow:0 0 .5rem #ffe14d;display:none}
+#lower .srv.on{display:block}
+#lower .bd{margin-left:auto;font-size:.75rem;font-weight:800;letter-spacing:.05em;padding:.1rem .45rem;border-radius:.35rem;background:#7c2bd9;flex:none}
+#lower .bd.match{background:#e5484d}
+#lower .games{display:flex;gap:.3rem}
+#lower .g{flex:1;max-width:3.6rem;display:flex;align-items:center;justify-content:center;background:#f4f7f4;color:#24342b;border-radius:.45rem;font-size:1.9rem;font-weight:800;font-variant-numeric:tabular-nums}
+#lower .g.live{box-shadow:0 0 0 .14rem #ffe14d}
+#lower .g.empty{background:rgba(244,247,244,.18)}
+#lower .wins{display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#b4de47,#7fc12d);border-radius:.45rem;font-size:2.2rem;font-weight:800}
+#lower .wins.won{box-shadow:0 0 0 .14rem #fff}
+#lower .note{margin-top:.3rem;background:#c2410c;font-size:1.1rem;font-weight:800;text-align:center;padding:.3rem 1rem;border-radius:.5rem;display:none}
+#lower .note.show{display:block}
+#lower .note.win{background:#1a7f4b}
+
+/* 2) Stolning o'yini tugagach: butun ekran, qolgan jonli o'yinlar (TV dagi kabi) */
+/* o'yin tugagach: butun ekran (1920x1080), qolgan jonli o'yinlar (TV dagi kabi) */
+#general{display:none;position:fixed;left:0;top:0;right:0;bottom:0;overflow:hidden}
+</style>
+</head>
+<body>
+<div id="lower">
+  <div class="top" id="title"></div>
+  <div class="row" id="row0"></div>
+  <div class="row" id="row1"></div>
+  <div class="note" id="note"></div>
+</div>
+<div id="ads" class="adlayer"></div>
+<div id="general" class="board tvbg">
+  <div class="wrap">
+    <div class="head">
+      <img class="logo" src="/logo-left.png" onerror="this.style.visibility='hidden'" alt="">
+      <div class="banner"><div class="t1"></div><div class="t2"></div></div>
+      <img class="logo" src="/logo-right.png" onerror="this.style.visibility='hidden'" alt="">
+    </div>
+    <div class="main"><div class="grid"></div></div>
+  </div>
+</div>
+<script src="/flags.js"></script>
+<script src="/common.js"></script>
+<script src="/board.js"></script>
+<script src="/scenes.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+// o'yin tugagach ?wait=10 soniya natija ko'rsatiladi, keyin umumiy scoreboard chiqadi
+const WAIT_S = parseInt(Q.get('wait') || '10', 10);
+
+function rowHtml(s, i, ps) {
+  const p = s.players[i];
+  let games = '';
+  for (let g = 0; g < s.settings.bestOf; g++) {
+    const c = gameCell(s, i, g);
+    games += '<div class="g' + (c.kind === 'live' ? ' live' : c.kind === 'empty' ? ' empty' : '') + '">' + c.v + '</div>';
+  }
+  const bd = ps && ps.p === i ? '<span class="bd' + (ps.text === 'MATCH POINT' ? ' match' : '') + '">' + (ps.text === 'MATCH POINT' ? 'MP' : 'GP') + '</span>' : '';
+  return '<div class="name"><span class="srv' + (s.server === i && s.winner === null ? ' on' : '') + '"></span>' + flag(p.country)
+    + '<div class="nm' + (p.name.length >= 17 ? ' xs' : p.name.length >= 13 ? ' sm' : '') + '"><b>' + esc(p.name) + '</b>' + (p.given ? '<span>' + esc(p.given) + '</span>' : '') + '</div>' + bd + '</div>'
+    + '<div class="games">' + games + '</div>'
+    + '<div class="wins' + (s.winner === i ? ' won' : '') + '">' + p.sets + '</div>';
+}
+
+function renderLower(s) {
+  $('title').textContent = matchTitle(s);
+  const ps = pointStatus(s);
+  $('row0').innerHTML = rowHtml(s, 0, ps);
+  $('row1').innerHTML = rowHtml(s, 1, ps);
+  const left = timeoutLeft(s), n = $('note');
+  if (s.winner !== null) { n.className = 'note show win'; n.textContent = 'WINNER: ' + (s.players[s.winner].given ? s.players[s.winner].given + ' ' : '') + s.players[s.winner].name; }
+  else if (s.timeout && left > 0) { n.className = 'note show'; n.textContent = 'TIME-OUT ' + s.players[s.timeout.side].name + ' ' + fmtTime(left); }
+  else n.className = 'note';
+}
+
+// Umumiy scoreboard: boshqa stollarning jonli o'yinlari (bo'lmasa — yaqinda tugaganlari)
+function otherMatches(d) {
+  const all = Object.entries(d.courts).filter(([id, c]) => c.active && id !== COURT).sort((a, b) => natural(a[0], b[0]));
+  const live = all.filter(([, c]) => c.winner === null).map((x) => x[1]);
+  return live.length ? live : all.filter(([, c]) => !finishedLongAgo(c)).map((x) => x[1]);
+}
+
+const STRIP = (k, v) => (k === '_off' || k === 'now' ? undefined : v);
+let OWN = null, ALL = null, lastSig = '';
+const srvNow = () => Date.now() - (OWN ? OWN._off : 0);
+
+// ===== Reklamalar: bo'sh vaqtda (o'yin yo'q) yoki, yoqilgan bo'lsa, jonli o'yinlar orasida =====
+// Hamma overlay bir xil vaqt jadvalidan foydalanadi (server vaqti bo'yicha), shuning uchun reklama bir vaqtda almashadi.
+const AD_ONLY = Q.get('ad'); // ?ad=<id> — bitta reklamani sinab ko'rish
+function myAds() {
+  if (!ALL || !ALL.ads || !ALL.ads.settings.enabled) return [];
+  let items = ALL.ads.items.filter((a) => !a.courts || a.courts.split(',').includes(String(COURT)));
+  if (AD_ONLY) items = ALL.ads.items.filter((a) => a.id === AD_ONLY);
+  return items;
+}
+function adAt(items, t) { // aylanma jadval: t (ms) vaqtida qaysi reklama va u boshlanganiga necha ms bo'lgan
+  const total = items.reduce((s, a) => s + a.durationS * 1000, 0);
+  let x = t % total;
+  for (const a of items) { const d = a.durationS * 1000; if (x < d) return { ad: a, at: x }; x -= d; }
+  return { ad: items[0], at: 0 };
+}
+// jonli o'yinlar orasida: liveEveryS soniya scoreboard, keyin bitta reklama (navbatma-navbat)
+function liveSlot(items, t, every) {
+  const cyc = items.map((a) => every * 1000 + a.durationS * 1000);
+  const total = cyc.reduce((s, x) => s + x, 0);
+  let x = t % total;
+  for (let i = 0; i < items.length; i++) { if (x < cyc[i]) return x >= every * 1000 ? { ad: items[i], at: x - every * 1000 } : null; x -= cyc[i]; }
+  return null;
+}
+let adShown = '';
+function showAd(slot) {
+  const box = $('ads');
+  if (!slot) { if (adShown) { adShown = ''; box.className = 'adlayer'; box.innerHTML = ''; } return false; }
+  const a = slot.ad;
+  if (adShown !== a.id) {
+    adShown = a.id;
+    box.className = 'adlayer on';
+    box.innerHTML = a.type === 'video'
+      ? '<video class="ad" src="' + esc(a.file) + '" autoplay muted loop playsinline></video>'
+      : '<img class="adbg" src="' + esc(a.file) + '" alt=""><img class="ad" src="' + esc(a.file) + '" alt="">';
+  }
+  return true;
+}
+
+function update() {
+  if (!OWN) return;
+  const t = srvNow();
+  const finishedFor = OWN.winner !== null && OWN.finishedAt ? (t - OWN.finishedAt) / 1000 : -1;
+  // 1) sahnalar: o'yin oldidan o'yinchilar statistikasi, o'yindan keyin reyting yangilanishi
+  const scene = Scenes.update(Scenes.pick({ [COURT]: OWN }, { meta: ALL && ALL.meta }));
+  if (scene) {
+    $('lower').style.display = 'none'; $('general').style.display = 'none'; showAd(null);
+    return;
+  }
+  const items = myAds();
+  const adsOn = items.length > 0;
+  const idle = !OWN.active; // bu stolda o'yin boshlanmagan
+  const general = !!ALL && !idle && finishedFor >= WAIT_S;
+  let mode, list = [];
+  if (idle) mode = 'idle';
+  else if (general) { list = otherMatches(ALL); mode = list.length ? 'general' : 'empty'; }
+  else mode = 'lower';
+
+  // 2) reklama
+  let slot = null;
+  if (adsOn && AD_ONLY) slot = adAt(items, t);
+  else if (adsOn && (mode === 'idle' || mode === 'empty')) slot = adAt(items, t);
+  else if (adsOn && mode === 'general' && ALL.ads.settings.whenLive) slot = liveSlot(items, t, ALL.ads.settings.liveEveryS || 60);
+  if (showAd(slot)) { $('lower').style.display = 'none'; $('general').style.display = 'none'; return; }
+
+  // 3) oddiy ko'rinish
+  let sig, draw;
+  if (mode === 'general' || mode === 'empty') {
+    sig = 'G' + JSON.stringify(list, STRIP) + list.map(timeoutLeft).join(',') + innerWidth + 'x' + innerHeight;
+    draw = () => renderBoard($('general'), ALL.meta, list);
+  } else if (mode === 'lower') {
+    sig = 'L' + JSON.stringify(OWN, STRIP) + timeoutLeft(OWN);
+    draw = () => renderLower(OWN);
+  } else { sig = 'I'; draw = () => {}; } // reklama ham, o'yin ham yo'q: shaffof
+  $('general').style.display = mode === 'general' || mode === 'empty' ? 'block' : 'none';
+  $('lower').style.display = mode === 'lower' ? 'block' : 'none';
+  if (sig !== lastSig) { lastSig = sig; draw(); }
+  showBigTimeout(mode === 'lower' ? [OWN] : (list || []));
+}
+
+Scenes.mount(document.body, { clear: Q.get('clear') !== '0' }); // o'yin boshidagi statistika efir ustida (fonsiz) chiqadi; ?clear=0 — yashil fon bilan
+connect((s) => { OWN = s; update(); });
+connectAll((d) => { ALL = d; update(); });
+setInterval(update, 500);
+addEventListener('resize', update);
+</script>
+</body>
+</html>

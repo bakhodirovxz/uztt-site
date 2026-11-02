@@ -30,7 +30,8 @@ RUN npx prisma generate
 
 # ==================== runtime ====================
 FROM node:22-alpine
-RUN apk add --no-cache dumb-init
+# font-dejavu + fontconfig: Telegram natija rasmi (SVG -> PNG) matni uchun shart
+RUN apk add --no-cache dumb-init fontconfig font-dejavu
 WORKDIR /app
 ENV NODE_ENV=production
 

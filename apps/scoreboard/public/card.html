@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Natija kartochkasi</title>
+<link rel="stylesheet" href="/board.css">
+<style>*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden}</style></head>
+<body class="tvbg">
+<div id="sc" class="scene tvbg on show"></div>
+<script src="/flags.js"></script>
+<script src="/common.js"></script>
+<script src="/scenes.js"></script>
+<script>
+// Telegramga yuboriladigan natija rasmi: server shu sahifani 1920x1080 va 1080x1920 da rasmga oladi
+const CARD = /*CARD_JSON*/null;
+if (CARD) Scenes.renderCard(document.getElementById('sc'), CARD);
+else document.getElementById('sc').textContent = 'Kartochka topilmadi';
+</script></body></html>

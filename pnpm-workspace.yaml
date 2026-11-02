@@ -13,3 +13,14 @@ allowBuilds:
   prisma: true
   esbuild: true
   '@scarf/scarf': false
+
+# Xavfsizlik: tranzitiv bog'liqliklar eng kamida tuzatilgan versiyada (pnpm audit --prod)
+overrides:
+  qs: '>=6.17.1'
+  body-parser: '>=2.4.0'
+  proxy-addr: '>=2.0.8'
+  engine.io: '>=6.6.11'
+  js-yaml: '>=5.5.0'
+  deepmerge-ts: '>=8.0.0'
+  source-map-js: '>=1.2.2'
+  multer: '^2.5.0'

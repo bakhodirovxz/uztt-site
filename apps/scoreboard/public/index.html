@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="uz"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Scoreboard</title>
+<style>body{font-family:system-ui,sans-serif;background:#0d1117;color:#fff;max-width:760px;margin:40px auto;padding:0 16px}a{color:#58a6ff;font-size:19px;display:block;margin:10px 0}h3{margin:26px 0 4px;color:#9aa4b2;font-weight:600}table{border-collapse:collapse;width:100%}td{padding:6px 10px;border-bottom:1px solid #21262d}small{color:#9aa4b2}</style></head>
+<body>
+<h1>Scoreboard</h1>
+<h3>Tomoshabinlar uchun</h3>
+<a href="/live" target="_blank">Jonli natijalar (telefon uchun)  →  /live</a>
+<a href="/live?embed=1" target="_blank">Saytga joylash uchun (iframe)  →  /live?embed=1</a>
+<small>Wi-Fi tarmog'idagi tomoshabinlar telefonida shu manzilni ochadi: jonli hisob, jadval, natijalar, reyting.</small>
+<h3>Umumiy</h3>
+<a href="/tv" target="_blank">TV — hamma faol o'yinlar  →  /tv</a>
+<a href="/tv?courts=1,2,3,4" target="_blank">TV (faqat 1-4 stollar)  →  /tv?courts=1,2,3,4</a>
+<a href="/admin" target="_blank">Admin: qura / o'yinchilar / reklama / sozlamalar  →  /admin</a>
+<h3>Stollar (har stolga bitta planshet va bitta overlay)</h3>
+<table id="t"></table>
+<script>
+let h='';
+for(let i=1;i<=10;i++) h+='<tr><td><b>Stol '+i+'</b></td><td><a href="/control?court='+i+'" target="_blank" style="font-size:16px;margin:0">Planshet</a></td><td><a href="/overlay?court='+i+'" target="_blank" style="font-size:16px;margin:0">Overlay</a></td></tr>';
+document.getElementById('t').innerHTML=h;
+</script></body></html>

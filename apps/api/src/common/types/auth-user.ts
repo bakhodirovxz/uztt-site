@@ -4,6 +4,8 @@ export interface AuthUser {
   email: string;
   roles: string[]; // rol kodlari: ADMIN, REFEREE, ...
   permissions: string[]; // permission kodlari: match.score, ...
+  /** Boshlang'ich parol berilgan: parol almashtirilmaguncha boshqa amallar yopiq */
+  mustChangePassword?: boolean;
 }
 
 export interface AccessTokenPayload {
@@ -11,6 +13,7 @@ export interface AccessTokenPayload {
   email: string;
   roles: string[];
   permissions: string[];
+  mcp?: boolean; // mustChangePassword
   iss?: string;
   aud?: string;
 }

@@ -1,3 +1,5 @@
+import type { Metadata } from 'next';
+import { pageMeta } from '@/lib/seo';
 import Image from 'next/image';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
@@ -19,6 +21,12 @@ interface NewsItem {
   isFeatured: boolean;
   publishedAt: string | null;
   coverImageUrl: string | null;
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'seo' });
+  return pageMeta({ locale, href: '/news', title: t('news.title'), description: t('news.description') });
 }
 
 export default async function NewsPage({

@@ -1,81 +1,67 @@
 import type { MetadataRoute } from 'next';
+import { localizedUrl, SITE_URL } from '@/lib/seo';
+import { routing } from '@/i18n/routing';
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3100';
 const API = process.env.API_INTERNAL_URL ?? 'http://localhost:4000';
 
-/** Sitemap: statik sahifalar (3 tilda) + dinamik kontent (yangiliklar, o'yinchilar, musobaqalar) */
+type Href = Parameters<typeof localizedUrl>[0];
+
+/** Har sahifa uchun uch tildagi manzillar (hreflang) bilan yozuv */
+function entry(href: Href, priority: number, changeFrequency: 'daily' | 'weekly' | 'monthly'): MetadataRoute.Sitemap[number] {
+  const languages: Record<string, string> = {};
+  for (const l of routing.locales) languages[l] = localizedUrl(href, l);
+  return { url: languages[routing.defaultLocale], changeFrequency, priority, alternates: { languages } };
+}
+
+async function json<T>(path: string, fallback: T): Promise<T> {
+  try {
+    const r = await fetch(`${API}/api${path}`, { next: { revalidate: 3600 } });
+    return r.ok ? ((await r.json()) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * Sitemap: statik sahifalar + BARCHA o'yinchilar (sahifalab), klublar, yangiliklar, musobaqalar —
+ * har biri uz/ru/en hreflang bilan. API o'chiq bo'lsa (build vaqti) faqat statik qism qaytadi.
+ */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  // Til prefikslari: uz — prefiksisiz, ru/en — prefiksli
-  const staticPaths: Array<{ uz: string; ru: string; en: string }> = [
-    { uz: '/', ru: '/ru', en: '/en' },
-    { uz: '/musobaqalar', ru: '/ru/sorevnovaniya', en: '/en/events' },
-    { uz: '/reyting', ru: '/ru/reyting', en: '/en/rankings' },
-    { uz: '/oyinchilar', ru: '/ru/igroki', en: '/en/players' },
-    { uz: '/yangiliklar', ru: '/ru/novosti', en: '/en/news' },
-    { uz: '/videos', ru: '/ru/videos', en: '/en/videos' },
-    { uz: '/galereya', ru: '/ru/galereya', en: '/en/galleries' },
-    { uz: '/federatsiya', ru: '/ru/federaciya', en: '/en/about' },
-    { uz: '/aloqa', ru: '/ru/kontakty', en: '/en/contact' },
-    { uz: '/live', ru: '/ru/live', en: '/en/live' },
+  const entries: MetadataRoute.Sitemap = [
+    entry('/', 1, 'daily'),
+    entry('/events', 0.9, 'daily'),
+    entry('/rankings', 0.9, 'daily'),
+    entry('/players', 0.8, 'daily'),
+    entry('/news', 0.8, 'daily'),
+    entry('/clubs', 0.7, 'weekly'),
+    entry('/galleries', 0.5, 'weekly'),
+    entry('/videos', 0.5, 'weekly'),
+    entry('/about', 0.6, 'monthly'),
+    entry('/contact', 0.5, 'monthly'),
+    entry('/live', 0.6, 'daily'),
+    entry('/join/referee', 0.3, 'monthly'),
+    entry('/join/coach', 0.3, 'monthly'),
   ];
 
-  const entries: MetadataRoute.Sitemap = staticPaths.map((p) => ({
-    url: SITE_URL + p.uz,
-    changeFrequency: 'daily',
-    priority: p.uz === '/' ? 1 : 0.8,
-    alternates: {
-      languages: {
-        uz: SITE_URL + p.uz,
-        ru: SITE_URL + p.ru,
-        en: SITE_URL + p.en,
-      },
-    },
-  }));
+  const news = await json<Array<{ slug: string }>>('/news?locale=uz', []);
+  for (const n of news) entries.push(entry({ pathname: '/news/[slug]', params: { slug: n.slug } }, 0.6, 'weekly'));
 
-  // Dinamik kontent — API mavjud bo'lmasa jim o'tkazamiz (build vaqtida ham xavfsiz)
-  try {
-    const [news, players, tournaments] = await Promise.all([
-      fetch(`${API}/api/news?locale=uz`, { next: { revalidate: 3600 } })
-        .then((r) => r.json() as Promise<Array<{ slug: string }>>)
-        .catch(() => []),
-      // /api/players endi sahifalangan javob qaytaradi ({ rows, total, ... }).
-      // pageSize chegarasi 500 — sitemap hozircha birinchi 500 o'yinchini
-      // qamraydi (ilgari take:500 bilan ham shunday edi). To'liq qamrov uchun
-      // sahifalab yurish kerak, bu alohida ish.
-      fetch(`${API}/api/players?pageSize=500`, { next: { revalidate: 3600 } })
-        .then(
-          (r) => r.json() as Promise<{ rows: Array<{ slug: string }> }>,
-        )
-        .then((d) => d.rows ?? [])
-        .catch(() => []),
-      fetch(`${API}/api/tournaments`, { next: { revalidate: 3600 } })
-        .then((r) => r.json() as Promise<Array<{ slug: string }>>)
-        .catch(() => []),
-    ]);
+  const tournaments = await json<Array<{ slug: string }>>('/tournaments', []);
+  for (const t of tournaments) entries.push(entry({ pathname: '/events/[slug]', params: { slug: t.slug } }, 0.7, 'daily'));
 
-    for (const n of news) {
-      entries.push({
-        url: `${SITE_URL}/yangiliklar/${n.slug}`,
-        changeFrequency: 'weekly',
-        priority: 0.6,
-      });
-    }
-    for (const p of players) {
-      entries.push({
-        url: `${SITE_URL}/oyinchilar/${p.slug}`,
-        changeFrequency: 'weekly',
-        priority: 0.5,
-      });
-    }
-    for (const t of tournaments) {
-      entries.push({
-        url: `${SITE_URL}/musobaqalar/${t.slug}`,
-        changeFrequency: 'daily',
-        priority: 0.7,
-      });
-    }
-  } catch {
-    // API o'chiq — faqat statik sahifalar
+  const clubs = await json<{ rows: Array<{ slug: string }>; total: number }>('/clubs?page=1', { rows: [], total: 0 });
+  for (let page = 1, seen = 0; ; page++) {
+    const data = page === 1 ? clubs : await json<{ rows: Array<{ slug: string }>; total: number }>(`/clubs?page=${page}`, { rows: [], total: 0 });
+    for (const c of data.rows) entries.push(entry({ pathname: '/clubs/[slug]', params: { slug: c.slug } }, 0.5, 'weekly'));
+    seen += data.rows.length;
+    if (!data.rows.length || seen >= data.total || page >= 40) break;
+  }
+
+  // O'yinchilar: 500 tadan sahifalab — hammasi indekslansin
+  for (let page = 1; page <= 40; page++) {
+    const data = await json<{ rows: Array<{ slug: string }>; totalPages?: number }>(`/players?pageSize=500&page=${page}`, { rows: [] });
+    for (const p of data.rows) entries.push(entry({ pathname: '/players/[slug]', params: { slug: p.slug } }, 0.5, 'weekly'));
+    if (!data.rows.length || page >= (data.totalPages ?? 1)) break;
   }
 
   return entries;

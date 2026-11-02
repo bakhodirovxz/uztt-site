@@ -31,8 +31,8 @@ export function SiteHeader() {
 
   useEffect(() => {
     api
-      .get('/auth/me')
-      .then(() => setAuthed(true))
+      .get<{ authenticated: boolean }>('/auth/session')
+      .then((r) => setAuthed(r.authenticated))
       .catch(() => setAuthed(false));
   }, [pathname]);
 

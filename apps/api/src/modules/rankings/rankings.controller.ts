@@ -15,6 +15,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   Max,
   MaxLength,
@@ -23,10 +24,29 @@ import {
 import { Gender } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RankingsService } from './rankings.service';
+import { RatingService } from './rating.service';
 import { Public } from '../../common/decorators/public.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { AuthUser } from '../../common/types/auth-user';
+
+class PenaltyDto {
+  @ApiProperty({ description: "Jarima qo'llanadigan o'yinchi" })
+  @IsUUID()
+  playerId!: string;
+
+  @ApiProperty({ description: 'Hakam taqdimnomasi bo‘yicha sabab' })
+  @IsString()
+  @MaxLength(150)
+  reason!: string;
+}
+
+class ExcludeDto {
+  @ApiProperty({ description: 'Sabab (Ijroiya qo‘mitasi qarori) — majburiy' })
+  @IsString()
+  @MaxLength(200)
+  reason!: string;
+}
 
 class AdjustPointsDto {
   @ApiPropertyOptional({
@@ -71,6 +91,7 @@ export class RankingsController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly rankings: RankingsService,
+    private readonly rating: RatingService,
   ) {}
 
   /**
@@ -172,6 +193,58 @@ export class RankingsController {
   @RequirePermissions('ranking.adjust')
   removeSnapshot(@Param('id', ParseUUIDPipe) id: string) {
     return this.rankings.removeSnapshot(id);
+  }
+
+  /**
+   * Nizom: musobaqa yakunida 1–8-o'rin bonuslari (Б). `?apply=1` bo'lmasa — faqat ko'rib chiqish
+   * (hech narsa yozilmaydi). Bir musobaqada faqat bir marta qo'llanadi.
+   */
+  @Post('tournaments/:id/bonuses')
+  @RequirePermissions('ranking.adjust')
+  bonuses(
+    @Param('id', ParseUUIDPipe) tournamentId: string,
+    @Query('apply') apply: string | undefined,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.rating.awardBonuses(tournamentId, {
+      apply: apply === '1' || apply === 'true',
+      userId: user.id,
+    });
+  }
+
+  /** Nizom 28: reyting tizimidan chiqarish / qaytarish (sabab majburiy) */
+  @Post('players/:id/exclude')
+  @RequirePermissions('ranking.adjust')
+  exclude(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ExcludeDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.rating.exclude(id, dto.reason, user.id);
+  }
+
+  @Post('players/:id/restore')
+  @RequirePermissions('ranking.adjust')
+  restore(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
+    return this.rating.restore(id, user.id);
+  }
+
+  /** Nizom 28: 2 yildan ortiq qatnashmaganlar (nomzodlar ro'yxati) */
+  @Get('inactive')
+  @RequirePermissions('ranking.adjust')
+  inactive(@Query('years') years?: string) {
+    return this.rating.inactiveCandidates(years ? Number(years) : 2);
+  }
+
+  /** Nizom: hakam taqdimnomasi bo'yicha jarima (Ж) — K ga mos jadval miqdori ayiriladi. */
+  @Post('tournaments/:id/penalty')
+  @RequirePermissions('ranking.adjust')
+  penalty(
+    @Param('id', ParseUUIDPipe) tournamentId: string,
+    @Body() dto: PenaltyDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.rating.penalize(tournamentId, dto.playerId, user.id, dto.reason);
   }
 
   /**

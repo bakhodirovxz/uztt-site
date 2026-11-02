@@ -30,6 +30,8 @@ interface Level {
   name: string;
   description: string | null;
   coefficient: number;
+  ratingK: number;
+  ratingMode: 'OFFICIAL' | 'LEGACY';
   sortOrder: number;
   tournamentCount: number;
   rules: Rule[];
@@ -41,6 +43,8 @@ const emptyForm = (keys: RuleKey[]) => ({
   name: '',
   description: '',
   sortOrder: 0,
+  ratingK: 0.5,
+  ratingMode: 'OFFICIAL' as 'OFFICIAL' | 'LEGACY',
   points: Object.fromEntries(keys.map((k) => [k.key, 0])) as Record<string, number>,
 });
 
@@ -85,6 +89,8 @@ export default function AdminLevelsPage() {
       f.name = level.name;
       f.description = level.description ?? '';
       f.sortOrder = level.sortOrder;
+      f.ratingK = level.ratingK;
+      f.ratingMode = level.ratingMode;
       for (const r of level.rules) f.points[r.key] = r.points;
     }
     setForm(f);
@@ -103,6 +109,8 @@ export default function AdminLevelsPage() {
           name: form.name,
           description: form.description || undefined,
           sortOrder: Number(form.sortOrder) || 0,
+          ratingK: Number(form.ratingK) || 0.5,
+          ratingMode: form.ratingMode,
           rules,
         });
       } else {
@@ -111,6 +119,8 @@ export default function AdminLevelsPage() {
           name: form.name,
           description: form.description || undefined,
           sortOrder: Number(form.sortOrder) || 0,
+          ratingK: Number(form.ratingK) || 0.5,
+          ratingMode: form.ratingMode,
           rules,
         });
       }
@@ -143,7 +153,7 @@ export default function AdminLevelsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Musobaqa darajalari"
-        description="Har daraja — reglament: ishtirok, guruhdan chiqish, har bir g‘alaba va chempionlik uchun necha ball berilishi. Musobaqa ochilganda daraja tanlanadi; hakam o‘yinni yakunlashi bilan ballar avtomatik qo‘shiladi va reyting yangilanadi."
+        description="Har daraja — reglament. Rasmiy rejimda ball Nizom formulalari va K koeffitsiyenti bo‘yicha beriladi (g‘olibga +, mag‘lubdan −, 1–8-o‘rin bonusi). Eski rejimda — ishtirok, guruhdan chiqish, g‘alaba va chempionlik uchun qat‘iy ballar."
         action={
           editing === null && (
             <Button variant="primary" onClick={() => open()}>
@@ -194,6 +204,33 @@ export default function AdminLevelsPage() {
                 }
                 className={inputClass}
               />
+            </Field>
+          </div>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Field
+              label="K koeffitsiyenti (Nizom 1-ilova)"
+              hint="Chempionat 1, kubok 0.9, hududiy 0.5; pro-tur 0.1–1. Yosh toifasi bo‘yicha avtomatik kamayadi."
+            >
+              <input
+                type="number"
+                step="0.1"
+                min={0.1}
+                max={1}
+                value={form.ratingK}
+                onChange={(e) => setForm({ ...form, ratingK: Number(e.target.value) })}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Reyting hisobi" hint="Rasmiy — Nizom formulalari; Eski — qat‘iy ballar (pastdagi jadval)">
+              <select
+                value={form.ratingMode}
+                onChange={(e) => setForm({ ...form, ratingMode: e.target.value as 'OFFICIAL' | 'LEGACY' })}
+                className={inputClass}
+              >
+                <option value="OFFICIAL">Rasmiy (Nizom)</option>
+                <option value="LEGACY">Eski (qat‘iy ballar)</option>
+              </select>
             </Field>
           </div>
 

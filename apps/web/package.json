@@ -13,7 +13,7 @@
     "prebuild": "node scripts/check-i18n-parity.mjs"
   },
   "dependencies": {
-    "next": "16.2.12",
+    "next": "16.4.3",
     "next-intl": "^4.13.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",

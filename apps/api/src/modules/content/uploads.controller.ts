@@ -9,7 +9,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { memoryStorage } from 'multer';
 import { randomUUID } from 'crypto';
-import { mkdirSync, writeFileSync } from 'fs';
+import { execFile } from 'child_process';
+import { mkdirSync, unlinkSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import sharp from 'sharp';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -18,6 +19,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { AuthUser } from '../../common/types/auth-user';
 
 const IMAGES_DIR = join(process.cwd(), 'uploads', 'public', 'images');
+const VIDEOS_DIR = join(process.cwd(), 'uploads', 'public', 'videos');
 const DOCS_DIR = join(process.cwd(), 'uploads', 'public', 'documents');
 
 /**
@@ -41,6 +43,26 @@ const DOC_TYPES: Array<{
     magic: [0x50, 0x4b, 0x03, 0x04],
   },
 ];
+
+/** ffprobe bor bo'lsa: haqiqiy video oqimi va davomiyligi (soniya). Yo'q bo'lsa null. */
+function probe(path: string): Promise<{ video: boolean; seconds: number } | null> {
+  return new Promise((resolve) => {
+    execFile(
+      'ffprobe',
+      ['-v', 'error', '-print_format', 'json', '-show_streams', '-show_format', path],
+      { timeout: 15_000 },
+      (err, stdout) => {
+        if (err) return resolve(null);
+        try {
+          const j = JSON.parse(stdout) as { streams?: Array<{ codec_type?: string }>; format?: { duration?: string } };
+          resolve({ video: !!j.streams?.some((x) => x.codec_type === 'video'), seconds: Number(j.format?.duration ?? 0) });
+        } catch {
+          resolve(null);
+        }
+      },
+    );
+  });
+}
 
 @ApiTags('uploads')
 @Controller('uploads')
@@ -135,5 +157,33 @@ export class UploadsController {
         uploadedById: user.id,
       },
     });
+  }
+
+  /**
+   * Reklama roligi: MP4 (H.264) yoki WebM. Mime ishonilmaydi — magic baytlar + (bor bo'lsa) ffprobe.
+   * 20 MB gacha (nginx limiti 25 MB). Davomiylik qaytariladi — reklama turiga qarab keyin tekshiriladi.
+   */
+  @Post('video')
+  @RequirePermissions('media.manage')
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 20 * 1024 * 1024, files: 1 } }))
+  async uploadVideo(@UploadedFile() file: Express.Multer.File | undefined) {
+    if (!file) throw new BadRequestException('Fayl kiritilmadi');
+    const b = file.buffer;
+    const isMp4 = b.length > 12 && b.subarray(4, 8).toString('latin1') === 'ftyp';
+    const isWebm = b.length > 4 && b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3;
+    if (!isMp4 && !isWebm) throw new BadRequestException('Faqat MP4 yoki WebM');
+    const ext = isMp4 ? 'mp4' : 'webm';
+
+    mkdirSync(VIDEOS_DIR, { recursive: true });
+    const name = `${randomUUID()}.${ext}`;
+    const path = join(VIDEOS_DIR, name);
+    writeFileSync(path, b);
+    const info = await probe(path);
+    if (info && (!info.video || !(info.seconds > 0))) {
+      try { unlinkSync(path); } catch { /* e'tiborsiz */ }
+      throw new BadRequestException('Fayl yaroqli video emas');
+    }
+    return { url: `/uploads/videos/${name}`, durationS: info ? Math.ceil(info.seconds) : null, checked: !!info };
   }
 }

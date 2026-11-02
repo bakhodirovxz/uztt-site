@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ageOf, birthDateFloor } from '../../common/age';
 import { randomBytes } from 'crypto';
 import { Gender, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -70,6 +71,12 @@ const PUBLIC_MATCH_SELECT = {
   },
 } satisfies Prisma.MatchSelect;
 
+/** To'liq tug'ilgan sana ommaga chiqmaydi — faqat yosh */
+function withAge<T extends { birthDate: Date | null }>(p: T): Omit<T, 'birthDate'> & { age: number | null } {
+  const { birthDate, ...rest } = p;
+  return { ...rest, age: ageOf(birthDate) };
+}
+
 @Injectable()
 export class PlayersService {
   constructor(private readonly prisma: PrismaService) {}
@@ -83,6 +90,7 @@ export class PlayersService {
     gender?: Gender;
     region?: string;
     search?: string;
+    ageCategory?: string;
     page?: number;
     pageSize?: number;
   }) {
@@ -90,9 +98,18 @@ export class PlayersService {
       ? Math.min(Math.max(1, filter.pageSize), MAX_PAGE_SIZE)
       : DEFAULT_PAGE_SIZE;
 
+    // Kumulyativ yosh segmenti (common/age.ts); noma'lum kod → bo'sh natija
+    let ageFloor: Date | undefined;
+    if (filter.ageCategory) {
+      const cat = await this.prisma.ageCategory.findUnique({ where: { code: filter.ageCategory }, select: { maxAge: true } });
+      if (!cat) return { rows: [], total: 0, page: 1, pageSize, totalPages: 1 };
+      ageFloor = birthDateFloor(cat.maxAge);
+    }
+
     const where: Prisma.PlayerWhereInput = {
       status: 'ACTIVE',
       gender: filter.gender,
+      ...(ageFloor ? { birthDate: { gte: ageFloor } } : {}),
       region: filter.region ? { equals: filter.region } : undefined,
       OR: filter.search
         ? [
@@ -111,10 +128,10 @@ export class PlayersService {
       orderBy: { rankingPoints: 'desc' },
       skip: (page - 1) * pageSize,
       take: pageSize,
-      select: PUBLIC_PLAYER_SELECT,
+      select: { ...PUBLIC_PLAYER_SELECT, birthDate: true },
     });
 
-    return { rows, total, page, pageSize, totalPages };
+    return { rows: rows.map(withAge), total, page, pageSize, totalPages };
   }
 
   /** Mavjud viloyatlar (filtr ro'yxati uchun) */
@@ -131,7 +148,7 @@ export class PlayersService {
   async detail(idOrSlug: string) {
     const player = await this.prisma.player.findFirst({
       where: { status: 'ACTIVE', OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
-      select: PUBLIC_PLAYER_SELECT,
+      select: { ...PUBLIC_PLAYER_SELECT, birthDate: true },
     });
     if (!player) throw new NotFoundException("O'yinchi topilmadi");
 
@@ -145,7 +162,7 @@ export class PlayersService {
     });
 
     const rank = await this.rankOf(player.id, player.gender);
-    return { ...player, rank, matches };
+    return { ...withAge(player), rank, matches };
   }
 
   /**

@@ -1,3 +1,5 @@
+import type { Metadata } from 'next';
+import { pageMeta } from '@/lib/seo';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { api, cached } from '@/lib/api';
 import { Container, PageTitleBar } from '@/components/ui';
@@ -28,6 +30,12 @@ interface SponsorItem {
   logoUrl: string | null;
   websiteUrl: string | null;
   tier: number;
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'seo' });
+  return pageMeta({ locale, href: '/about', title: t('about.title'), description: t('about.description') });
 }
 
 export default async function AboutPage({

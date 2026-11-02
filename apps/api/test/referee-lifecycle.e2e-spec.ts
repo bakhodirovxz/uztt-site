@@ -31,7 +31,7 @@ describe('Hakam ish oqimi (e2e)', () => {
     const players = await request(app.getHttpServer())
       .get('/api/players')
       .expect(200);
-    const [p1, p2] = players.body as Array<{ id: string }>;
+    const [p1, p2] = players.body.rows as Array<{ id: string }>;
 
     const created = await request(app.getHttpServer())
       .post('/api/matches')

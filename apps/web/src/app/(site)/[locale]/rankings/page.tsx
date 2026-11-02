@@ -1,5 +1,8 @@
+import type { Metadata } from 'next';
+import { pageMeta } from '@/lib/seo';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
+import { PlayerPopupLink } from '@/components/player/player-popup';
 import { api } from '@/lib/api';
 import {
   Container,
@@ -18,6 +21,7 @@ import {
   Td,
   PlayerCell,
 } from '@/components/ui';
+import { Avatar } from '@/components/ui/avatar';
 import { RankingRow as RankingTableRow } from '@/components/player/ranking-row';
 
 interface RankingRow {
@@ -92,13 +96,19 @@ export const dynamic = 'force-dynamic';
 
 function PlayerLink({ player }: { player: PartnerPlayer }) {
   return (
-    <Link
-      href={{ pathname: '/players/[slug]', params: { slug: player.slug } }}
+    <PlayerPopupLink
+      slug={player.slug}
       className="inline-flex min-h-8 items-center font-medium hover:text-accent-500"
     >
       {player.firstName} {player.lastName}
-    </Link>
+    </PlayerPopupLink>
   );
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'seo' });
+  return pageMeta({ locale, href: '/rankings', title: t('rankings.title'), description: t('rankings.description') });
 }
 
 export default async function RankingsPage({
@@ -117,7 +127,7 @@ export default async function RankingsPage({
   const { locale } = await params;
   const {
     type: rawType,
-    gender = 'MALE',
+    gender: rawGender,
     category,
     snapshot,
     page: rawPage,
@@ -130,7 +140,9 @@ export default async function RankingsPage({
     rawType === 'doubles' || rawType === 'mixed' || rawType === 'team'
       ? rawType
       : 'singles';
-  const safeGender = gender === 'FEMALE' ? 'FEMALE' : 'MALE';
+  const safeGender = rawGender === 'FEMALE' ? 'FEMALE' : 'MALE';
+  // Jamoaviy reytingda "Barchasi" (jinssiz) standart: jinsni majburlab MALE qilib yubormaymiz
+  const teamGender = rawGender === 'MALE' || rawGender === 'FEMALE' || rawGender === 'MIXED' ? rawGender : undefined;
 
   const categories = await api
     .get<AgeCategory[]>('/draws/age-categories')
@@ -139,7 +151,7 @@ export default async function RankingsPage({
   /** Filtr havolasi — mavjud tanlovlarni saqlab, bittasini almashtiradi */
   const hrefWith = (patch: Record<string, string | undefined>) => {
     const next = new URLSearchParams();
-    const merged = { type, gender: safeGender, category, snapshot, ...patch };
+    const merged = { type, gender: type === 'team' ? teamGender : safeGender, category, snapshot, ...patch };
     for (const [k, v] of Object.entries(merged)) if (v) next.set(k, v);
     return `?${next}`;
   };
@@ -199,7 +211,7 @@ export default async function RankingsPage({
 
       {type === 'team' && (
         <TeamTable
-          gender={gender}
+          gender={teamGender}
           category={category}
           page={page}
           categories={categories}
@@ -286,35 +298,21 @@ async function TopRanked({
       <ol>
         {rows.map((r) => (
           <li key={r.id} className="border-b border-border last:border-0">
-            <Link
-              href={{ pathname: '/players/[slug]', params: { slug: r.slug } }}
+            <PlayerPopupLink
+              slug={r.slug}
               className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-[rgba(232,105,34,0.18)]"
             >
               <span className="w-4 shrink-0 text-center font-heading text-sm font-bold tabular-nums text-muted">
                 {r.rank}
               </span>
-              {r.photoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={r.photoUrl}
-                  alt=""
-                  width={28}
-                  height={28}
-                  loading="lazy"
-                  className="size-7 shrink-0 rounded-full bg-surface-alt object-cover"
-                />
-              ) : (
-                <span className="grid size-7 shrink-0 place-items-center rounded-full bg-navy-800 text-[10px] font-bold text-white">
-                  {(r.lastName?.[0] ?? '') + (r.firstName?.[0] ?? '')}
-                </span>
-              )}
+              <Avatar photoUrl={r.photoUrl} firstName={r.firstName} lastName={r.lastName} size={28} />
               <span className="min-w-0 flex-1 truncate text-[13px]">
                 <span className="uppercase">{r.lastName}</span> {r.firstName}
               </span>
               <span className="shrink-0 font-heading text-sm font-bold tabular-nums">
                 {r.rankingPoints}
               </span>
-            </Link>
+            </PlayerPopupLink>
           </li>
         ))}
       </ol>

@@ -94,3 +94,21 @@ pnpm-debug.log*
 # Legacy MVP local data
 legacy/backend/data/db.json
 legacy/backend/data/audio/
+
+# ============================================================
+# Lokal ishga tushirish (Dockersiz) — REAL MA'LUMOT, gitga emas
+# ============================================================
+# Lokal PostgreSQL bazasining to'liq papkasi (sportchilar ma'lumoti)
+local/pgdata/
+# Lokal holat belgilari va scoreboard sirlari
+local/.*
+# Baza dampi / demo ma'lumot (real.json — to'liq baza nusxasi)
+demo-data/
+# Scoreboard o'yinchilar bazasi: real ism, yosh, hudud
+apps/scoreboard/players-db.json
+# Yangilanish arxivlari (ichida nima borligi noma'lum)
+*.zip
+# Parol/hisob fayllari
+akkauntlar*.csv
+*parollar*
+*.xlsx

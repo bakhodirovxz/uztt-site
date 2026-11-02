@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a4a22">
+<title>Xalqaro musobaqa — jonli</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:#07240f;color:#fff;font-family:"Segoe UI",system-ui,Roboto,Arial,sans-serif}
+body{min-height:100vh;background:radial-gradient(900px 500px at 10% -5%,rgba(140,215,90,.22),transparent 60%),linear-gradient(160deg,#08361b,#0e5a2a 55%,#08361b);background-attachment:fixed;padding-bottom:84px}
+header{padding:16px 16px 6px;text-align:center}
+header h1{margin:0;font-size:clamp(20px,5vw,30px);letter-spacing:.01em}
+header p{margin:2px 0 0;opacity:.8;font-size:15px}
+.lang{display:flex;gap:4px;justify-content:flex-end;margin-bottom:6px}
+.lang button{background:rgba(255,255,255,.12);border:0;color:#fff;border-radius:8px;padding:5px 9px;font-weight:700;font-size:13px}
+.lang button.on{background:#c6f06a;color:#0c3b1f}
+nav{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;background:rgba(5,30,14,.96);backdrop-filter:blur(8px);border-top:1px solid rgba(255,255,255,.14);padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;background:none;border:0;color:#cfe8c4;padding:11px 4px 9px;font-size:13px;font-weight:700;display:flex;flex-direction:column;gap:3px;align-items:center}
+nav button span{font-size:22px;line-height:1}nav button.on{color:#c6f06a}
+nav button i{font-style:normal;background:#e5484d;color:#fff;border-radius:99px;font-size:11px;padding:0 6px;margin-left:4px}
+main{max-width:860px;margin:0 auto;padding:8px 12px}
+.card{background:linear-gradient(160deg,rgba(255,255,255,.15),rgba(255,255,255,.06));border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:12px 14px;margin:10px 0}
+.hd{display:flex;justify-content:space-between;gap:8px;font-size:13px;font-weight:700;letter-spacing:.04em;opacity:.9;margin-bottom:8px;text-transform:uppercase}
+.hd .live{background:#e5484d;border-radius:99px;padding:1px 9px;font-size:12px;animation:pulse 1.6s infinite}
+@keyframes pulse{50%{opacity:.55}}
+.pl{display:grid;grid-template-columns:30px 1fr auto auto;gap:8px;align-items:center;padding:7px 0}
+.pl+.pl{border-top:1px solid rgba(255,255,255,.12)}
+.pl .fl{width:30px;height:22px;object-fit:cover;border-radius:3px}
+.pl .nm{min-width:0;font-weight:800;text-transform:uppercase;line-height:1.1;font-size:17px}
+.pl .nm small{display:block;font-weight:500;opacity:.85;font-size:13px}
+.pl .sv{display:inline-block;width:9px;height:9px;border-radius:50%;background:#ffe14d;margin-left:6px;box-shadow:0 0 8px #ffe14d}
+.pl .gm{display:flex;gap:4px}.pl .gm b{min-width:30px;text-align:center;background:#f4f7f4;color:#24342b;border-radius:7px;padding:3px 0;font-size:18px}
+.pl .gm b.cur{box-shadow:0 0 0 2px #ffe14d}
+.pl .ws{background:linear-gradient(180deg,#b4de47,#7fc12d);color:#0c3b1f;font-weight:900;font-size:24px;border-radius:9px;min-width:38px;text-align:center;padding:1px 0}
+.pl.win .nm{color:#c6f06a}
+.tie{font-size:13px;opacity:.85;margin-top:4px}
+.empty{text-align:center;opacity:.8;padding:30px 10px}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0}
+.tabs button,.tabs select{background:rgba(255,255,255,.12);border:0;color:#fff;border-radius:99px;padding:7px 14px;font-size:14px;font-weight:700}
+.tabs button.on{background:#c6f06a;color:#0c3b1f}.tabs select option{color:#000}
+.sch{display:grid;grid-template-columns:44px 1fr;gap:10px;align-items:center}
+.sch .tb{background:rgba(0,0,0,.3);border-radius:9px;text-align:center;font-weight:900;font-size:17px;padding:6px 0;line-height:1}
+.sch .tb small{display:block;font-size:10px;opacity:.7;font-weight:700;margin-bottom:2px}
+.sch .vs{font-weight:700;font-size:16px}.sch .vs i{opacity:.65;font-style:normal;margin:0 6px}
+.sch .meta{font-size:12px;opacity:.75;text-transform:uppercase;margin-top:2px}
+.sch.done{opacity:.55}
+.res .sc{font-size:20px;font-weight:900;color:#c6f06a;margin:0 8px}
+.res .sets{font-size:13px;opacity:.8;margin-top:3px}
+.rt{font-size:12px;margin-top:4px}.rt .u{color:#7dff9b;font-weight:800}.rt .d{color:#ff9a9a;font-weight:800}
+.rk{display:grid;grid-template-columns:34px 46px 1fr auto;gap:10px;align-items:center;padding:8px 0}
+.rk+.rk{border-top:1px solid rgba(255,255,255,.12)}
+.rk .n{font-weight:900;font-size:18px;text-align:center;opacity:.9}
+.rk .ph{width:46px;height:46px;border-radius:50%;background:#2f7a43;overflow:hidden;position:relative}
+.rk .ph img{width:100%;height:100%;object-fit:cover}
+.rk .nm{font-weight:800;text-transform:uppercase;line-height:1.1}.rk .nm small{display:block;opacity:.8;font-weight:500;font-size:12px}
+.rk .pt{text-align:right;font-weight:900;font-size:18px;font-variant-numeric:tabular-nums}.rk .pt small{display:block;font-size:12px}
+.u{color:#7dff9b}.d{color:#ff9a9a}
+.srch{width:100%;background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.2);border-radius:12px;color:#fff;padding:11px 14px;font-size:16px;margin:6px 0}
+.srch::placeholder{color:rgba(255,255,255,.55)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#e5484d;margin-right:6px}.dot.on{background:#30d16a}
+</style>
+</head>
+<body>
+<header>
+  <div class="lang"><button data-l="uz">UZ</button><button data-l="en">EN</button><button data-l="ru">RU</button></div>
+  <h1 id="t1"></h1><p><span class="dot" id="dot"></span><span id="t2"></span></p>
+</header>
+<main id="main"></main>
+<script>if(new URLSearchParams(location.search).get('embed')){document.write('<style>header{display:none}body{padding-bottom:70px;background-attachment:scroll}</style>')}</script>
+<nav id="nav"></nav>
+<script src="/flags.js"></script>
+<script>
+const Q = new URLSearchParams(location.search);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const IOC = {UZB:'uz',KAZ:'kz',IRQ:'iq',IRI:'ir',KOR:'kr',JPN:'jp',CHN:'cn',IND:'in',TJK:'tj',KGZ:'kg',TKM:'tm',AZE:'az',TUR:'tr',RUS:'ru',SGP:'sg',THA:'th',VIE:'vn',MAS:'my',INA:'id',PHI:'ph',HKG:'hk',TPE:'tw',PRK:'kp',MGL:'mn',PAK:'pk',KUW:'kw',QAT:'qa',KSA:'sa',UAE:'ae',JOR:'jo',LBN:'lb',SYR:'sy',AFG:'af',NEP:'np',SRI:'lk',BAN:'bd',MAC:'mo',BRN:'bh',OMA:'om',YEM:'ye',IRL:'ie',GBR:'gb',FRA:'fr',GER:'de',ITA:'it',ESP:'es',UKR:'ua',BLR:'by',GEO:'ge',ARM:'am',EGY:'eg'};
+const flag = (c) => { c = (c || '').trim().toUpperCase(); const iso = c.length === 3 ? IOC[c] : c.toLowerCase(); return iso && window.FLAGS && FLAGS[iso] ? '<img class="fl" src="/flags/' + iso + '.svg" alt="">' : '<span class="fl"></span>'; };
+
+const TX = {
+  uz: { live: 'Jonli', sched: 'Jadval', res: 'Natijalar', rank: 'Reyting', nolive: "Hozir jonli o'yin yo'q. Jadval bo'limidan keyingi o'yinlarni ko'ring.", all: 'Hamma stollar', tbl: 'STOL', search: "Ism-familiya bo'yicha qidirish...", none: 'Hech narsa topilmadi', done: 'tugagan', next: 'Kutilmoqda', won: 'yutuq', lost: 'yutqazish', pl: "o'yin", ev: 'Barcha turlar', pts: 'ball', mixed: "Reyting musobaqa davomida o'yin natijalari bo'yicha yangilanadi.", on: 'Jonli aloqa', off: 'Aloqa yo\'q', win: "G'olib", nores: "Hali tugagan o'yin yo'q.", nosch: "Qura hali kiritilmagan." },
+  en: { live: 'Live', sched: 'Schedule', res: 'Results', rank: 'Ranking', nolive: 'No live matches right now. Check the schedule for upcoming games.', all: 'All tables', tbl: 'TABLE', search: 'Search player...', none: 'Nothing found', done: 'finished', next: 'Upcoming', won: 'won', lost: 'lost', pl: 'played', ev: 'All events', pts: 'pts', mixed: 'Ratings update live as match results come in.', on: 'Live', off: 'Offline', win: 'Winner', nores: 'No finished matches yet.', nosch: 'The draw has not been entered yet.' },
+  ru: { live: 'Онлайн', sched: 'Расписание', res: 'Итоги', rank: 'Рейтинг', nolive: 'Сейчас нет матчей. Смотрите расписание.', all: 'Все столы', tbl: 'СТОЛ', search: 'Поиск игрока...', none: 'Ничего не найдено', done: 'сыграно', next: 'Ожидается', won: 'побед', lost: 'пораж.', pl: 'игр', ev: 'Все разряды', pts: 'очк.', mixed: 'Рейтинг обновляется по ходу матчей.', on: 'Онлайн', off: 'Нет связи', win: 'Победитель', nores: 'Пока нет завершённых матчей.', nosch: 'Жеребьёвка ещё не введена.' },
+};
+let LANG = localStorage.getItem('lang') || (Q.get('lang')) || 'uz', TAB = 'live', D = null, LIVE = null, EV = '', COURT = '', QS = '';
+const T = (k) => TX[LANG][k];
+const nm = (p) => '<div class="nm">' + esc(p.name) + (p.given ? '<small>' + esc(p.given) + '</small>' : '') + '</div>';
+const num = (t) => (String(t || '').match(/\d+/) || [''])[0];
+
+function liveCard(c, id) {
+  const live = c.winner === null;
+  let h = '<div class="card"><div class="hd"><span>' + esc([c.table, c.category, c.round].filter(Boolean).join(' · ')) + '</span>' + (live ? '<span class="live">LIVE</span>' : '<span>' + T('win') + '</span>') + '</div>';
+  c.players.forEach((p, i) => {
+    let gm = '';
+    for (let g = 0; g < c.settings.bestOf; g++) {
+      if (g < c.sets.length) gm += '<b>' + c.sets[g][i] + '</b>';
+      else if (g === c.sets.length && live) gm += '<b class="cur">' + p.points + '</b>';
+    }
+    h += '<div class="pl' + (c.winner === i ? ' win' : '') + '">' + flag(p.country) + nm(p).replace('</div>', (c.server === i && live ? '<span class="sv"></span>' : '') + '</div>') + '<div class="gm">' + gm + '</div><div class="ws">' + p.sets + '</div></div>';
+  });
+  if (c.tie) h += '<div class="tie">' + esc(c.players[0].country) + ' ' + c.tie[0] + ' – ' + c.tie[1] + ' ' + esc(c.players[1].country) + '</div>';
+  return h + '</div>';
+}
+function view() {
+  const main = document.getElementById('main');
+  if (!D) { main.innerHTML = '<div class="empty">...</div>'; return; }
+  let h = '';
+  if (TAB === 'live') {
+    const list = Object.entries(LIVE || D.live).filter(([, c]) => c.winner === null || (c.finishedAt && false)).sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }));
+    h = list.length ? list.map(([id, c]) => liveCard(c, id)).join('') : '<div class="empty">' + T('nolive') + '</div>';
+  } else if (TAB === 'sched') {
+    const evs = [...new Set(D.schedule.map((m) => m.category).filter(Boolean))];
+    const tbls = [...new Set(D.schedule.map((m) => num(m.table)).filter(Boolean))].sort((a, b) => a - b);
+    h = '<div class="tabs"><select id="fe"><option value="">' + T('ev') + '</option>' + evs.map((e) => '<option' + (e === EV ? ' selected' : '') + '>' + esc(e) + '</option>').join('') + '</select>'
+      + '<select id="fc"><option value="">' + T('all') + '</option>' + tbls.map((x) => '<option value="' + x + '"' + (x === COURT ? ' selected' : '') + '>' + T('tbl') + ' ' + x + '</option>').join('') + '</select></div>';
+    const list = D.schedule.filter((m) => (!EV || m.category === EV) && (!COURT || num(m.table) === COURT));
+    list.sort((a, b) => (a.done - b.done) || (a.i - b.i));
+    h += list.length ? list.map((m) => '<div class="card sch' + (m.done ? ' done' : '') + '"><div class="tb"><small>' + T('tbl') + '</small>' + esc(num(m.table) || '–') + '</div><div><div class="vs">' + esc((m.p[0].name + ' ' + (m.p[0].given || '')).trim()) + '<i>–</i>' + esc((m.p[1].name + ' ' + (m.p[1].given || '')).trim()) + '</div><div class="meta">' + esc([m.category, m.round].filter(Boolean).join(' · ')) + ' · ' + (m.done ? T('done') : T('next')) + '</div></div></div>').join('') : '<div class="empty">' + T('nosch') + '</div>';
+  } else if (TAB === 'res') {
+    h = D.results.length ? D.results.map((r) => {
+      const a = r.sides[0], b = r.sides[1];
+      let rt = '';
+      if (r.rating) rt = '<div class="rt"><span class="u">▲ +' + r.rating.win.toFixed(2) + '</span> · <span class="d">▼ ' + r.rating.lose.toFixed(2) + '</span> ' + T('pts') + '</div>';
+      return '<div class="card res"><div class="hd"><span>' + esc([r.table, r.category, r.round].filter(Boolean).join(' · ')) + '</span><span>' + new Date(r.ts).toTimeString().slice(0, 5) + '</span></div>'
+        + '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px"><div style="flex:1;font-weight:' + (r.winner === 0 ? 900 : 600) + ';text-transform:uppercase">' + esc(a.name) + '</div><div class="sc">' + a.sets + ' – ' + b.sets + '</div><div style="flex:1;text-align:right;font-weight:' + (r.winner === 1 ? 900 : 600) + ';text-transform:uppercase">' + esc(b.name) + '</div></div>'
+        + '<div class="sets">' + r.sets.map((s) => s[0] + '-' + s[1]).join(' · ') + '</div>' + rt + '</div>';
+    }).join('') : '<div class="empty">' + T('nores') + '</div>';
+  } else {
+    const q = QS.trim().toLowerCase();
+    const list = D.players.filter((p) => !q || (p.name + ' ' + p.given).toLowerCase().includes(q));
+    h = '<input class="srch" id="qs" placeholder="' + T('search') + '" value="' + esc(QS) + '"><p style="opacity:.75;font-size:13px;margin:4px 2px">' + T('mixed') + '</p>'
+      + (list.length ? '<div class="card" style="padding:4px 14px">' + list.slice(0, 200).map((p, i) => '<div class="rk"><div class="n">' + (p.rank || '–') + '</div><div class="ph">' + (p.photo ? '<img src="' + esc(p.photo) + '" alt="" loading="lazy">' : '') + '</div>'
+        + '<div class="nm">' + esc(p.name) + '<small>' + esc(p.given) + (p.region ? ' · ' + esc(p.region) : '') + (p.played ? ' · ' + p.played + ' ' + T('pl') + ' (' + p.won + '/' + p.lost + ')' : '') + '</small></div>'
+        + '<div class="pt">' + p.rating.toFixed(2) + (p.delta ? '<small class="' + (p.delta > 0 ? 'u' : 'd') + '">' + (p.delta > 0 ? '▲ +' : '▼ ') + p.delta.toFixed(2) + '</small>' : '') + '</div></div>').join('') + '</div>' : '<div class="empty">' + T('none') + '</div>');
+  }
+  main.innerHTML = h;
+  const fe = document.getElementById('fe'); if (fe) fe.onchange = () => { EV = fe.value; view(); };
+  const fc = document.getElementById('fc'); if (fc) fc.onchange = () => { COURT = fc.value; view(); };
+  const qs = document.getElementById('qs'); if (qs) { qs.oninput = () => { QS = qs.value; const pos = qs.selectionStart; view(); const n = document.getElementById('qs'); n.focus(); n.setSelectionRange(pos, pos); }; }
+}
+function chrome() {
+  document.querySelectorAll('.lang button').forEach((b) => b.classList.toggle('on', b.dataset.l === LANG));
+  const n = LIVE ? Object.values(LIVE).filter((c) => c.winner === null).length : 0;
+  document.getElementById('nav').innerHTML = [['live', '🏓', T('live') + (n ? '<i>' + n + '</i>' : '')], ['sched', '📅', T('sched')], ['res', '🏆', T('res')], ['rank', '📈', T('rank')]]
+    .map((x) => '<button data-t="' + x[0] + '" class="' + (TAB === x[0] ? 'on' : '') + '"><span>' + x[1] + '</span>' + x[2] + '</button>').join('');
+  if (D) { document.getElementById('t1').textContent = D.meta.title1; document.getElementById('t2').textContent = D.meta.title2; }
+}
+document.getElementById('nav').onclick = (e) => { const b = e.target.closest('button'); if (b) { TAB = b.dataset.t; chrome(); view(); scrollTo(0, 0); } };
+document.querySelector('.lang').onclick = (e) => { const b = e.target.closest('button'); if (b) { LANG = b.dataset.l; localStorage.setItem('lang', LANG); chrome(); view(); } };
+
+function pull() { fetch('/api/public').then((r) => r.json()).then((d) => { D = d; chrome(); if (TAB !== 'rank' || !document.activeElement || document.activeElement.id !== 'qs') view(); }).catch(() => {}); }
+pull(); setInterval(pull, 8000);
+// jonli hisob SSE orqali (darhol)
+let es;
+function connect() {
+  es = new EventSource('/events?all=1');
+  es.onopen = () => { document.getElementById('dot').className = 'dot on'; };
+  es.onmessage = (e) => {
+    const d = JSON.parse(e.data), live = {};
+    Object.entries(d.courts).forEach(([id, c]) => { if (c.active && c.winner === null) live[id] = c; });
+    const sig = JSON.stringify(live);
+    if (sig !== (connect.sig || '')) { connect.sig = sig; LIVE = live; chrome(); if (TAB === 'live') view(); }
+  };
+  es.onerror = () => { document.getElementById('dot').className = 'dot'; };
+}
+connect(); chrome(); view();
+</script>
+</body>
+</html>

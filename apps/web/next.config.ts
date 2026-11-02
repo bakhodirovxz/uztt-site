@@ -26,6 +26,13 @@ const CSP_REPORT_ONLY = [
 const nextConfig: NextConfig = {
   output: 'standalone', // Docker image uchun minimal server chiqishi
   poweredByHeader: false,
+  // Scoreboard jonli oqimi (SSE) saytdan o'tadi: siqish uni bufer qilib qo'yadi
+  compress: false,
+  // Lokal ishga tushirishda (nginx yo'q) /uploads/... fayllari API'dan olinadi. Serverda nginx bu yo'lni o'zi ushlaydi.
+  async rewrites() {
+    const api = (process.env.UPLOADS_PROXY ?? 'http://localhost:4000').replace(/\/$/, '');
+    return [{ source: '/uploads/:path*', destination: `${api}/uploads/:path*` }];
+  },
   async headers() {
     return [
       {

@@ -38,6 +38,7 @@ interface Tournament {
   status: string;
   startDate: string;
   endDate: string;
+  createdAt?: string;
   level: { code: string; name: string };
 }
 interface PlayerOpt {
@@ -114,6 +115,7 @@ export default function AdminTournamentsPage() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [players, setPlayers] = useState<PlayerOpt[]>([]);
   const [selected, setSelected] = useState<Tournament | null>(null);
+  const [tSearch, setTSearch] = useState('');
   const [matches, setMatches] = useState<AdminMatch[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -162,7 +164,11 @@ export default function AdminTournamentsPage() {
   const loadCategories = useCallback((tournamentId: string) => {
     api
       .get<TournamentCategoryRow[]>(`/draws/categories/${tournamentId}`)
-      .then(setTCategories)
+      .then((rows) => {
+        setTCategories(rows);
+        // guruh bor bo'lsa qatnashchilar va "Qurani o'tkazish" tugmasi darrov ko'rinsin
+        setOpenCat((prev) => (prev ? (rows.find((r) => r.id === prev.id) ?? rows[0] ?? null) : (rows[0] ?? null)));
+      })
       .catch(() => setTCategories([]));
   }, []);
 
@@ -188,10 +194,40 @@ export default function AdminTournamentsPage() {
     loadCategories(t.id);
   }
 
+  /** "Joriy" musobaqa: hakam ro'yxati, planshet va TV shu musobaqaning o'yinlarini oladi */
+  async function setCurrent(t: Tournament, on: boolean) {
+    setError(null);
+    try {
+      if (on) {
+        for (const o of tournaments.filter((x) => x.status === 'LIVE' && x.id !== t.id)) {
+          await api.put(`/tournaments/${o.id}`, { status: 'UPCOMING' });
+        }
+      }
+      await api.put(`/tournaments/${t.id}`, { status: on ? 'LIVE' : 'UPCOMING' });
+      setMsg(on ? `"${t.name}" — joriy musobaqa (planshet va TV shuni oladi)` : `"${t.name}" joriy emas`);
+      const rows = await api.get<Tournament[]>('/tournaments');
+      setTournaments(rows);
+      setSelected(rows.find((x) => x.id === t.id) ?? null);
+    } catch (e) {
+      fail(e);
+    }
+  }
+
+  async function setTable(matchId: string, value: string) {
+    setError(null);
+    try {
+      await api.put(`/matches/${matchId}`, { tableNumber: Number(value) });
+      setMsg(`${value}-stol belgilandi`);
+      if (selected) loadMatches(selected.id);
+    } catch (e) {
+      fail(e);
+    }
+  }
+
   async function createTournament() {
     setError(null);
     try {
-      await api.post('/tournaments', {
+      const created = await api.post<Tournament>('/tournaments', {
         name: tForm.name,
         levelCode: tForm.levelCode,
         city: tForm.city || undefined,
@@ -202,6 +238,8 @@ export default function AdminTournamentsPage() {
       setTForm({ name: '', levelCode: 'NATIONAL', city: '', startDate: '', endDate: '' });
       setNewTournamentOpen(false);
       loadAll();
+      // yangi musobaqa ro'yxat tagida qolib ketmasin: darrov tanlanadi va qidiruvga qo'yiladi
+      if (created?.id) { setTSearch(tForm.name); selectTournament(created); }
     } catch (e) {
       fail(e);
     }
@@ -380,18 +418,31 @@ export default function AdminTournamentsPage() {
         </Card>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+      <div className={selected ? 'grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]' : 'grid gap-6'}>
         {/* 1-qadam: musobaqani tanlash */}
         <div>
-          <span className="eyebrow">1 · Musobaqa</span>
-          <div className="mt-3 space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <span className="eyebrow">1 · Musobaqa</span>
+            {selected && (
+              <button type="button" onClick={() => setSelected(null)} className="text-xs font-semibold text-accent-600">
+                ← Barchasi
+              </button>
+            )}
+          </div>
+          <input
+            value={tSearch}
+            onChange={(e) => setTSearch(e.target.value)}
+            placeholder={`Qidirish (jami ${tournaments.length} ta)…`}
+            className="mt-3 w-full rounded-md border border-border bg-surface-card px-3 py-2 text-sm sm:max-w-md"
+          />
+          <div className={selected ? 'mt-3 max-h-[70vh] space-y-2 overflow-y-auto pr-1' : 'mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4'}>
             {tournaments.length === 0 && (
               <EmptyState
                 title="Musobaqa yo‘q"
                 hint="Yuqoridagi tugma bilan birinchi musobaqani oching."
               />
             )}
-            {tournaments.map((t) => (
+            {[...tournaments].sort((a, b) => (b.createdAt ?? b.startDate).localeCompare(a.createdAt ?? a.startDate)).filter((t) => !tSearch.trim() || t.name.toLowerCase().includes(tSearch.trim().toLowerCase())).map((t) => (
               <button
                 key={t.id}
                 type="button"
@@ -402,7 +453,10 @@ export default function AdminTournamentsPage() {
                     : 'border-border bg-surface-card hover:border-border-strong'
                 }`}
               >
-                <div className="font-semibold">{t.name}</div>
+                <div className="font-semibold">
+                  {t.status === 'LIVE' && <span className="mr-1 text-live">●</span>}
+                  {t.name}
+                </div>
                 <div className="mt-0.5 text-xs text-muted">
                   {t.level.name} · {fmtDate(t.startDate)}
                 </div>
@@ -413,13 +467,27 @@ export default function AdminTournamentsPage() {
 
         {/* 2-3-qadam: guruhlar, arizalar, o'yinlar */}
         <div className="min-w-0 space-y-6">
-          {!selected ? (
-            <EmptyState
-              title="Musobaqani tanlang"
-              hint="Chapdagi ro‘yxatdan musobaqani tanlasangiz, guruhlari va o‘yinlari shu yerda ochiladi."
-            />
-          ) : (
+          {!selected ? null : (
             <>
+              <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-surface-card px-4 py-3">
+                <span className="text-sm">
+                  {selected.status === 'LIVE' ? (
+                    <b className="text-live">● Joriy musobaqa</b>
+                  ) : (
+                    <span className="text-muted">Bu musobaqa joriy emas</span>
+                  )}
+                </span>
+                <span className="text-xs text-muted">
+                  Hakam paneli, planshet va TV faqat joriy musobaqaning o‘yinlarini ko‘rsatadi.
+                </span>
+                <Button
+                  size="sm"
+                  variant={selected.status === 'LIVE' ? 'ghost' : 'primary'}
+                  onClick={() => setCurrent(selected, selected.status !== 'LIVE')}
+                >
+                  {selected.status === 'LIVE' ? 'Joriy emas qilish' : 'Joriy qilish'}
+                </Button>
+              </div>
               <Card
                 title={`2 · Guruhlar — ${selected.name}`}
                 description="O‘yinchilar faqat shu yerda ochilgan guruhlarga yozila oladi; yosh va jins avtomatik tekshiriladi."
@@ -514,7 +582,7 @@ export default function AdminTournamentsPage() {
                   categoryId={openCat.id}
                   title={catTitle(openCat)}
                   players={players}
-                  onChanged={() => loadCategories(selected.id)}
+                  onChanged={() => { loadCategories(selected.id); loadMatches(selected.id); }}
                 />
               )}
 
@@ -648,6 +716,39 @@ export default function AdminTournamentsPage() {
                         >
                           OBS overlay havolasi ↗
                         </a>
+                        {m.status === 'SCHEDULED' && (
+                          <span className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              min={1}
+                              max={64}
+                              placeholder="Stol №"
+                              defaultValue={m.tableNumber ?? ''}
+                              id={`table-${m.id}`}
+                              className="w-20 rounded-md border border-border px-2 py-1 text-xs"
+                            />
+                            <button
+                              type="button"
+                              className="rounded-md border border-border px-2 py-1 font-semibold hover:border-accent-500"
+                              onClick={() => {
+                                const v = (document.getElementById(`table-${m.id}`) as HTMLInputElement | null)?.value;
+                                if (v) void setTable(m.id, v);
+                              }}
+                            >
+                              Stol belgilash
+                            </button>
+                          </span>
+                        )}
+                        {m.tableNumber && (
+                          <>
+                            <a href={`/screen/${m.tableNumber}`} target="_blank" rel="noreferrer" className="font-semibold text-accent-500 hover:underline">
+                              TV (zal ekrani) ↗
+                            </a>
+                            <a href={`/overlay/table/${m.tableNumber}`} target="_blank" rel="noreferrer" className="font-semibold text-accent-500 hover:underline">
+                              Stol overlayi ↗
+                            </a>
+                          </>
+                        )}
                         <button
                           type="button"
                           onClick={() => regenerate(m.id)}

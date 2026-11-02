@@ -5,6 +5,7 @@ import { Type } from 'class-transformer';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { Revalidates } from '../../common/revalidate/revalidate.decorator';
 import { UttfSyncService } from './uttf-sync.service';
+import { UttfContentService } from './uttf-content.service';
 
 /**
  * uttf.uz sinxronizatsiyasi — FAQAT admin uchun.
@@ -14,8 +15,13 @@ import { UttfSyncService } from './uttf-sync.service';
  * permission talab qilinadi.
  */
 export class RunSyncDto {
-  @IsIn(['tournaments', 'tournament-names', 'players', 'videos', 'matches'])
-  scope!: 'tournaments' | 'tournament-names' | 'players' | 'videos' | 'matches';
+  @IsIn(['tournaments', 'tournament-names', 'players', 'videos', 'matches', 'news', 'clubs', 'photos'])
+  scope!: 'tournaments' | 'tournament-names' | 'players' | 'videos' | 'matches' | 'news' | 'clubs' | 'photos';
+
+  /** photos: mavjud (uttf-import) rasmlarni ham qayta yuklab almashtirish */
+  @IsOptional()
+  @IsBoolean()
+  force?: boolean;
 
   /**
    * Default TRUE — ataylab. Sinxronizatsiya hech qachon tasodifan
@@ -39,7 +45,10 @@ export class RunSyncDto {
 @Revalidates('tournaments', 'media', 'news')
 @Controller('uttf-sync')
 export class UttfSyncController {
-  constructor(private readonly sync: UttfSyncService) {}
+  constructor(
+    private readonly sync: UttfSyncService,
+    private readonly content: UttfContentService,
+  ) {}
 
   /** Manba va bizdagi holatni solishtiradi — hech narsa yozmaydi */
   @Get('status')
@@ -48,10 +57,20 @@ export class UttfSyncController {
     return this.sync.syncTournaments({ dryRun: true });
   }
 
+  /** Manba bilan aloqa va javob shaklini tekshiradi (yozmaydi) */
+  @Get('probe')
+  @RequirePermissions('uttf.sync')
+  probe() {
+    return this.content.probe();
+  }
+
   @Post('run')
   @RequirePermissions('uttf.sync')
   run(@Body() dto: RunSyncDto) {
     const dryRun = dto.dryRun ?? true;
+    if (dto.scope === 'news') return this.content.syncNews({ dryRun });
+    if (dto.scope === 'clubs') return this.content.syncClubs({ dryRun });
+    if (dto.scope === 'photos') return this.content.syncPhotos({ dryRun, limit: dto.limit, force: dto.force });
     if (dto.scope === 'tournament-names') {
       return this.sync.syncTournamentNames({ dryRun, limit: dto.limit });
     }

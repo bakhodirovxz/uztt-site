@@ -9,12 +9,22 @@ import { MatchStage, MatchStatus, Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { AssignmentService } from '../referee-assignment/assignment.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CryptoService } from '../../common/crypto/crypto.service';
+import { addPlayerPoints } from '../../common/points';
+import {
+  matchExactPoints,
+  placeBonus,
+  tournamentK,
+  wholeDelta,
+} from '../rankings/rating.engine';
+import { TelegramService } from '../showcase/telegram.service';
 import { LiveGateway } from '../live/live.gateway';
 import {
   applyPoint,
   pointAlert,
+  sideChangeDue,
   serverSlot,
   type ScoreState,
 } from './scoring.engine';
@@ -43,11 +53,43 @@ export class MatchesService {
     private readonly prisma: PrismaService,
     private readonly crypto: CryptoService,
     private readonly live: LiveGateway,
+    private readonly telegram: TelegramService,
+    private readonly assignment: AssignmentService,
   ) {}
 
   // ==================== PUBLIC O'QISH ====================
 
+  /**
+   * Eng ko'p so'raladigan ommaviy o'qishlar (jonli ro'yxat, stol bo'yicha joriy o'yin,
+   * jadval) uchun 1 soniyalik kesh + bir vaqtdagi bir xil so'rovlarni birlashtirish.
+   * 500 tomoshabin va 10 overlay har soniya bazani urmasin. Har yozuvdan keyin
+   * (`emitAndReturn`) kesh tozalanadi — natija kechikmaydi.
+   */
+  private readonly memoStore = new Map<
+    string,
+    { at: number; value: Promise<unknown> }
+  >();
+  private memo<T>(key: string, load: () => Promise<T>, ttlMs = 1000): Promise<T> {
+    const hit = this.memoStore.get(key);
+    if (hit && Date.now() - hit.at < ttlMs) return hit.value as Promise<T>;
+    const value = load();
+    this.memoStore.set(key, { at: Date.now(), value });
+    // Xato keshlanmaydi (masalan 404 "stolda o'yin yo'q")
+    value.catch(() => {
+      if (this.memoStore.get(key)?.value === value) this.memoStore.delete(key);
+    });
+    if (this.memoStore.size > 200) {
+      const oldest = this.memoStore.keys().next().value;
+      if (oldest !== undefined) this.memoStore.delete(oldest);
+    }
+    return value;
+  }
+
   async liveList() {
+    return this.memo('live', () => this.liveListUncached());
+  }
+
+  private async liveListUncached() {
     const matches = await this.prisma.match.findMany({
       where: { status: 'LIVE' },
       orderBy: { updatedAt: 'desc' },
@@ -79,6 +121,12 @@ export class MatchesService {
    * Ustuvorlik: LIVE → keyingi SCHEDULED → oxirgi FINISHED (natijani ko'rsatish uchun).
    */
   async currentByTable(tableNumber: number) {
+    return this.memo(`current:${tableNumber}`, () =>
+      this.currentByTableUncached(tableNumber),
+    );
+  }
+
+  private async currentByTableUncached(tableNumber: number) {
     const pick = async (
       where: Prisma.MatchWhereInput,
       orderBy: Prisma.MatchOrderByWithRelationInput[],
@@ -116,6 +164,12 @@ export class MatchesService {
 
   /** Monitor uchun "keyingi o'yinlar" jadvali (WTT Upcoming Match Slate) */
   async scheduleByTable(tableNumber: number) {
+    return this.memo(`schedule:${tableNumber}`, () =>
+      this.scheduleByTableUncached(tableNumber),
+    );
+  }
+
+  private async scheduleByTableUncached(tableNumber: number) {
     const rows = await this.prisma.match.findMany({
       where: { tableNumber, status: { in: ['SCHEDULED', 'LIVE'] } },
       orderBy: [
@@ -129,11 +183,43 @@ export class MatchesService {
     return rows.map((m) => this.toPublic(m));
   }
 
-  /** Hakam ro'yxati: bugungi rejalashtirilgan va jonli o'yinlar */
-  async refereeList() {
+  /**
+   * AYNI PAYTDAGI musobaqa(lar): ochiq (kutilayotgan yoki jonli) o'yini bor musobaqalar orasidan
+   * bugungi kunga eng yaqini (avval administrator "Joriy" deb belgilaganlar; bo'lmasa bugun o'tayotgan; bo'lmasa sanasi bugunga eng yaqin:
+   * kelasi yoki hali tugamagan o'tgan musobaqa). Bir xil masofadagilar hammasi.
+   */
+  async currentTournamentIds(): Promise<string[]> {
+    const t = new Date(Date.now() + 5 * 3_600_000); // UTC+5 (Toshkent)
+    const day = Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate());
+    const rows = await this.prisma.tournament.findMany({
+      where: { matches: { some: { status: { in: ['SCHEDULED', 'LIVE'] } } } },
+      select: { id: true, startDate: true, endDate: true, matches: { where: { status: 'LIVE' }, select: { id: true }, take: 1 } },
+    });
+    if (!rows.length) return [];
+    // Administrator "Joriy" (LIVE) deb belgilagan musobaqa — eng ustuvor
+    const marked = await this.prisma.tournament.findMany({
+      where: { status: 'LIVE', id: { in: rows.map((r) => r.id) } },
+      select: { id: true },
+    });
+    if (marked.length) return marked.map((r) => r.id);
+    const dist = (r: (typeof rows)[number]) => {
+      if (r.matches.length) return 0; // jonli o'yini bor
+      const a = r.startDate.getTime();
+      const b = r.endDate.getTime();
+      if (day >= a && day <= b + 86_399_999) return 0;
+      return Math.min(Math.abs(day - a), Math.abs(day - b));
+    };
+    const best = Math.min(...rows.map(dist));
+    return rows.filter((r) => dist(r) === best).map((r) => r.id);
+  }
+
+  /** Hakam ro'yxati: faqat ayni paytdagi musobaqa o'yinlari. `all=true` — hammasi (admin uchun). */
+  async refereeList(opts: { all?: boolean } = {}) {
+    const where: Prisma.MatchWhereInput = { status: { in: ['SCHEDULED', 'LIVE'] } };
+    if (!opts.all) where.tournamentId = { in: await this.currentTournamentIds() };
     const matches = await this.prisma.match.findMany({
-      where: { status: { in: ['SCHEDULED', 'LIVE'] } },
-      orderBy: [{ tableNumber: 'asc' }, { scheduledAt: 'asc' }],
+      where,
+      orderBy: [{ status: 'desc' }, { tableNumber: { sort: 'asc', nulls: 'last' } }, { scheduledAt: 'asc' }],
       include: this.publicInclude(),
     });
     return matches.map((m) => this.toPublic(m));
@@ -246,10 +332,20 @@ export class MatchesService {
    * ham rollback bo'lib, blokirovka hech qachon ishlamas edi. Natija qaytariladi,
    * xato tranzaksiya yopilgandan keyin otiladi.
    */
-  async verify(matchId: string, code: string, userId: string) {
+  async verify(matchId: string, code: string, userId: string, isManager = false) {
     const outcome = await this.prisma.$transaction(async (tx) => {
       const match = await this.lockMatch(tx, matchId);
       if (match.refereeCodeLocked) return { kind: 'locked' as const };
+
+      // Hakam tayinlangan bo'lsa — faqat yetakchi/yordamchi hakam (yoki administrator) kirishi mumkin
+      if (
+        match.refereeUserId &&
+        !isManager &&
+        userId !== match.refereeUserId &&
+        userId !== match.assistantUserId
+      ) {
+        throw new ForbiddenException('Bu o‘yinga boshqa hakam tayinlangan');
+      }
 
       if (this.crypto.sha256(code) !== match.refereeCodeHash) {
         const attempts = match.refereeCodeAttempts + 1;
@@ -261,6 +357,12 @@ export class MatchesService {
           },
         });
         return { kind: 'wrong' as const, attempts };
+      }
+
+      // 4.6.1.1: musobaqa ishtirokchisi shu musobaqada hakam bo'la olmaydi
+      const own = await tx.player.findUnique({ where: { userId }, select: { id: true } });
+      if (own && (own.id === match.player1Id || own.id === match.player2Id)) {
+        throw new ForbiddenException("O'yinchi o'z uchrashuvida hakam bo'la olmaydi (4.6.1.1)");
       }
 
       const updated = await tx.match.update({
@@ -295,102 +397,117 @@ export class MatchesService {
 
   /** Ochko qo'shish — scoring engine + snapshot + ball berish, bitta tranzaksiyada */
   async point(matchId: string, player: 1 | 2, userId: string) {
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const match = await this.lockMatch(tx, matchId);
-      this.assertVerified(match);
-      if (match.status === 'FINISHED') {
-        throw new BadRequestException("O'yin allaqachon yakunlangan");
-      }
-      if (!match.player1Id || !match.player2Id) {
-        throw new BadRequestException("O'yinchilar belgilanmagan");
-      }
+    const updated = await this.prisma.$transaction((tx) =>
+      this.pointTx(tx, matchId, player, userId),
+    );
+    return this.emitAndReturn(updated);
+  }
 
-      const sets = await tx.matchSet.findMany({
-        where: { matchId },
-        orderBy: { setNumber: 'asc' },
-      });
-      const cards = await tx.matchCard.findMany({ where: { matchId } });
+  /** Bitta ochko (tranzaksiya ichida) — jarima ochkolari ham shu orqali beriladi */
+  private async pointTx(
+    tx: Tx,
+    matchId: string,
+    player: 1 | 2,
+    userId: string,
+  ) {
+    const match = await this.lockMatch(tx, matchId);
+    this.assertVerified(match);
+    if (match.status === 'FINISHED') {
+      throw new BadRequestException("O'yin allaqachon yakunlangan");
+    }
+    if (!match.player1Id || !match.player2Id) {
+      throw new BadRequestException("O'yinchilar belgilanmagan");
+    }
 
-      // Amaldan OLDINGI holat — undo uchun
-      const snapshot: PointSnapshot = {
-        currentSetP1: match.currentSetP1,
-        currentSetP2: match.currentSetP2,
-        setIds: sets.map((s) => s.id),
-        cardIds: cards.map((c) => c.id),
-        player1SetsWon: match.player1SetsWon,
-        player2SetsWon: match.player2SetsWon,
-        status: match.status,
-        winnerId: match.winnerId,
-        pointsAwarded: match.pointsAwarded,
-      };
+    const sets = await tx.matchSet.findMany({
+      where: { matchId },
+      orderBy: { setNumber: 'asc' },
+    });
+    const cards = await tx.matchCard.findMany({ where: { matchId } });
 
-      const state: ScoreState = {
-        bestOf: match.bestOf,
-        status: match.status,
-        currentSet: { p1: match.currentSetP1, p2: match.currentSetP2 },
-        sets: sets.map((s) => ({ p1: s.p1Points, p2: s.p2Points })),
-        player1SetsWon: match.player1SetsWon,
-        player2SetsWon: match.player2SetsWon,
-        winnerSlot: null,
-      };
-      const r = applyPoint(state, player);
+    // Amaldan OLDINGI holat — undo uchun
+    const snapshot: PointSnapshot = {
+      currentSetP1: match.currentSetP1,
+      currentSetP2: match.currentSetP2,
+      setIds: sets.map((s) => s.id),
+      cardIds: cards.map((c) => c.id),
+      player1SetsWon: match.player1SetsWon,
+      player2SetsWon: match.player2SetsWon,
+      status: match.status,
+      winnerId: match.winnerId,
+      pointsAwarded: match.pointsAwarded,
+    };
 
-      if (r.setFinished) {
-        const done = r.state.sets[r.state.sets.length - 1];
-        await tx.matchSet.create({
-          data: {
-            matchId,
-            setNumber: r.state.sets.length,
-            p1Points: done.p1,
-            p2Points: done.p2,
-          },
-        });
-      }
+    const state: ScoreState = {
+      bestOf: match.bestOf,
+      status: match.status,
+      currentSet: { p1: match.currentSetP1, p2: match.currentSetP2 },
+      sets: sets.map((s) => ({ p1: s.p1Points, p2: s.p2Points })),
+      player1SetsWon: match.player1SetsWon,
+      player2SetsWon: match.player2SetsWon,
+      winnerSlot: null,
+    };
+    const r = applyPoint(state, player);
 
-      let winnerId: string | null = match.winnerId;
-      let pointsAwarded = match.pointsAwarded;
-      if (r.matchFinished) {
-        winnerId = r.state.winnerSlot === 1 ? match.player1Id : match.player2Id;
-        pointsAwarded = await this.awardPoints(tx, {
-          matchId,
-          tournamentId: match.tournamentId,
-          stage: match.stage,
-          winnerId: winnerId,
-          loserId:
-            winnerId === match.player1Id ? match.player2Id : match.player1Id,
-        });
-        await this.propagateWinner(tx, match, winnerId);
-      }
-
-      const updatedMatch = await tx.match.update({
-        where: { id: matchId },
-        data: {
-          status: r.state.status,
-          currentSetP1: r.state.currentSet.p1,
-          currentSetP2: r.state.currentSet.p2,
-          player1SetsWon: r.state.player1SetsWon,
-          player2SetsWon: r.state.player2SetsWon,
-          winnerId,
-          pointsAwarded,
-          seq: { increment: 1 },
-        },
-        include: this.publicInclude(),
-      });
-
-      await tx.matchEvent.create({
+    if (r.setFinished) {
+      const done = r.state.sets[r.state.sets.length - 1];
+      await tx.matchSet.create({
         data: {
           matchId,
-          seq: updatedMatch.seq,
-          type: 'POINT',
-          payload: { player, snapshot } as unknown as Prisma.InputJsonValue,
-          actorUserId: userId,
+          setNumber: r.state.sets.length,
+          p1Points: done.p1,
+          p2Points: done.p2,
         },
       });
+    }
 
-      return updatedMatch;
+    let winnerId: string | null = match.winnerId;
+    let pointsAwarded = match.pointsAwarded;
+    if (r.matchFinished) {
+      winnerId = r.state.winnerSlot === 1 ? match.player1Id : match.player2Id;
+      pointsAwarded = await this.awardPoints(tx, {
+        matchId,
+        tournamentId: match.tournamentId,
+        stage: match.stage,
+        hasThirdPlace: !!match.loserNextMatchId,
+        winnerId: winnerId,
+        loserId:
+          winnerId === match.player1Id ? match.player2Id : match.player1Id,
+      });
+      await this.propagateWinner(tx, match, winnerId);
+      await this.propagateLoser(
+        tx,
+        match,
+        winnerId === match.player1Id ? match.player2Id : match.player1Id,
+      );
+    }
+
+    const updatedMatch = await tx.match.update({
+      where: { id: matchId },
+      data: {
+        status: r.state.status,
+        currentSetP1: r.state.currentSet.p1,
+        currentSetP2: r.state.currentSet.p2,
+        player1SetsWon: r.state.player1SetsWon,
+        player2SetsWon: r.state.player2SetsWon,
+        winnerId,
+        pointsAwarded,
+        seq: { increment: 1 },
+      },
+      include: this.publicInclude(),
     });
 
-    return this.emitAndReturn(updated);
+    await tx.matchEvent.create({
+      data: {
+        matchId,
+        seq: updatedMatch.seq,
+        type: 'POINT',
+        payload: { player, snapshot } as unknown as Prisma.InputJsonValue,
+        actorUserId: userId,
+      },
+    });
+
+    return updatedMatch;
   }
 
   /** Oxirgi ochkoni bekor qilish — snapshot tiklanadi, ball qaytariladi */
@@ -416,6 +533,7 @@ export class MatchesService {
         match.winnerId
       ) {
         await this.unpropagateWinner(tx, match);
+        await this.unpropagateLoser(tx, match);
         // Reglament bo'yicha bir o'yinda bir NECHTA o'yinchi ball olishi
         // mumkin (masalan finalda ikkalasi ham). Shuning uchun jurnal
         // yozuvlarining o'zi teskari qilinadi — bitta "pointsAwarded"
@@ -424,14 +542,12 @@ export class MatchesService {
           where: { matchId, reason: 'MATCH_WIN' },
         });
         for (const row of awarded) {
-          await tx.player.update({
-            where: { id: row.playerId },
-            data: { rankingPoints: { decrement: row.delta } },
-          });
+          await addPlayerPoints(tx, row.playerId, -row.delta);
           await tx.playerPointsLog.create({
             data: {
               playerId: row.playerId,
               delta: -row.delta,
+              exact: row.exact === null ? null : -row.exact,
               reason: 'UNDO',
               matchId,
               tournamentId: match.tournamentId,
@@ -494,16 +610,37 @@ export class MatchesService {
         throw new BadRequestException("O'yin allaqachon yakunlangan");
       }
       const setCount = await tx.matchSet.count({ where: { matchId } });
+
+      // Qoidalar 3.5.2.2–3.5.2.4: YELLOW — qoidabuzarlik qayd etildi.
+      //  1-chi qoidabuzarlik: ogohlantirish (sariq);
+      //  2-chi: raqibga 1 ochko (sariq + qizil birga);
+      //  3-chi: raqibga 2 ochko (sariq + qizil birga);
+      //  4-chi: o'yin to'xtatilib, bosh hakamga xabar beriladi (diskvalifikatsiya qarori).
+      // RED (qo'lda) — bosh hakam qarori; faqat qayd etiladi, ochko berilmaydi.
+      let penaltyPoints = 0;
+      let storedType: 'YELLOW' | 'RED' = type;
+      if (type === 'YELLOW') {
+        const prior = await tx.matchCard.count({ where: { matchId, player } });
+        if (prior >= 3) {
+          throw new BadRequestException(
+            "4-qoidabuzarlik: o'yinni to'xtating va bosh hakamga xabar bering (diskvalifikatsiya qarori) — 3.5.2.4",
+          );
+        }
+        penaltyPoints = prior; // 0, 1, 2
+        if (prior > 0) storedType = 'RED';
+      }
+
       await tx.matchCard.create({
         data: {
           matchId,
           player,
-          type,
+          type: storedType,
           setNumber: setCount + 1,
           issuedByUserId: userId,
         },
       });
-      const updatedMatch = await tx.match.update({
+
+      let updatedMatch = await tx.match.update({
         where: { id: matchId },
         data: { seq: { increment: 1 } },
         include: this.publicInclude(),
@@ -513,13 +650,59 @@ export class MatchesService {
           matchId,
           seq: updatedMatch.seq,
           type: 'CARD',
-          payload: { player, cardType: type },
+          payload: { player, cardType: storedType, penaltyPoints },
+          actorUserId: userId,
+        },
+      });
+
+      // Jarima ochkolari raqibga oddiy ochko sifatida (undo ham ishlaydi)
+      const opponent: 1 | 2 = player === 1 ? 2 : 1;
+      for (let i = 0; i < penaltyPoints; i++) {
+        if (updatedMatch.status === 'FINISHED') break;
+        updatedMatch = await this.pointTx(tx, matchId, opponent, userId);
+      }
+      return updatedMatch;
+    });
+
+    return this.emitAndReturn(updated);
+  }
+
+  /**
+   * Taym-aut (3.4.4.2): har o'yinchi o'yin davomida BIR marta, 1 daqiqagacha. Faqat o'yin davomida
+   * (ochkolar orasida) olinadi; ikkala tomon bir vaqtda so'rasa ham ikkalasi bittadan sarflaydi.
+   */
+  async timeout(matchId: string, player: 1 | 2, userId: string) {
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const match = await this.lockMatch(tx, matchId);
+      this.assertVerified(match);
+      if (match.status === 'FINISHED') {
+        throw new BadRequestException("O'yin allaqachon yakunlangan");
+      }
+      const used = player === 1 ? match.timeoutP1Used : match.timeoutP2Used;
+      if (used) {
+        throw new BadRequestException("Bu o'yinchi taym-autni allaqachon olgan (o'yinda bir marta)");
+      }
+      const updatedMatch = await tx.match.update({
+        where: { id: matchId },
+        data: {
+          ...(player === 1 ? { timeoutP1Used: true } : { timeoutP2Used: true }),
+          timeoutPlayer: player,
+          timeoutUntil: new Date(Date.now() + 60_000),
+          seq: { increment: 1 },
+        },
+        include: this.publicInclude(),
+      });
+      await tx.matchEvent.create({
+        data: {
+          matchId,
+          seq: updatedMatch.seq,
+          type: 'TIMEOUT',
+          payload: { player },
           actorUserId: userId,
         },
       });
       return updatedMatch;
     });
-
     return this.emitAndReturn(updated);
   }
 
@@ -603,6 +786,116 @@ export class MatchesService {
 
   // ==================== ICHKI ====================
 
+  /**
+   * Nizom (rasmiy) hisobi. ҒР/ЮР — musobaqadan OLDINGI reyting: joriy ball minus shu
+   * musobaqada yozilgan jurnal. Texnik g'alaba / raqibsiz (loserId yo'q) — ball yo'q (21-band).
+   * Butun ball: yig'indiga yaxlitlanadi (xato yig'ilmaydi), `exact` jurnalda saqlanadi.
+   */
+  private async awardOfficial(
+    tx: Tx,
+    args: {
+      matchId: string;
+      tournamentId: string;
+      stage: MatchStage;
+      hasThirdPlace?: boolean;
+      winnerId: string;
+      loserId: string | null;
+    },
+    cfg: { k: number },
+  ): Promise<number> {
+    if (!args.loserId) return 0;
+
+    const preRating = async (playerId: string): Promise<number> => {
+      const [p, logged] = await Promise.all([
+        tx.player.findUniqueOrThrow({
+          where: { id: playerId },
+          select: { rankingPoints: true },
+        }),
+        tx.playerPointsLog.aggregate({
+          where: { playerId, tournamentId: args.tournamentId },
+          _sum: { delta: true },
+        }),
+      ]);
+      return p.rankingPoints - (logged._sum.delta ?? 0);
+    };
+
+    const [gr, yr] = await Promise.all([
+      preRating(args.winnerId),
+      preRating(args.loserId),
+    ]);
+    // Nizom 28: reyting tizimidan chiqarilgan (INACTIVE) sportchi ball olmaydi va yo'qotmaydi
+    const inactive = new Set(
+      (
+        await tx.player.findMany({
+          where: { id: { in: [args.winnerId, args.loserId] }, status: 'INACTIVE' },
+          select: { id: true },
+        })
+      ).map((p) => p.id),
+    );
+    const exact = matchExactPoints({
+      winnerRating: gr,
+      loserRating: yr,
+      k: cfg.k,
+    });
+
+    let winnerDelta = 0;
+    const sides: Array<[string, number, string]> = [
+      [args.winnerId, exact.winner, "Nizom: g'alaba"],
+      [args.loserId, exact.loser, 'Nizom: mag‘lubiyat'],
+    ];
+    for (const [playerId, exactDelta, note] of sides) {
+      const sums = await tx.playerPointsLog.aggregate({
+        where: { playerId, tournamentId: args.tournamentId, exact: { not: null } },
+        _sum: { exact: true, delta: true },
+      });
+      const delta = wholeDelta({
+        exactTotalAfter: (sums._sum.exact ?? 0) + exactDelta,
+        wholeSoFar: sums._sum.delta ?? 0,
+      });
+      if (inactive.has(playerId)) continue;
+      if (playerId === args.winnerId) winnerDelta = delta;
+      if (delta === 0 && exactDelta === 0) continue;
+      await addPlayerPoints(tx, playerId, delta);
+      await tx.playerPointsLog.create({
+        data: {
+          playerId,
+          delta,
+          exact: exactDelta,
+          reason: 'MATCH_WIN',
+          matchId: args.matchId,
+          tournamentId: args.tournamentId,
+          note,
+        },
+      });
+    }
+
+    // 1–8-o'rin bonuslari (Б) — o'rin aniq bo'lgan zahoti beriladi (efirda reyting yangilanishi shu bilan ko'rinadi):
+    // final: 1/2; 3-o'rin o'yini: 3/4; chorak final yutqazgani: 5; yarim final yutqazgani — 3-o'rin o'yini bo'lmasa 3.
+    const places: Array<[string, number]> = [];
+    if (args.stage === 'FINAL') places.push([args.winnerId, 1], [args.loserId, 2]);
+    else if (args.stage === 'THIRD_PLACE') places.push([args.winnerId, 3], [args.loserId, 4]);
+    else if (args.stage === 'QUARTERFINAL') places.push([args.loserId, 5]);
+    else if (args.stage === 'SEMIFINAL' && !args.hasThirdPlace) places.push([args.loserId, 3]);
+    for (const [playerId, place] of places) {
+      if (inactive.has(playerId)) continue;
+      const bonus = placeBonus(place, cfg.k);
+      if (bonus <= 0) continue;
+      await addPlayerPoints(tx, playerId, bonus);
+      await tx.playerPointsLog.create({
+        data: {
+          playerId,
+          delta: bonus,
+          reason: 'MATCH_WIN',
+          matchId: args.matchId,
+          tournamentId: args.tournamentId,
+          note: `Nizom: bonus (${place}-o'rin)`,
+        },
+      });
+      if (playerId === args.winnerId) winnerDelta += bonus;
+    }
+    return winnerDelta;
+  }
+
   /** Legacy: stageBase × koeffitsiyent; log + kesh yangilash */
   /**
    * Ballarni musobaqa DARAJASI REGLAMENTI bo'yicha beradi.
@@ -618,14 +911,26 @@ export class MatchesService {
       matchId: string;
       tournamentId: string;
       stage: MatchStage;
+      /** Yarim finaldan yutqazgan 3-o'rin o'yiniga o'tadimi (bonus 3/4 ni ajratish uchun) */
+      hasThirdPlace?: boolean;
       winnerId: string;
       loserId: string | null;
     },
   ): Promise<number> {
     const tournament = await tx.tournament.findUnique({
       where: { id: args.tournamentId },
-      include: { level: { include: { pointsRules: true } } },
+      include: {
+        level: { include: { pointsRules: true } },
+        ageCategory: { select: { code: true } },
+      },
     });
+
+    // Rasmiy Nizom: 1–3-formulalar (K · МРБ). Eski qat'iy ballar faqat LEGACY rejimda.
+    if (tournament?.level.ratingMode === 'OFFICIAL') {
+      return this.awardOfficial(tx, args, {
+        k: tournamentK(tournament.level.ratingK, tournament.ageCategory?.code),
+      });
+    }
 
     const rules = new Map(
       (tournament?.level.pointsRules ?? []).map((r) => [r.key, r.points]),
@@ -669,10 +974,7 @@ export class MatchesService {
     });
 
     for (const award of awards) {
-      await tx.player.update({
-        where: { id: award.playerId },
-        data: { rankingPoints: { increment: award.points } },
-      });
+      await addPlayerPoints(tx, award.playerId, award.points);
       await tx.playerPointsLog.create({
         data: {
           playerId: award.playerId,
@@ -701,6 +1003,32 @@ export class MatchesService {
         match.nextMatchSlot === 1
           ? { player1Id: winnerId }
           : { player2Id: winnerId },
+    });
+  }
+
+  /** Yarim final yutqazgani — 3-o'rin uchun o'yin slotiga (agar bunday o'yin bor bo'lsa) */
+  private async propagateLoser(
+    tx: Tx,
+    match: { loserNextMatchId: string | null; loserNextMatchSlot: number | null },
+    loserId: string | null,
+  ) {
+    if (!match.loserNextMatchId || !match.loserNextMatchSlot || !loserId) return;
+    await tx.match.update({
+      where: { id: match.loserNextMatchId },
+      data: match.loserNextMatchSlot === 1 ? { player1Id: loserId } : { player2Id: loserId },
+    });
+  }
+
+  private async unpropagateLoser(
+    tx: Tx,
+    match: { loserNextMatchId: string | null; loserNextMatchSlot: number | null },
+  ) {
+    if (!match.loserNextMatchId || !match.loserNextMatchSlot) return;
+    const next = await tx.match.findUnique({ where: { id: match.loserNextMatchId }, select: { status: true } });
+    if (next?.status !== 'SCHEDULED') return;
+    await tx.match.update({
+      where: { id: match.loserNextMatchId },
+      data: match.loserNextMatchSlot === 1 ? { player1Id: null } : { player2Id: null },
     });
   }
 
@@ -761,6 +1089,8 @@ export class MatchesService {
 
   private publicInclude() {
     return {
+      referee: { select: { firstName: true, lastName: true } },
+      assistant: { select: { firstName: true, lastName: true } },
       // rankingPoints — g'olib kartochkasi uchun; qo'shimcha so'rov qilmaslik uchun
       // shu yerda olinadi (g'olib har doim player1 yoki player2 bo'ladi)
       player1: {
@@ -856,6 +1186,7 @@ export class MatchesService {
       seq: m.seq,
       server: live ? serverSlot(state) : null,
       pointAlert: live ? pointAlert(state) : null,
+      sideChange: live ? sideChangeDue(state) : false,
       player1: m.player1,
       player2: m.player2,
       player1Name: m.player1
@@ -870,12 +1201,23 @@ export class MatchesService {
       player2SetsWon: m.player2SetsWon,
       sets: m.sets,
       cards: m.cards,
+      timeout: {
+        p1Used: m.timeoutP1Used,
+        p2Used: m.timeoutP2Used,
+        activePlayer: m.timeoutUntil && m.timeoutUntil.getTime() > Date.now() ? m.timeoutPlayer : null,
+        activeUntil: m.timeoutUntil && m.timeoutUntil.getTime() > Date.now() ? m.timeoutUntil : null,
+        // Mijoz soati server soatidan farq qilsa ham hisoblagich to'g'ri ishlashi uchun qolgan vaqt (ms)
+        remainingMs: m.timeoutUntil ? Math.max(0, m.timeoutUntil.getTime() - Date.now()) : 0,
+      },
       winnerId: m.winnerId,
       winnerInfo,
       refereeVerified: m.refereeVerifiedAt !== null,
       disqualifiedPlayerId: m.disqualifiedPlayerId,
       disqualificationReason: m.disqualificationReason,
       disqualificationAudioUrl: m.disqualificationAudioUrl,
+      // Faqat ism — id/email ommaga chiqmaydi
+      referee: m.referee ? `${m.referee.firstName} ${m.referee.lastName}` : null,
+      assistant: m.assistant ? `${m.assistant.firstName} ${m.assistant.lastName}` : null,
     };
   }
 
@@ -885,7 +1227,14 @@ export class MatchesService {
     }>,
   ) {
     const payload = this.toPublic(m);
+    this.memoStore.clear(); // yangi holat darhol ko'rinsin
     this.live.emitScoreUpdate(m.id, m.tournamentId, payload);
+    // O'yin tugadi: Telegram guruhiga natija va rasmlar (fonda; xato o'yinga ta'sir qilmaydi)
+    if (m.status === 'FINISHED' && m.winnerId) {
+      this.telegram.notifyFinished(m.id, m.seq);
+      // Keyingi bosqichda yangi juftliklar aniq bo'ldi — hakami yo'q o'yinlarga tayinlash (fonda)
+      this.assignment.autoAssignInBackground(m.tournamentId);
+    }
     return payload;
   }
 }

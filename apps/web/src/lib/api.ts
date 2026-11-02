@@ -35,7 +35,11 @@ async function request<T>(
   if (!res.ok) {
     let message = res.statusText;
     try {
-      const data = (await res.json()) as { message?: string | string[] };
+      const data = (await res.json()) as { message?: string | string[]; code?: string };
+      // Boshlang'ich parol: parol almashtirilmaguncha hamma amal yopiq → almashtirish sahifasiga
+      if (res.status === 403 && data.code === 'PASSWORD_CHANGE_REQUIRED' && typeof window !== 'undefined' && !window.location.pathname.endsWith('/account')) {
+        window.location.assign('/account');
+      }
       message = Array.isArray(data.message)
         ? data.message.join(', ')
         : (data.message ?? message);
@@ -78,4 +82,5 @@ export interface AuthUser {
   email: string;
   roles: string[];
   permissions: string[];
+  mustChangePassword?: boolean;
 }

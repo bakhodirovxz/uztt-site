@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
+import { PhotoUploader } from '@/components/player/photo-uploader';
 import { api, ApiError, type AuthUser } from '@/lib/api';
 
 interface CoachPlayer {
@@ -242,6 +243,7 @@ export default function CoachPanelPage() {
                   </span>
                 </div>
                 <span className="font-mono text-xs text-muted">{p.licenseNumber}</span>
+                <PhotoUploader playerId={p.id} compact />
                 <button
                   type="button"
                   onClick={() => act(() => api.del(`/coach/players/${p.id}`), "O'chirildi")}

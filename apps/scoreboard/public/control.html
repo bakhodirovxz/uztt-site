@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Ball kiritish</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{margin:0;background:#1f2021;color:#e9e6df;font-family:system-ui,Segoe UI,Roboto,sans-serif;overscroll-behavior:none;overflow-x:hidden}
+button{font:inherit;color:inherit;border:0;touch-action:manipulation;cursor:pointer}
+button:active{filter:brightness(1.35)}
+button:disabled{opacity:.35}
+.app{min-height:100vh;display:flex;flex-direction:column;padding:1.2vh 1.6vw 0;gap:1.2vh}
+/* sarlavha */
+.ttl{text-align:center;font-size:clamp(22px,4vh,38px);font-weight:700;letter-spacing:.01em;position:relative}
+.dot{position:absolute;left:0;top:50%;width:12px;height:12px;margin-top:-6px;border-radius:50%;background:#e5484d}
+.dot.on{background:#30a46c}
+.sw{position:absolute;right:0;top:50%;transform:translateY(-50%);background:#2b2d2e;border-radius:10px;padding:6px 14px;font-size:18px}
+.info{display:flex;justify-content:space-between;gap:12px;font-size:clamp(14px,2.2vh,20px);color:#a9a69f;padding:0 .4vw}
+.info b{color:#e9e6df;font-weight:600}
+/* o'yinchilar kartalari + hisob jadvali */
+.band{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr) minmax(0,1fr);gap:1.6vw;align-items:stretch}
+.pc{background:#2a2c2d;border-radius:18px;padding:1.4vh 1.2vw;display:flex;align-items:center;gap:1.2vw;min-width:0;position:relative}
+.pc.r{flex-direction:row-reverse;text-align:right}
+.pc.win{box-shadow:0 0 0 3px #30a46c inset}
+.ph{width:clamp(54px,11vh,104px);height:clamp(54px,11vh,104px);border-radius:50%;overflow:hidden;flex:none;background:#3a3d3f;display:flex;align-items:center;justify-content:center;font-size:clamp(20px,4vh,36px);font-weight:700;border:2px solid #3d4143}
+.ph .flag{width:100%;height:100%;object-fit:cover;border-radius:0}
+.pn{flex:1;min-width:0;font-size:clamp(17px,3vh,28px);font-weight:700;line-height:1.2}
+.pn span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pn small{display:block;font-size:.72em;font-weight:500;opacity:.75;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill{flex:none;min-width:clamp(46px,7vh,70px);height:clamp(40px,7vh,64px);display:flex;align-items:center;justify-content:center;background:#1b5e66;border-radius:999px;font-size:clamp(22px,4vh,36px);font-weight:700}
+.rk{position:absolute;bottom:.8vh;left:1.1vw;font-size:clamp(20px,3.4vh,30px);background:none;opacity:.22;padding:0;filter:grayscale(1)}
+.pc.r .rk{left:auto;right:1.1vw}
+.rk.on{opacity:1;filter:none}
+.tbl{background:#26373a;border-radius:16px;padding:1.2vh 1vw;display:grid;grid-template-columns:1fr 1fr;gap:.6vh .8vw;align-content:center}
+.tbl .h{text-align:center;font-size:clamp(14px,2.4vh,22px);font-weight:600;padding-bottom:.5vh;border-bottom:2px solid #1b5e66;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tbl .c{background:#17191a;border-radius:10px;text-align:center;font-size:clamp(16px,3vh,28px);font-weight:600;padding:.3vh 0;color:#d6d3cc}
+.tbl .c.dim{color:#5f6264}
+.tbl .c.live{background:#1b5e66;color:#fff}
+.tbl .c.w{color:#fff;font-weight:800}
+/* boshqaruv */
+.ctl{flex:1;display:flex;gap:1.6vw;min-height:0;padding-bottom:1.4vh}
+.side{flex:1;display:flex;flex-direction:column;min-width:0;gap:1vh}
+.s1r{display:flex;justify-content:space-between;align-items:center}
+.s2r{flex:1;display:flex;align-items:center;gap:1.6vw;min-height:0}
+.side.r .s2r{flex-direction:row-reverse}
+.lt{width:clamp(44px,6.5vh,64px);height:clamp(44px,6.5vh,64px);border-radius:12px;background:#2a2c2d;font-size:clamp(22px,3.6vh,32px);font-weight:800}
+.lt.w{color:#7be07b}.lt.t{color:#ff5c5c}
+.side.r .s1r{flex-direction:row-reverse}
+.plus{--d:min(36vh,26vw);width:var(--d);height:var(--d);flex:none;border-radius:50%;background:#175c63;border:2px solid #1f7882;display:flex;align-items:center;justify-content:center}
+.plus:before,.plus:after{content:"";position:absolute}
+.plus{position:relative}
+.plus:before{width:42%;height:9%;background:#ece8de;border-radius:6px}
+.plus:after{width:9%;height:42%;background:#ece8de;border-radius:6px}
+.plus:active{filter:brightness(1.3);transform:scale(.98)}
+.sb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.4vh;min-width:0}
+.sc{font-size:clamp(70px,22vh,210px);font-weight:700;line-height:1;color:#e9e6df;font-variant-numeric:tabular-nums}
+.mr{display:flex;gap:1vw;align-items:center}
+.minus{width:clamp(56px,10vh,96px);height:clamp(56px,10vh,96px);border-radius:50%;background:#a01414;font-size:clamp(34px,6vh,56px);font-weight:700;line-height:1;display:flex;align-items:center;justify-content:center;padding:0}
+.card{width:clamp(30px,5vh,48px);height:clamp(30px,5vh,48px);border-radius:6px;position:relative;padding:0;opacity:.85}
+.card.y{background:#c9c11d}.card.r{background:#b3173f}
+.card.y.on{opacity:1;box-shadow:0 0 0 3px #fff6}
+.card i{position:absolute;right:-6px;top:-8px;background:#fff;color:#000;border-radius:999px;font:700 13px system-ui;padding:1px 6px;font-style:normal}
+.cen{display:flex;flex-direction:column;align-items:center;justify-content:space-between;flex:none}
+.fin{display:flex;border-radius:16px;overflow:hidden;background:#2f4b1f}
+.fin button{background:transparent}
+.fin .f{padding:0 clamp(18px,2.4vw,40px);height:clamp(52px,8vh,76px);font-size:clamp(18px,2.8vh,26px);font-weight:700;color:#8ee06b;background:#2f4b1f;white-space:nowrap}
+.fin .a{width:clamp(44px,6vh,60px);height:clamp(52px,8vh,76px);background:#5d1425;color:#ff6b6b;font-size:clamp(20px,3vh,28px);font-weight:800}
+.vs{width:clamp(48px,7vh,70px);height:clamp(48px,7vh,70px);border-radius:50%;border:4px solid #3a3d3f;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:clamp(16px,2.6vh,24px);color:#b9b6ae;margin-bottom:clamp(30px,10vh,110px)}
+/* xabarlar */
+.toasts{position:fixed;left:50%;top:8.5vh;transform:translateX(-50%);z-index:30;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none;width:min(92vw,900px)}
+.tst{display:none;padding:8px 18px;border-radius:12px;font-size:clamp(16px,2.6vh,22px);font-weight:700;text-align:center;pointer-events:auto}
+.tst.show{display:flex;align-items:center;gap:14px;justify-content:center}
+.tst.ends{background:#7a5c00;color:#fff3c4}.tst.pt{background:#5b1a8f}.tst.to{background:#8a3b00}
+.tst button{background:#8b2b2b;border-radius:10px;padding:6px 14px;font-size:16px}
+@media (orientation:portrait){
+  .band{grid-template-columns:1fr 1fr}.tbl{grid-column:1/-1;order:3}
+  .ctl{flex-direction:column}.cen{flex-direction:row;justify-content:center;gap:16px}.vs{margin:0}
+  .plus{--d:min(30vh,40vw)}
+}
+/* sozlamalar oynasi */
+details{margin:0 1.6vw 1.4vh;background:#2a2c2d;border-radius:14px;padding:10px 14px}
+summary{font-size:18px;font-weight:600;padding:6px 0}
+.form{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px}
+label{display:flex;flex-direction:column;font-size:13px;color:#a9a69f;gap:4px}
+label.chk{flex-direction:row;align-items:center;gap:10px;font-size:16px;color:#fff}
+label.chk input{width:24px;height:24px}
+input,select{font:inherit;font-size:18px;padding:10px;border-radius:10px;border:1px solid #3a3d3f;background:#17191a;color:#fff;user-select:text;width:100%}
+.form button{background:#3a3d3f;border-radius:12px;padding:14px 10px;font-size:18px;font-weight:600}
+.full{grid-column:1/-1}
+h4{grid-column:1/-1;margin:8px 0 0;font-size:15px;color:#58a6ff;font-weight:600}
+.links a{color:#58a6ff;margin-right:14px}
+.green{background:#1a7f4b!important}
+.hidetv{background:transparent!important;color:#9aa4b2;border:1px solid #3a3d3f!important;font-size:15px!important}
+#nx{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:50;display:flex;align-items:center;justify-content:center;padding:14px}
+.nxbox{background:#2a2c2d;border:1px solid #3a3d3f;border-radius:16px;width:100%;max-width:760px;max-height:92vh;overflow:auto;padding:16px}
+.nxh{font-size:22px;font-weight:800;margin-bottom:4px}.nxs{color:#a9a69f;margin:6px 0 10px;font-size:17px}
+#nxl button{display:block;width:100%;text-align:left;margin:0 0 10px;padding:16px;font-size:20px;background:#238636;color:#fff;border:0;border-radius:12px}
+#nxl button small{display:block;font-size:15px;opacity:.85;margin-bottom:3px}
+#nxc{width:100%;padding:14px;font-size:18px;border:0;border-radius:12px;background:#3a3d3f;color:#fff}
+#wz{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:60;display:none;align-items:center;justify-content:center;padding:1.5vh 1.5vw}
+.wzbox{background:#2a2c2d;border:1px solid #3a3d3f;border-radius:18px;width:100%;max-width:1000px;height:96vh;display:flex;flex-direction:column;padding:14px;gap:10px}
+.wzh{display:flex;align-items:center;justify-content:space-between;font-size:22px;font-weight:800}
+.wzh button{background:#3a3d3f;border-radius:10px;padding:8px 16px;font-size:20px}
+.wzb{flex:1;min-height:0;display:flex;flex-direction:column;gap:10px}
+.wzbig{display:flex;gap:14px;flex-wrap:wrap;flex:1;align-content:center;justify-content:center}
+.wzbig button{flex:1 1 260px;max-width:420px;min-height:18vh;border-radius:18px;background:#1b5e66;font-size:clamp(24px,4vh,38px);font-weight:700;padding:14px}
+.wzbig button.m{background:#1d4f91}.wzbig button.f{background:#8a2a62}.wzbig button small{display:block;font-size:.5em;font-weight:500;opacity:.8;margin-top:6px}
+.wzs{display:flex;gap:8px;flex-wrap:wrap}
+.wzs button{flex:1 1 200px;text-align:left;background:#17191a;border:2px dashed #4a4e50;border-radius:12px;padding:8px 12px;min-height:56px;font-size:18px;font-weight:600}
+.wzs button small{display:block;font-size:12px;color:#a9a69f;font-weight:500}
+.wzs button.on{border:2px solid #30a46c;background:#12261c}
+.wzf{display:flex;gap:8px}.wzf input,.wzf select{flex:1;min-width:0}
+.wzl{flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px;align-content:start}
+.wzl button{text-align:left;background:#34373a;border-radius:12px;padding:12px;font-size:19px;font-weight:600;min-height:62px}
+.wzl button small{display:block;font-size:14px;color:#a9a69f;font-weight:500}
+.wzl button.sel{background:#12261c;box-shadow:0 0 0 2px #30a46c inset;opacity:.55}
+.wzl .em{grid-column:1/-1;color:#a9a69f;padding:20px;font-size:18px}
+.wzft{display:flex;gap:10px;align-items:center}
+.wzft input{flex:1;min-width:0}.wzft button{padding:16px 22px;font-size:20px;border-radius:12px;background:#3a3d3f;font-weight:700}
+.wzft .go{background:#1a7f4b;flex:1}.wzft .go:disabled{opacity:.35}
+.ib{position:fixed;right:1.6vw;bottom:1.4vh;z-index:25;display:none;align-items:center;gap:10px;background:#1b5e66;border-radius:999px;padding:10px 18px;font-size:clamp(16px,2.4vh,22px);font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.45)}
+.ib.show{display:flex}.ib.live{background:#1a7f4b}.ib b{font-variant-numeric:tabular-nums;min-width:2.2em;text-align:center}
+.rtx{margin:2px 0 10px;font-size:17px;line-height:1.5}.rtx .u{color:#7be07b;font-weight:700}.rtx .d{color:#ff8b8b;font-weight:700}.rtx .n{color:#a9a69f;font-size:15px}
+.nw{position:absolute;right:64px;top:50%;transform:translateY(-50%);background:#1a7f4b;border-radius:10px;padding:6px 14px;font-size:17px;font-weight:700}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="ttl"><span class="dot" id="dot"></span><span id="ttl"></span><button id="newm" class="nw"></button><button id="swap" class="sw" title="⇄">⇄</button></div>
+  <div class="info">
+    <div><span id="l_court"></span> <b id="court"></b> · <b id="mt"></b></div>
+    <div><span id="l_time"></span> <b id="stime">—</b></div>
+    <div><span id="l_ref"></span> <b id="ref">—</b></div>
+  </div>
+  <div class="band">
+    <div class="pc" id="pc0"><div class="ph" id="f0"></div><div class="pn" id="n0"></div><div class="pill" id="s0">0</div><button class="rk" id="v0">🏓</button></div>
+    <div class="tbl" id="tbl"></div>
+    <div class="pc r" id="pc1"><div class="ph" id="f1"></div><div class="pn" id="n1"></div><div class="pill" id="s1">0</div><button class="rk" id="v1">🏓</button></div>
+  </div>
+  <div class="ctl">
+    <div class="side">
+      <div class="s1r"><button class="lt w" id="w0">W</button><button class="lt t" id="t0">T</button></div>
+      <div class="s2r"><button class="plus" id="p0" aria-label="+1"></button>
+        <div class="sb"><div class="sc" id="sc0">0</div><div class="mr"><button class="minus" id="m0">−</button><button class="card y" id="y0"></button><button class="card r" id="r0"></button></div></div></div>
+    </div>
+    <div class="cen">
+      <div class="fin"><button class="f" id="finish"></button><button class="a" id="undo">↶</button></div>
+      <div class="vs">VS</div>
+    </div>
+    <div class="side r">
+      <div class="s1r"><button class="lt w" id="w1">W</button><button class="lt t" id="t1">T</button></div>
+      <div class="s2r"><button class="plus" id="p1" aria-label="+1"></button>
+        <div class="sb"><div class="sc" id="sc1">0</div><div class="mr"><button class="minus" id="m1">−</button><button class="card y" id="y1"></button><button class="card r" id="r1"></button></div></div></div>
+    </div>
+  </div>
+</div>
+<div class="toasts">
+  <div class="tst ends" id="ends"></div>
+  <div class="tst pt" id="pt"></div>
+  <div class="tst to" id="to"><span id="tot"></span><button id="toend">✕</button></div>
+</div>
+<button class="ib" id="ib"></button>
+<div id="wz"><div class="wzbox"><div class="wzh"><span id="wzt"></span><button id="wzx">✕</button></div><div class="wzb" id="wzb"></div></div></div>
+<div id="nx" style="display:none">
+  <div class="nxbox">
+    <div class="nxh" id="nxh"></div>
+    <div class="rtx" id="nxr"></div>
+    <div class="nxs">Navbatdagi o&#39;yin:</div>
+    <div id="nxl"></div>
+    <button class="full" id="nxc">Keyinroq (yopish)</button>
+  </div>
+</div>
+<details id="qura">
+  <summary>📋 Qura: navbatdagi o'yinni tanlash</summary>
+  <div class="form">
+    <label class="full">Bu stoldagi o'yinlar<select id="mlist"></select></label>
+    <button class="green full" id="mstart">▶ Tanlangan o'yinni boshlash</button>
+    <div class="full" id="mnone" style="color:#9aa4b2;display:none">O'yinlar ro'yxati yo'q. Bosh sahifadagi "Qura / o'yinchilar" orqali kiriting.</div>
+  </div>
+</details>
+<datalist id="plist"></datalist>
+<details id="det">
+  <summary>⚙ Yangi o'yin / sozlamalar</summary>
+  <div class="form">
+    <h4>Stol va o'yin nomi (TV sarlavhasi)</h4>
+    <label>Stol (TABLE 3)<input id="i_table"></label>
+    <label>Tur (MEN'S TEAMS)<input id="i_cat"></label>
+    <label class="full">Bosqich (PRELIMINARY ROUND 3)<input id="i_round"></label>
+    <label class="full">Hakam (Ҳакам)<input id="i_ref"></label>
+    <h4>1-o'yinchi (tepada)</h4>
+    <label>Familiya (TAHER)<input id="i_n0" list="plist" autocomplete="off"></label>
+    <label>Ism (Mohammed)<input id="i_g0"></label>
+    <label class="full">Davlat kodi (IRQ, KAZ, UZB, IRI, SGP...)<input id="i_c0" maxlength="3"></label>
+    <h4>2-o'yinchi (pastda)</h4>
+    <label>Familiya<input id="i_n1" list="plist" autocomplete="off"></label>
+    <label>Ism<input id="i_g1"></label>
+    <label class="full">Davlat kodi<input id="i_c1" maxlength="3"></label>
+    <h4>Jamoaviy uchrashuv hisobi (IRQ 0-1 KAZ)</h4>
+    <label class="chk full"><input id="i_showtie" type="checkbox"> TV da jamoa hisobini ko'rsatish</label>
+    <label>1-jamoa yutuqlari<select id="i_t0"><option>0</option><option>1</option><option>2</option><option>3</option></select></label>
+    <label>2-jamoa yutuqlari<select id="i_t1"><option>0</option><option>1</option><option>2</option><option>3</option></select></label>
+    <h4>Qoidalar</h4>
+    <label>O'yin formati<select id="i_best"><option value="3">3 geymdan 2 (best of 3)</option><option value="5">5 geymdan 3 (best of 5)</option><option value="7">7 geymdan 4 (best of 7)</option></select></label>
+    <label>Geymda ball<input id="i_pts" type="number" inputmode="numeric"></label>
+    <label>Farq (win by)<input id="i_wb" type="number" inputmode="numeric"></label>
+    <label>Har necha ballda uzatish (0=o'chiq)<input id="i_srv" type="number" inputmode="numeric"></label>
+    <button class="green full" id="start">▶ Yangi o'yinni boshlash</button>
+    <button class="full" id="save">Faqat saqlash (hisob o'zgarmaydi)</button>
+    <button class="full hidetv" id="hidetv">O'yinni TV'dan olib tashlash</button>
+    <h4>Umumiy sarlavha (hamma stollar va TV uchun)</h4>
+    <label class="full">1-qator<input id="i_t1m"></label>
+    <label class="full">2-qator<input id="i_t2m"></label>
+    <button class="full" id="savemeta">Sarlavhani saqlash</button>
+    <div class="full links" id="links"></div>
+  </div>
+</details>
+<script src="/flags.js"></script>
+<script src="/common.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+let S = null, loaded = false;
+const FORMUIDS = [[], []]; // qo'lda kiritish formasidagi o'yinchilarning baza identifikatorlari
+
+// Matnlar: standart — kirill (dizayn bo'yicha); ?lang=lat — lotin
+const LAT = Q.get('lang') === 'lat';
+const T = LAT ? {
+  ttl: "O'yin natijalari", court: 'Stol raqami:', time: 'Boshlanish vaqti:', ref: 'Hakam:', finish: "O'yinni tugatish", newm: "Yangi o'yin",
+  confirmFinish: "O'yin yakunlansinmi?", tgNote: 'Natija Telegramga yuboriladi.',
+  confirmRed: "{n} ga QIZIL kartochka: raqibga +1 ball beriladi. Tasdiqlaysizmi?", confirmW: "{n} texnik g'alaba bilan yutdi deb yakunlansinmi?",
+  tout: 'TAYM-AUT', ends1: "⇄ Geym tugadi: o'yinchilar tomon almashtirdi", ends2: "⇄ Hal qiluvchi geym, 5 ball: tomon almashtirdi", game: 'geym',
+} : {
+  ttl: 'Ўйин натижалари', court: 'Стол рақами:', time: 'Бошланиш вақти:', ref: 'Ҳакам:', finish: 'Ўйинни тугатиш', newm: 'Янги ўйин',
+  confirmFinish: 'Ўйин якунлансинми?', tgNote: 'Натижа Telegram’га юборилади.',
+  confirmRed: "{n} га ҚИЗИЛ карточка: рақибга +1 балл берилади. Тасдиқлайсизми?", confirmW: '{n} техник ғалаба билан ютди деб якунлансинми?',
+  tout: 'ТАЙМ-АУТ', ends1: '⇄ Гейм тугади: ўйинчилар томон алмаштирди', ends2: '⇄ Ҳал қилувчи гейм, 5 балл: томон алмаштирди', game: 'гейм',
+};
+$('ttl').textContent = T.ttl; $('l_court').textContent = T.court; $('l_time').textContent = T.time; $('l_ref').textContent = T.ref;
+
+const initials = (n) => (n || '?').trim().slice(0, 2).toUpperCase();
+const hhmm = (t) => { const d = new Date(t); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+
+function render(s) {
+  S = s;
+  setTimeout(maybeNext, 0);
+  $('court').textContent = COURT;
+  $('mt').textContent = s.settings.bestOf + ' ' + T.game + ' / ' + s.settings.setsToWin;
+  $('stime').textContent = s.startedAt ? hhmm(s.startedAt) : '—';
+  $('ref').textContent = s.referee || '—';
+  $('dot').className = 'dot on';
+  $('finish').textContent = s.winner === null ? T.finish : '▶ ' + T.newm;
+  const o = order(s);
+  [0, 1].forEach((slot) => {
+    const i = o[slot], p = s.players[i], cd = (s.cards || [{ y: 0, r: 0 }, { y: 0, r: 0 }])[i];
+    $('f' + slot).innerHTML = flag(p.country) || esc(initials(p.name));
+    $('n' + slot).innerHTML = '<span>' + esc(p.name) + '</span>' + (p.given ? '<small>' + esc(p.given) + '</small>' : '');
+    $('s' + slot).textContent = p.sets;
+    $('sc' + slot).textContent = p.points;
+    $('pc' + slot).className = 'pc' + (slot ? ' r' : '') + (s.winner === i ? ' win' : '');
+    $('v' + slot).className = 'rk' + (s.server === i && s.winner === null ? ' on' : '');
+    $('t' + slot).disabled = s.timeouts[i] || s.winner !== null;
+    $('t' + slot).style.opacity = s.timeouts[i] ? '.35' : '';
+    $('y' + slot).className = 'card y' + (cd.y ? ' on' : '');
+    $('r' + slot).innerHTML = cd.r ? '<i>' + cd.r + '</i>' : '';
+    $('p' + slot).disabled = s.winner !== null;
+  });
+  // geymlar jadvali
+  let h = '<div class="h">' + esc(s.players[o[0]].name) + '</div><div class="h">' + esc(s.players[o[1]].name) + '</div>';
+  for (let g = 0; g < s.settings.bestOf; g++) {
+    [0, 1].forEach((slot) => {
+      const i = o[slot], c = gameCell(s, i, g);
+      let cls = 'c';
+      if (c.kind === 'live') cls += ' live';
+      else if (c.kind === 'empty') cls += ' dim';
+      else if (s.sets[g][i] > s.sets[g][1 - i]) cls += ' w';
+      h += '<div class="' + cls + '">' + (c.kind === 'empty' ? 0 : c.v) + '</div>';
+    });
+  }
+  $('tbl').innerHTML = h;
+
+  const en = $('ends');
+  en.classList.toggle('show', !!s.endsNote);
+  en.textContent = s.endsNote === 'decider' ? T.ends2 : s.endsNote === 'game' ? T.ends1 : '';
+  const ps = pointStatus(s);
+  const pt = $('pt');
+  pt.classList.toggle('show', !!ps);
+  pt.textContent = ps ? ps.text + ' — ' + s.players[ps.p].name : '';
+  const left = timeoutLeft(s);
+  const to = $('to');
+  to.classList.toggle('show', !!s.timeout && left > 0);
+  if (s.timeout) $('tot').textContent = T.tout + ': ' + s.players[s.timeout.side].name + ' — ' + left + ' s';
+
+  if (!loaded) { fill(); loaded = true; }
+}
+
+function fill() {
+  const s = S;
+  $('i_ref').value = s.referee || ''; $('i_table').value = s.table; $('i_cat').value = s.category; $('i_round').value = s.round;
+  $('i_n0').value = s.players[0].name; $('i_g0').value = s.players[0].given; $('i_c0').value = s.players[0].country;
+  $('i_n1').value = s.players[1].name; $('i_g1').value = s.players[1].given; $('i_c1').value = s.players[1].country;
+  FORMUIDS[0] = (s.players[0].uids || []).slice(); FORMUIDS[1] = (s.players[1].uids || []).slice();
+  $('i_showtie').checked = s.showTie; $('i_t0').value = s.tie[0]; $('i_t1').value = s.tie[1];
+  $('i_pts').value = s.settings.pointsToWin; $('i_wb').value = s.settings.winBy;
+  $('i_best').value = s.settings.bestOf; $('i_srv').value = s.settings.serveEvery;
+}
+
+function formData(type) {
+  return {
+    type, referee: $('i_ref').value, table: $('i_table').value, category: $('i_cat').value, round: $('i_round').value,
+    players: [
+      { name: $('i_n0').value, given: $('i_g0').value, country: $('i_c0').value, uids: FORMUIDS[0] },
+      { name: $('i_n1').value, given: $('i_g1').value, country: $('i_c1').value, uids: FORMUIDS[1] },
+    ],
+    showTie: $('i_showtie').checked, tie: [$('i_t0').value, $('i_t1').value],
+    settings: { pointsToWin: $('i_pts').value, winBy: $('i_wb').value, bestOf: $('i_best').value, serveEvery: $('i_srv').value },
+  };
+}
+
+let DATA = { players: [], matches: [] }, PMAP = {};
+const plabel = (p) => p.name + (p.given ? ' ' + p.given : '') + (p.country ? ' · ' + p.country : '');
+function loadData() {
+  fetch('/api/data').then((r) => r.json()).then((d) => {
+    DATA = d; PMAP = {};
+    $('plist').innerHTML = d.players.map((p) => { PMAP[plabel(p)] = p; return '<option value="' + esc(plabel(p)) + '">'; }).join('');
+    const num = (t) => (String(t || '').match(/\d+/) || [''])[0];
+    const mine = d.matches.map((m, id) => ({ m, id })).filter((x) => !num(x.m.table) || num(x.m.table) === String(COURT));
+    mine.sort((a, b) => (a.m.done ? 1 : 0) - (b.m.done ? 1 : 0) || a.id - b.id);
+    $('mlist').innerHTML = mine.map((x) => '<option value="' + x.id + '">' + (x.m.done ? '✓ ' : '') + esc((x.m.round ? x.m.round + ' · ' : '') + x.m.p[0].name + ' ' + (x.m.p[0].given || '') + ' – ' + x.m.p[1].name + ' ' + (x.m.p[1].given || '')) + '</option>').join('');
+    $('mnone').style.display = mine.length ? 'none' : 'block';
+    $('mstart').style.display = mine.length ? '' : 'none';
+    $('mlist').style.display = mine.length ? '' : 'none';
+  }).catch(() => {});
+}
+loadData();
+['i_n0', 'i_n1'].forEach((id, i) => $(id).addEventListener('input', () => {
+  const p = PMAP[$(id).value];
+  if (p) { $(id).value = p.name; $('i_g' + i).value = p.given || ''; $('i_c' + i).value = p.country || ''; FORMUIDS[i] = p.uid ? [p.uid] : []; }
+  else FORMUIDS[i] = []; // qo'lda yozilsa, bazadagi o'yinchiga bog'lanish uziladi
+}));
+$('mstart').onclick = () => {
+  const id = parseInt($('mlist').value, 10), m = DATA.matches[id];
+  if (!m) return;
+  const f = formData('start');
+  const t = String(m.table || '').trim();
+  f.table = /^\d+$/.test(t) ? 'TABLE ' + t : (t || 'TABLE ' + COURT);
+  if (m.category) f.category = m.category;
+  if (m.round) f.round = m.round;
+  f.players = m.p.map((p) => ({ name: p.name, given: p.given || '', country: p.country || '', uids: p.uid ? [p.uid] : [] }));
+  f.matchId = id;
+  act(f).then(() => { $('qura').open = false; loadData(); });
+};
+
+// o'yin tugagach keyingi o'yinni tanlash oynasi o'zi chiqadi
+let nxDismissed = null, nxFor = null;
+function maybeNext() {
+  const box = $('nx');
+  // stolda o'yin yo'q (hali boshlanmagan) — hakamga keyingi o'yinlar ro'yxati darrov chiqadi
+  const idle = !!S && S.winner === null && !S.active && S.sets.length === 0 && S.players[0].points + S.players[1].points === 0;
+  if (!S || (S.winner === null && !idle)) { box.style.display = 'none'; nxFor = null; if (S && S.active) nxDismissed = null; return; }
+  const key = idle ? 'idle' : String(S.finishedAt);
+  if (nxDismissed === key) { box.style.display = 'none'; return; }
+  if (nxFor !== key) {
+    nxFor = key;
+    fetch('/api/data').then((r) => r.json()).then((d) => { DATA = d; showNext(key); }).catch(() => { DATA = { players: [], matches: [] }; showNext(key); });
+  }
+}
+function showNext(key) {
+  const idle = key === 'idle';
+  if (!S || (idle ? (S.winner !== null || S.active) : (S.winner === null || String(S.finishedAt) !== key))) return;
+  const num = (t) => (String(t || '').match(/\d+/) || [''])[0];
+  const list = DATA.matches.map((m, id) => ({ m, id })).filter((x) => !x.m.done && (!num(x.m.table) || num(x.m.table) === String(COURT))).sort((a, b) => a.id - b.id);
+  const w = idle ? null : S.players[S.winner];
+  $('nxh').textContent = idle ? "▶ Boshlash uchun o'yinni tanlang (" + COURT + "-stol)" : "✓ O'yin tugadi: " + S.players[0].name + ' ' + S.players[0].sets + ' – ' + S.players[1].sets + ' ' + S.players[1].name;
+  $('nxr').innerHTML = idle ? '' : S.rating ? '<b>Reyting:</b><br>' + S.rating.sides.map((sd) => sd.list.map((p) => '<span class="' + (p.delta >= 0 ? 'u' : 'd') + '">' + (p.delta >= 0 ? '▲ +' : '▼ ') + p.delta.toFixed(2) + '</span> ' + esc((p.name + ' ' + (p.given || '')).trim()) + ' <span class="n">' + p.before.toFixed(2) + ' → ' + p.after.toFixed(2) + '</span>').join('<br>')).join('<br>') : '<span class="n">Reyting hisoblanmadi (o\'yinchilar bazadan topilmagan yoki texnik g\'alaba).</span>';
+  $('nxl').innerHTML = (list.length ? '' : '<div class="nxs">Qurada bu stol uchun o\'yin yo\'q.</div>') + list.slice(0, 8).map((x) => '<button data-id="' + x.id + '"><small>' + esc([x.m.category, x.m.round].filter(Boolean).join(' · ')) + '</small>'
+    + esc(x.m.p[0].name + ' ' + (x.m.p[0].given || '') + ' (' + (x.m.p[0].country || '') + ')  —  ' + x.m.p[1].name + ' ' + (x.m.p[1].given || '') + ' (' + (x.m.p[1].country || '') + ')') + '</button>').join('') + '<button data-wiz="1" style="background:#1b5e66">' + W.newm + '</button><button data-manual="1" style="background:#30363d">⚙ Yangi o\'yinni qo\'lda kiritish</button>';
+  $('nx').style.display = 'flex';
+}
+$('nxl').onclick = (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.dataset.wiz) { nxDismissed = nxFor; $('nx').style.display = 'none'; wzOpen(); return; }
+  if (b.dataset.manual) { nxDismissed = nxFor; $('nx').style.display = 'none'; $('det').open = true; return; }
+  const id = parseInt(b.dataset.id, 10), m = DATA.matches[id];
+  const f = formData('start');
+  const t = String(m.table || '').trim();
+  f.table = /^\d+$/.test(t) ? 'TABLE ' + t : (t || 'TABLE ' + COURT);
+  if (m.category) f.category = m.category;
+  if (m.round) f.round = m.round;
+  f.players = m.p.map((p) => ({ name: p.name, given: p.given || '', country: p.country || '', uids: p.uid ? [p.uid] : [] }));
+  f.matchId = id;
+  act(f).then(() => { $('nx').style.display = 'none'; loadData(); });
+};
+$('nxc').onclick = () => { nxDismissed = nxFor; $('nx').style.display = 'none'; };
+
+// ===== Yangi o'yin: usul (yakkalik / juftlik / aralash juftlik) -> jins -> o'yinchilar ro'yxatidan tanlash =====
+const W = LAT ? {
+  newm: "＋ Yangi o'yin", title: "Yangi o'yin", kind: "O'yin usulini tanlang", sex: 'Guruhni tanlang', pick: "O'yinchilarni tanlang",
+  Y: ['Yakkalik', '1 ga 1'], D: ['Juftlik', '2 ga 2 (bir jinsli)'], A: ['Aralash juftlik', 'erkak + ayol'],
+  M: ['Erkaklar', ''], F: ['Ayollar', ''], search: 'Qidirish (familiya)...', allReg: 'Barcha hududlar', round: 'Bosqich (ROUND OF 16...)',
+  start: "▶ O'yinni boshlash", back: '← Orqaga', none: "Bu guruh uchun o'yinchilar topilmadi. Ro'yxat /admin sahifasida kiritiladi.",
+  p1: "1-o'yinchi", p2: "2-o'yinchi", pair1: '1-juftlik', pair2: '2-juftlik', man: 'erkak', woman: 'ayol', clear: 'bosib olib tashlang',
+  fam: 'Familiya', giv: 'Ism', reg: 'Hudud', add: "＋ Qo'lda qo'shish", manual: "Ro'yxatda yo'q bo'lsa — qo'lda yozing:",
+} : {
+  newm: '＋ Янги ўйин', title: 'Янги ўйин', kind: 'Ўйин усулини танланг', sex: 'Гуруҳни танланг', pick: 'Ўйинчиларни танланг',
+  Y: ['Яккалик', '1 га 1'], D: ['Жуфтлик', '2 га 2 (бир жинсли)'], A: ['Аралаш жуфтлик', 'эркак + аёл'],
+  M: ['Эркаклар', ''], F: ['Аёллар', ''], search: 'Қидириш (фамилия)...', allReg: 'Барча ҳудудлар', round: 'Босқич (ROUND OF 16...)',
+  start: '▶ Ўйинни бошлаш', back: '← Орқага', none: 'Бу гуруҳ учун ўйинчилар топилмади. Рўйхат /admin саҳифасида киритилади.',
+  p1: '1-ўйинчи', p2: '2-ўйинчи', pair1: '1-жуфтлик', pair2: '2-жуфтлик', man: 'эркак', woman: 'аёл', clear: 'босиб олиб ташланг',
+  fam: 'Фамилия', giv: 'Исм', reg: 'Ҳудуд', add: '＋ Қўлда қўшиш', manual: 'Рўйхатда йўқ бўлса — қўлда ёзинг:',
+};
+$('newm').textContent = W.newm;
+const WZ = { step: 0, kind: null, sex: null, slots: [], q: '', reg: '', round: '' };
+const CAT = { YM: "MEN'S SINGLES", YF: "WOMEN'S SINGLES", DM: "MEN'S DOUBLES", DF: "WOMEN'S DOUBLES", A: 'MIXED DOUBLES' };
+const nSlots = () => (WZ.kind === 'Y' ? 2 : 4);
+function slotLabel(i) {
+  if (WZ.kind === 'Y') return i === 0 ? W.p1 : W.p2;
+  const pr = i < 2 ? W.pair1 : W.pair2;
+  return pr + (WZ.kind === 'A' ? ' · ' + (i % 2 === 0 ? W.man : W.woman) : '');
+}
+function wzOpen() { Object.assign(WZ, { step: 0, kind: null, sex: null, slots: [], q: '', reg: '', round: S ? S.round : '' }); $('wz').style.display = 'flex'; wzRender(); }
+function wzClose() { $('wz').style.display = 'none'; }
+const pLabel = (p) => esc(p.name) + (p.given ? ' ' + esc(p.given) : '');
+function wzRender() {
+  const b = $('wzb');
+  if (WZ.step === 0) {
+    $('wzt').textContent = W.title + ': ' + W.kind;
+    b.innerHTML = '<div class="wzbig">' + ['Y', 'D', 'A'].map((k) => '<button data-k="' + k + '">' + W[k][0] + '<small>' + W[k][1] + '</small></button>').join('') + '</div>';
+    b.onclick = (e) => { const x = e.target.closest('button'); if (!x || !x.dataset.k) return; WZ.kind = x.dataset.k; WZ.slots = []; WZ.step = WZ.kind === 'A' ? 2 : 1; wzRender(); };
+    return;
+  }
+  if (WZ.step === 1) {
+    $('wzt').textContent = W[WZ.kind][0] + ': ' + W.sex;
+    b.innerHTML = '<div class="wzbig"><button class="m" data-s="M">' + W.M[0] + '</button><button class="f" data-s="F">' + W.F[0] + '</button></div><div class="wzft"><button id="wzback">' + W.back + '</button></div>';
+    b.onclick = (e) => {
+      const x = e.target.closest('button'); if (!x) return;
+      if (x.id === 'wzback') { WZ.step = 0; wzRender(); return; }
+      if (!x.dataset.s) return;
+      WZ.sex = x.dataset.s; WZ.step = 2; wzRender();
+    };
+    return;
+  }
+  // 2: o'yinchilarni tanlash
+  const title = W[WZ.kind][0] + (WZ.kind === 'A' ? '' : ' · ' + W[WZ.sex][0]);
+  $('wzt').textContent = title;
+  const regs = [...new Set(DATA.players.map((p) => p.region).filter(Boolean))].sort();
+  b.innerHTML = '<div class="wzs" id="wzs"></div>'
+    + '<div class="wzf"><input id="wzq" placeholder="' + W.search + '" value="' + esc(WZ.q) + '" autocomplete="off">'
+    + '<select id="wzr"><option value="">' + W.allReg + '</option>' + regs.map((r) => '<option' + (r === WZ.reg ? ' selected' : '') + '>' + esc(r) + '</option>').join('') + '</select></div>'
+    + '<div class="wzl" id="wzl"></div>'
+    + '<div class="wzf" id="wzm"><input id="wzmn" placeholder="' + W.fam + '" autocomplete="off"><input id="wzmg" placeholder="' + W.giv + '" autocomplete="off"><input id="wzmr" placeholder="' + W.reg + '" autocomplete="off">'
+    + (WZ.kind === 'A' ? '<select id="wzms" style="flex:none;width:auto"><option value="M">' + W.man + '</option><option value="F">' + W.woman + '</option></select>' : '')
+    + '<button id="wzma" style="flex:none;background:#1b5e66;border-radius:10px;padding:0 18px;font-size:18px;font-weight:700">' + W.add + '</button></div>'
+    + '<div class="wzft"><button id="wzback">' + W.back + '</button><input id="wzround" placeholder="' + W.round + '" value="' + esc(WZ.round) + '"><button class="go" id="wzgo">' + W.start + '</button></div>';
+  wzList();
+  $('wzq').oninput = () => { WZ.q = $('wzq').value; wzList(true); };
+  $('wzr').onchange = () => { WZ.reg = $('wzr').value; wzList(true); };
+  $('wzround').oninput = () => { WZ.round = $('wzround').value; };
+  $('wzback').onclick = () => { WZ.step = WZ.kind === 'A' ? 0 : 1; wzRender(); };
+  $('wzgo').onclick = wzStart;
+  $('wzma').onclick = () => {
+    const name = $('wzmn').value.trim();
+    if (!name) { $('wzmn').focus(); return; }
+    const p = { name, given: $('wzmg').value.trim(), country: 'UZB', region: $('wzmr').value.trim(), sex: WZ.kind === 'A' ? $('wzms').value : WZ.sex, manual: true };
+    if (wzPlace(p)) { $('wzmn').value = ''; $('wzmg').value = ''; wzList(); }
+  };
+  b.onclick = null;
+}
+function wzList(listOnly) {
+  const prog = WZ.kind === 'Y' ? 'Y' : WZ.kind === 'D' ? 'D' : 'A';
+  const q = WZ.q.trim().toLowerCase();
+  const chosen = new Set(WZ.slots.filter(Boolean));
+  const list = DATA.players.filter((p) => (p.prog || '').includes(prog) && (WZ.kind === 'A' || p.sex === WZ.sex)
+    && (!WZ.reg || p.region === WZ.reg) && (!q || (p.name + ' ' + p.given).toLowerCase().includes(q)))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  $('wzl').innerHTML = list.length ? list.map((p) => '<button data-i="' + DATA.players.indexOf(p) + '" class="' + (chosen.has(p) ? 'sel' : '') + '">'
+    + (WZ.kind === 'A' ? (p.sex === 'M' ? '♂ ' : '♀ ') : '') + pLabel(p) + '<small>' + esc(p.region || '') + '</small></button>').join('') : '<div class="em">' + W.none + '</div>';
+  $('wzl').onclick = (e) => {
+    const x = e.target.closest('button'); if (!x) return;
+    const p = DATA.players[+x.dataset.i], at = WZ.slots.indexOf(p);
+    if (at >= 0) WZ.slots[at] = null;
+    else if (!wzPlace(p)) return;
+    wzList(); wzSlots();
+  };
+  wzSlots();
+}
+function wzPlace(p) { // bo'sh joyga qo'yadi (aralash juftlikda jinsga qarab)
+  for (let i = 0; i < nSlots(); i++) {
+    if (WZ.slots[i]) continue;
+    if (WZ.kind === 'A' && (i % 2 === 0) !== (p.sex === 'M')) continue;
+    WZ.slots[i] = p;
+    return true;
+  }
+  return false;
+}
+function wzSlots() {
+  let h = '';
+  for (let i = 0; i < nSlots(); i++) {
+    const p = WZ.slots[i];
+    h += '<button data-s="' + i + '" class="' + (p ? 'on' : '') + '"><small>' + slotLabel(i) + '</small>' + (p ? pLabel(p) + ' <small style="display:inline">· ' + esc(p.region || '') + '</small>' : '—') + '</button>';
+  }
+  $('wzs').innerHTML = h;
+  $('wzs').onclick = (e) => { const x = e.target.closest('button'); if (!x) return; WZ.slots[+x.dataset.s] = null; wzList(); wzSlots(); };
+  $('wzgo').disabled = !(WZ.slots.length >= nSlots() && WZ.slots.slice(0, nSlots()).every(Boolean));
+}
+function wzStart() {
+  const sl = WZ.slots;
+  const f = formData('start');
+  f.category = WZ.kind === 'A' ? CAT.A : CAT[WZ.kind + WZ.sex];
+  f.round = WZ.round;
+  f.showTie = false; f.tie = [0, 0];
+  const side = (list) => {
+    const uids = list.map((p) => p.uid).filter(Boolean);
+    if (list.length === 1) return { name: list[0].name, given: list[0].given || '', country: list[0].country || 'UZB', uids };
+    const regs = [...new Set(list.map((p) => p.region).filter(Boolean))];
+    return { name: list.map((p) => p.name).join(' / '), given: regs.join(' / '), country: list[0].country || 'UZB', uids: uids.length === list.length ? uids : [] };
+  };
+  f.players = WZ.kind === 'Y' ? [side([sl[0]]), side([sl[1]])] : [side([sl[0], sl[1]]), side([sl[2], sl[3]])];
+  act(f).then(() => { wzClose(); $('nx').style.display = 'none'; loaded = false; });
+}
+$('newm').onclick = wzOpen;
+$('wzx').onclick = wzClose;
+
+const idx = (slot) => order(S)[slot];
+[0, 1].forEach((slot) => {
+  $('p' + slot).onclick = () => act({ type: 'point', side: idx(slot) });
+  $('m' + slot).onclick = () => act({ type: 'minus', side: idx(slot) });
+  $('v' + slot).onclick = () => act({ type: 'serve', side: idx(slot) });
+  $('t' + slot).onclick = () => act({ type: 'timeout', side: idx(slot) });
+});
+$('toend').onclick = () => act({ type: 'endtimeout' });
+$('undo').onclick = () => act({ type: 'undo' });
+$('finish').onclick = () => {
+  if (!S) return;
+  if (S.winner !== null) { nxDismissed = null; nxFor = null; maybeNext(); return; }
+  const o = S.players;
+  if (confirm(T.confirmFinish + '\n' + o[0].name + ' ' + o[0].sets + ' – ' + o[1].sets + ' ' + o[1].name + '\n' + T.tgNote)) act({ type: 'finish' });
+};
+[0, 1].forEach((slot) => {
+  $('y' + slot).onclick = () => act({ type: 'card', side: idx(slot), color: 'y' });
+  $('r' + slot).onclick = () => { const i = idx(slot); if (confirm(T.confirmRed.replace('{n}', S.players[i].name))) act({ type: 'card', side: i, color: 'r' }); };
+  $('w' + slot).onclick = () => { const i = idx(slot); if (confirm(T.confirmW.replace('{n}', S.players[i].name))) act({ type: 'walkover', side: i }); };
+});
+$('swap').onclick = () => act({ type: 'swap' });
+$('hidetv').onclick = () => { if (confirm("Bu stol TV'dan olib tashlansinmi?")) act({ type: 'tv', on: false }).then(() => { $('det').open = false; }); };
+$('start').onclick = () => { act(formData('start')).then(() => { $('det').open = false; }); };
+$('save').onclick = () => { act(formData('set')).then(() => { $('det').open = false; }); };
+$('savemeta').onclick = () => { act({ type: 'meta', title1: $('i_t1m').value, title2: $('i_t2m').value }).then(() => { $('det').open = false; }); };
+const base = location.origin;
+$('links').innerHTML = '<a href="' + base + '/tv" target="_blank">TV sahifa (hamma stollar)</a><a href="' + base + '/overlay?court=' + COURT + '" target="_blank">Bu stol overlay\'i</a>';
+fetch('/api/all').then((r) => r.json()).then((d) => { $('i_t1m').value = d.meta.title1; $('i_t2m').value = d.meta.title2; }).catch(() => {});
+
+// o'yinchilar statistikasi (TV va overlayda 20-25 s): tugma yopish/qayta ko'rsatish uchun; ball berilsa avtomatik yopiladi
+function introBtn() {
+  const b = $('ib');
+  if (!S) return;
+  const left = S.intro ? Math.ceil((S.intro.until + S._off - Date.now()) / 1000) : 0;
+  const fresh = S.winner === null && S.sets.length === 0 && S.players[0].points + S.players[1].points === 0;
+  if (left > 0) { b.className = 'ib show live'; b.innerHTML = '👤 <span>Statistika efirda</span> <b>' + left + '</b> ✕'; b.dataset.m = 'hide'; }
+  else if (fresh && S.active) { b.className = 'ib show'; b.innerHTML = '👤 Statistikani ko\'rsatish'; b.dataset.m = 'show'; }
+  else b.className = 'ib';
+}
+$('ib').onclick = () => act({ type: $('ib').dataset.m === 'hide' ? 'introhide' : 'introshow' });
+setInterval(introBtn, 500);
+
+connect((s) => { render(s); introBtn(); }, (ok) => $('dot').classList.toggle('on', ok));
+</script>
+</body>
+</html>

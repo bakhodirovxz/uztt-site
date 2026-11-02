@@ -4,15 +4,22 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { addPlayerPoints } from '../../common/points';
 import { Prisma, type EventType } from '@prisma/client';
 import { createHash, randomUUID } from 'crypto';
+import { TelegramService } from '../showcase/telegram.service';
+import { AssignmentService } from '../referee-assignment/assignment.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RULE_LABEL_UZ } from '../tournaments/level-rules';
-import { placePlayers, planMatches, stageForRound } from './draw.engine';
+import { drawByRules, planMatches, stageForRound } from './draw.engine';
 
 @Injectable()
 export class DrawsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly assignment: AssignmentService,
+    private readonly telegram: TelegramService,
+  ) {}
 
   /**
    * Tasdiqlangan registratsiyalardan setka generatsiyasi:
@@ -27,7 +34,11 @@ export class DrawsService {
         ageCategory: true,
         registrations: {
           where: { status: 'CONFIRMED' },
-          include: { player: { select: { id: true, rankingPoints: true } } },
+          include: {
+            player: {
+              select: { id: true, rankingPoints: true, region: true },
+            },
+          },
         },
         draws: true,
       },
@@ -44,12 +55,39 @@ export class DrawsService {
       );
     }
 
-    const slots = placePlayers(
+    // Qura qoidalar bo'yicha (3.6): seedlar jereb bilan o'z joylari orasida, BYE kuchli
+    // seedlar qarshisida, bir viloyat o'yinchilari imkon qadar kech uchrashadi.
+    const slots = drawByRules(
       category.registrations.map((r) => ({
         playerId: r.player.id,
         rankingPoints: r.player.rankingPoints,
+        org: r.player.region,
       })),
     );
+    return this.persistSlots(category.id, category.tournamentId, slots);
+  }
+
+  /**
+   * Tayyor joylashuv (slots) bo'yicha setka va barcha raund o'yinlarini yaratadi.
+   * Qura (generate) ham, guruhdan setkaga o'tkazish (GroupsService.advance) ham shuni ishlatadi.
+   */
+  /** Setka/guruh saqlanadi → o'yinlarga hakamlar avtomatik tayinlanadi (xato bo'lsa ham setka saqlanadi) */
+  async persistSlots(
+    tournamentCategoryId: string,
+    tournamentId: string,
+    slots: Array<{ position: number; seed: number | null; playerId: string | null }>,
+  ) {
+    const draw = await this.persistSlotsInner(tournamentCategoryId, tournamentId, slots);
+    await this.assignment.autoAssign(tournamentId);
+    this.telegram.announceDraw(tournamentCategoryId, 'bracket');
+    return draw;
+  }
+
+  private async persistSlotsInner(
+    tournamentCategoryId: string,
+    tournamentId: string,
+    slots: Array<{ position: number; seed: number | null; playerId: string | null }>,
+  ) {
     const planned = planMatches(slots);
     const totalRounds = Math.log2(slots.length);
 
@@ -87,7 +125,7 @@ export class DrawsService {
         await tx.match.create({
           data: {
             id,
-            tournamentId: category.tournamentId,
+            tournamentId: tournamentId,
             drawId: draw.id,
             stage: stageForRound(pm.roundNumber, totalRounds),
             roundNumber: pm.roundNumber,
@@ -105,7 +143,37 @@ export class DrawsService {
         });
       }
 
-      await this.awardGroupAdvance(tx, category.tournamentId, slots);
+      // 3-o'rin uchun o'yin (yarim final yutqazganlari): bonus jadvali 3- va 4-o'rinni ajratadi.
+      // Yarim finalda BYE bo'lsa (4 lik setkada 3 o'yinchi) — yutqazgan yo'q, shuning uchun yaratilmaydi.
+      const semis = planned.filter((pm) => pm.roundNumber === totalRounds - 1);
+      if (totalRounds >= 2 && semis.length === 2 && semis.every((pm) => pm.walkoverWinnerId === null)) {
+        const thirdId = randomUUID();
+        await tx.match.create({
+          data: {
+            id: thirdId,
+            tournamentId,
+            drawId: draw.id,
+            stage: 'THIRD_PLACE',
+            roundNumber: totalRounds,
+            bracketPosition: 2,
+            status: 'SCHEDULED',
+            refereeCodeHash: createHash('sha256')
+              .update(String(Math.floor(100000 + Math.random() * 900000)))
+              .digest('hex'),
+          },
+        });
+        for (const sf of semis) {
+          const sfId = idByRoundPos.get(`${sf.roundNumber}:${sf.bracketPosition}`);
+          if (sfId) {
+            await tx.match.update({
+              where: { id: sfId },
+              data: { loserNextMatchId: thirdId, loserNextMatchSlot: sf.bracketPosition },
+            });
+          }
+        }
+      }
+
+      await this.awardGroupAdvance(tx, tournamentId, slots);
 
       return this.bracket(draw.id, tx);
     });
@@ -125,6 +193,8 @@ export class DrawsService {
       where: { id: tournamentId },
       include: { level: { include: { pointsRules: true } } },
     });
+    // Rasmiy Nizom rejimida qat'iy "guruhdan chiqish" ballari yo'q (ball faqat o'yinlar + bonus)
+    if (tournament?.level.ratingMode === 'OFFICIAL') return;
     const points =
       tournament?.level.pointsRules.find((r) => r.key === 'GROUP_ADVANCE')
         ?.points ?? 0;
@@ -169,10 +239,7 @@ export class DrawsService {
 
     for (const playerId of played) {
       if (skip.has(playerId)) continue;
-      await tx.player.update({
-        where: { id: playerId },
-        data: { rankingPoints: { increment: points } },
-      });
+      await addPlayerPoints(tx, playerId, points);
       await tx.playerPointsLog.create({
         data: {
           playerId,
@@ -203,7 +270,7 @@ export class DrawsService {
     });
     if (!draw) throw new NotFoundException('Setka topilmadi');
 
-    const matches = await tx.match.findMany({
+    const matchRows = await tx.match.findMany({
       where: { drawId },
       orderBy: [{ roundNumber: 'asc' }, { bracketPosition: 'asc' }],
       select: {
@@ -217,24 +284,30 @@ export class DrawsService {
         player2SetsWon: true,
         seq: true,
         player1: {
-          select: { id: true, slug: true, firstName: true, lastName: true },
+          select: { id: true, slug: true, firstName: true, lastName: true, photoUrl: true },
         },
         player2: {
-          select: { id: true, slug: true, firstName: true, lastName: true },
+          select: { id: true, slug: true, firstName: true, lastName: true, photoUrl: true },
         },
         sets: {
           select: { setNumber: true, p1Points: true, p2Points: true },
           orderBy: { setNumber: 'asc' },
         },
+        referee: { select: { firstName: true, lastName: true } },
+        assistant: { select: { firstName: true, lastName: true } },
       },
     });
+    // Ommaga faqat hakam ISMI chiqadi (id/email emas)
+    const nm = (u: { firstName: string; lastName: string } | null) => (u ? `${u.firstName[0]}. ${u.lastName}` : null);
+    const matches = matchRows.map(({ referee, assistant, ...m }) => ({ ...m, referee: nm(referee), assistant: nm(assistant) }));
 
     const totalRounds = Math.log2(draw.size);
     const rounds = Array.from({ length: totalRounds }, (_, i) => ({
       roundNumber: i + 1,
       stage: stageForRound(i + 1, totalRounds),
-      matches: matches.filter((m) => m.roundNumber === i + 1),
+      matches: matches.filter((m) => m.roundNumber === i + 1 && m.stage !== 'THIRD_PLACE'),
     }));
+    const thirdPlace = matches.find((m) => m.stage === 'THIRD_PLACE') ?? null;
 
     return {
       id: draw.id,
@@ -242,10 +315,21 @@ export class DrawsService {
       status: draw.status,
       category: draw.category,
       rounds,
+      thirdPlace,
     };
   }
 
   /** Turnirning barcha setkalari (kategoriya bo'yicha) */
+  async bracketOfCategory(categoryId: string) {
+    const draw = await this.prisma.draw.findFirst({
+      where: { tournamentCategoryId: categoryId },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
+    if (!draw) throw new NotFoundException('Bu kategoriyada setka yo‘q');
+    return this.bracket(draw.id);
+  }
+
   async byTournament(tournamentIdOrSlug: string) {
     const tournament = await this.prisma.tournament.findFirst({
       where: {

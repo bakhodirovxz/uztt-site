@@ -1,15 +1,20 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService, type JwtSignOptions } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
+import { checkPassword, isPrivileged } from '../../common/password-policy';
 import { CryptoService } from '../../common/crypto/crypto.service';
 import type {
   AccessTokenPayload,
   AuthUser,
   RefreshTokenPayload,
 } from '../../common/types/auth-user';
+
+/** Ketma-ket 8 ta xato parol → 15 daqiqa blok */
+export const MAX_FAILED_LOGINS = 8;
+export const LOCK_MINUTES = 15;
 
 export interface TokenPair {
   accessToken: string;
@@ -57,8 +62,22 @@ export class AuthService {
       '$argon2id$v=19$m=65536,t=3,p=4$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
     const valid = await argon2.verify(hash, password).catch(() => false);
 
-    if (!user || !valid || user.status !== 'ACTIVE') {
-      throw new UnauthorizedException('Email yoki parol noto‘g‘ri');
+    // Hisob bloklangan bo'lsa to'g'ri parol ham o'tmaydi; xabar bir xil (email mavjudligi oshkor bo'lmasin)
+    const locked = !!user?.lockedUntil && user.lockedUntil > new Date();
+    if (!user || !valid || locked || user.status !== 'ACTIVE') {
+      if (user && !valid && !locked) {
+        const count = user.failedLoginCount + 1;
+        await this.prisma.user.update({
+          where: { id: user.id },
+          data: count >= MAX_FAILED_LOGINS
+            ? { failedLoginCount: 0, lockedUntil: new Date(Date.now() + LOCK_MINUTES * 60_000) }
+            : { failedLoginCount: count },
+        });
+      }
+      throw new UnauthorizedException('Email yoki parol noto‘g‘ri (yoki hisob vaqtincha bloklangan)');
+    }
+    if (user.failedLoginCount > 0 || user.lockedUntil) {
+      await this.prisma.user.update({ where: { id: user.id }, data: { failedLoginCount: 0, lockedUntil: null } });
     }
 
     const authUser = this.toAuthUser(user);
@@ -138,6 +157,52 @@ export class AuthService {
     }
   }
 
+  /**
+   * Parolni almashtirish: joriy parol tekshiriladi, barcha boshqa sessiyalar bekor qilinadi,
+   * `mustChangePassword` o'chadi va yangi token juftligi beriladi.
+   */
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+    meta: ClientMeta,
+  ): Promise<{ user: AuthUser; tokens: TokenPair }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.status !== 'ACTIVE') throw new UnauthorizedException();
+    const ok = await argon2.verify(user.passwordHash, currentPassword).catch(() => false);
+    if (!ok) throw new UnauthorizedException('Joriy parol noto‘g‘ri');
+    if (currentPassword === newPassword) {
+      throw new BadRequestException('Yangi parol joriyidan farq qilishi kerak');
+    }
+    const roleRows = await this.prisma.userRole.findMany({ where: { userId }, select: { role: { select: { code: true } } } });
+    const policyError = checkPassword(newPassword, {
+      privileged: isPrivileged(roleRows.map((r) => r.role.code)),
+      email: user.email,
+      names: [user.firstName, user.lastName],
+    });
+    if (policyError) throw new BadRequestException(policyError);
+    const passwordHash = await argon2.hash(newPassword, { type: argon2.argon2id });
+    await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id: userId }, data: { passwordHash, mustChangePassword: false } }),
+      this.prisma.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } }),
+    ]);
+    const fresh = await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, include: this.rolesInclude() });
+    const authUser = this.toAuthUser(fresh);
+    const tokens = await this.issueTokens(authUser, randomUUID(), meta);
+    return { user: authUser, tokens };
+  }
+
+  /** Sessiya bormi? Faqat ha/yo'q — hech qanday shaxsiy ma'lumot qaytmaydi (sarlavha uchun, 401 shovqinisiz). */
+  async hasSession(accessToken: string | undefined): Promise<boolean> {
+    if (!accessToken) return false;
+    try {
+      await this.jwt.verifyAsync(accessToken, { issuer: 'uztt-api', audience: 'uztt-web' });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   /** Joriy user ma'lumotini bazadan yangilab qaytaradi (permissionlar yangi holatda) */
   async me(userId: string): Promise<AuthUser> {
     const user = await this.prisma.user.findUnique({
@@ -169,6 +234,7 @@ export class AuthService {
   private toAuthUser(user: {
     id: string;
     email: string;
+    mustChangePassword?: boolean;
     roles: {
       role: {
         code: string;
@@ -184,7 +250,13 @@ export class AuthService {
         ),
       ),
     ];
-    return { id: user.id, email: user.email, roles, permissions };
+    return {
+      id: user.id,
+      email: user.email,
+      roles,
+      permissions,
+      ...(user.mustChangePassword ? { mustChangePassword: true } : {}),
+    };
   }
 
   private async issueTokens(
@@ -198,6 +270,7 @@ export class AuthService {
       email: user.email,
       roles: user.roles,
       permissions: user.permissions,
+      ...(user.mustChangePassword ? { mcp: true } : {}),
     };
     const accessToken = await this.jwt.signAsync(accessPayload, {
       expiresIn: this.accessTtl,

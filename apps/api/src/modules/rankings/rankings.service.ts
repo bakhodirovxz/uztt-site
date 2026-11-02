@@ -1,3 +1,5 @@
+import { TelegramService } from '../showcase/telegram.service';
+import { birthDateFloor } from '../../common/age';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { Gender } from '@prisma/client';
@@ -52,25 +54,32 @@ const PLAYER_SELECT = {
   ageCategory: { select: { code: true, name: true } },
 } as const;
 
+/** Kumulyativ yosh filtri: U-N → yosh toifasi chegarasi N dan oshmaganlar; Kattalar (chegarasiz) → filtr yo'q */
+function ageFilter(maxAge: number | null | undefined) {
+  return maxAge === null || maxAge === undefined ? undefined : { is: { maxAge: { lte: maxAge } } };
+}
+
 @Injectable()
 export class RankingsService {
   private readonly logger = new Logger(RankingsService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly telegram: TelegramService,
+  ) {}
 
   /**
    * Reyting jadvali. Kesim ko'rsatilmasa — joriy holat, ▲▼ oxirgi kesimga nisbatan.
    * Kesim ko'rsatilsa — o'sha kesimdagi holat, ▲▼ undan oldingi kesimga nisbatan.
    */
   async list(filter: ListFilter) {
-    const ageCategoryId = filter.ageCategory
-      ? ((
-          await this.prisma.ageCategory.findUnique({
-            where: { code: filter.ageCategory },
-            select: { id: true },
-          })
-        )?.id ?? null)
+    const ageRow = filter.ageCategory
+      ? await this.prisma.ageCategory.findUnique({
+          where: { code: filter.ageCategory },
+          select: { id: true, maxAge: true },
+        })
       : undefined;
+    const ageCategoryId = filter.ageCategory ? (ageRow?.id ?? null) : undefined;
     const page = filter.page && filter.page > 0 ? filter.page : 1;
     const pageSize = filter.pageSize
       ? Math.min(Math.max(1, filter.pageSize), MAX_PAGE_SIZE)
@@ -80,8 +89,8 @@ export class RankingsService {
     if (ageCategoryId === null) return paginate([], page, pageSize);
 
     const all = filter.snapshot
-      ? await this.historicalList(filter.snapshot, filter.gender, ageCategoryId)
-      : await this.currentList(filter.gender, filter.ageCategory, ageCategoryId);
+      ? await this.historicalList(filter.snapshot, filter.gender, ageRow?.maxAge)
+      : await this.currentList(filter.gender, filter.ageCategory, ageCategoryId, ageRow?.maxAge);
 
     return paginate(all, page, pageSize);
   }
@@ -90,18 +99,21 @@ export class RankingsService {
     gender: Gender | undefined,
     ageCategoryCode: string | undefined,
     ageCategoryId: string | undefined,
+    maxAge?: number | null,
   ) {
+    // Kumulyativ yosh segmenti: U-N = N yosh va undan kichik hamma (common/age.ts)
+    const floor = ageCategoryCode ? birthDateFloor(maxAge) : undefined;
     const players = await this.prisma.player.findMany({
       where: {
         status: 'ACTIVE',
         gender,
-        ageCategory: ageCategoryCode ? { code: ageCategoryCode } : undefined,
+        ...(floor ? { birthDate: { gte: floor } } : {}),
       },
       orderBy: [{ rankingPoints: 'desc' }, { lastName: 'asc' }],
       select: PLAYER_SELECT,
     });
 
-    const previous = await this.previousRanks(undefined, gender, ageCategoryId);
+    const previous = await this.previousRanks(undefined, gender, maxAge);
 
     // O'rin qo'yish qoidasi kesimdagi bilan BIR XIL bo'lishi shart: teng ballda
     // teng o'rin. Aks holda jonli jadvalda ketma-ket raqam (32, 33), kesimda
@@ -131,7 +143,7 @@ export class RankingsService {
   private async historicalList(
     snapshotRef: string,
     gender: Gender | undefined,
-    ageCategoryId: string | undefined,
+    maxAge: number | null | undefined,
   ) {
     const snapshot = await this.prisma.rankingSnapshot.findFirst({
       where: { OR: [{ id: snapshotRef }, { label: snapshotRef }] },
@@ -140,7 +152,7 @@ export class RankingsService {
     if (!snapshot) throw new NotFoundException('Reyting kesimi topilmadi');
 
     const entries = await this.prisma.rankingSnapshotEntry.findMany({
-      where: { snapshotId: snapshot.id, gender, ageCategoryId },
+      where: { snapshotId: snapshot.id, gender, ...(await this.ageIdFilter(maxAge)) },
       orderBy: { rank: 'asc' },
       select: {
         playerId: true,
@@ -151,11 +163,7 @@ export class RankingsService {
     });
 
     const ranks = rankWithin(entries);
-    const previous = await this.previousRanks(
-      snapshot.takenAt,
-      gender,
-      ageCategoryId,
-    );
+    const previous = await this.previousRanks(snapshot.takenAt, gender, maxAge);
 
     return entries
       .map((e) => {
@@ -178,7 +186,7 @@ export class RankingsService {
   private async previousRanks(
     before: Date | undefined,
     gender: Gender | undefined,
-    ageCategoryId: string | undefined,
+    maxAge: number | null | undefined,
   ): Promise<Map<string, number>> {
     const snapshot = await this.prisma.rankingSnapshot.findFirst({
       where: before ? { takenAt: { lt: before } } : {},
@@ -188,10 +196,17 @@ export class RankingsService {
     if (!snapshot) return new Map();
 
     const entries = await this.prisma.rankingSnapshotEntry.findMany({
-      where: { snapshotId: snapshot.id, gender, ageCategoryId },
+      where: { snapshotId: snapshot.id, gender, ...(await this.ageIdFilter(maxAge)) },
       select: { playerId: true, points: true, rank: true },
     });
     return rankWithin(entries);
+  }
+
+  /** Kesim yozuvlari uchun kumulyativ yosh filtri: chegarasi N dan oshmagan barcha toifa id lari */
+  private async ageIdFilter(maxAge: number | null | undefined): Promise<{ ageCategoryId?: { in: string[] } }> {
+    if (maxAge === null || maxAge === undefined) return {};
+    const cats = await this.prisma.ageCategory.findMany({ where: { maxAge: { lte: maxAge } }, select: { id: true } });
+    return { ageCategoryId: { in: cats.map((c) => c.id) } };
   }
 
   /** Kesimlar ro'yxati (sana tanlash uchun) */
@@ -230,7 +245,7 @@ export class RankingsService {
       },
     });
 
-    return this.prisma.$transaction(async (tx) => {
+    const snapshot = await this.prisma.$transaction(async (tx) => {
       await tx.rankingSnapshot.deleteMany({ where: { label } });
       return tx.rankingSnapshot.create({
         data: {
@@ -249,6 +264,8 @@ export class RankingsService {
         select: { id: true, label: true, takenAt: true, isAuto: true },
       });
     });
+    this.telegram.announceRanking(snapshot.label);
+    return snapshot;
   }
 
   async removeSnapshot(id: string) {
@@ -278,14 +295,10 @@ export class RankingsService {
     page?: number,
     pageSize?: number,
   ) {
-    const ageCategoryId = ageCategoryCode
-      ? ((
-          await this.prisma.ageCategory.findUnique({
-            where: { code: ageCategoryCode },
-            select: { id: true },
-          })
-        )?.id ?? null)
+    const ageRow = ageCategoryCode
+      ? await this.prisma.ageCategory.findUnique({ where: { code: ageCategoryCode }, select: { maxAge: true } })
       : undefined;
+    const ageCategoryId = ageCategoryCode ? (ageRow ? 'ok' : null) : undefined;
     const safePage = page && page > 0 ? page : 1;
     const safePageSize = pageSize
       ? Math.min(Math.max(1, pageSize), MAX_PAGE_SIZE)
@@ -306,7 +319,7 @@ export class RankingsService {
     const rows = await this.prisma.partnership.findMany({
       where: {
         category,
-        ageCategoryId: ageCategoryId ?? undefined,
+        ageCategory: ageFilter(ageRow?.maxAge),
         // Aralash juftlikda ikkala jins ham qatnashadi — jins filtri faqat
         // bir xil jinsli (DOUBLES) juftlikka ma'noli.
         player1: gender && category === 'DOUBLES' ? { gender } : undefined,
@@ -331,14 +344,10 @@ export class RankingsService {
     page?: number,
     pageSize?: number,
   ) {
-    const ageCategoryId = ageCategoryCode
-      ? ((
-          await this.prisma.ageCategory.findUnique({
-            where: { code: ageCategoryCode },
-            select: { id: true },
-          })
-        )?.id ?? null)
+    const ageRow = ageCategoryCode
+      ? await this.prisma.ageCategory.findUnique({ where: { code: ageCategoryCode }, select: { maxAge: true } })
       : undefined;
+    const ageCategoryId = ageCategoryCode ? (ageRow ? 'ok' : null) : undefined;
     const safePage = page && page > 0 ? page : 1;
     const safePageSize = pageSize
       ? Math.min(Math.max(1, pageSize), MAX_PAGE_SIZE)
@@ -347,7 +356,7 @@ export class RankingsService {
 
     const rows = await this.prisma.team.findMany({
       where: {
-        ageCategoryId: ageCategoryId ?? undefined,
+        ageCategory: ageFilter(ageRow?.maxAge),
         gender: gender === 'MIXED' ? null : gender,
       },
       orderBy: [{ points: 'desc' }],

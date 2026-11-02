@@ -17,6 +17,9 @@ export interface Env {
   /** ISR: kontent o'zgarganda web'ning revalidate endpointi chaqiriladi (ixtiyoriy) */
   WEB_REVALIDATE_URL?: string;
   REVALIDATE_SECRET?: string;
+  /** Telegram: o'yin natijasi (matn + 2 format rasm). Ikkalasi ham ixtiyoriy, lekin faqat birga. */
+  TELEGRAM_BOT_TOKEN?: string;
+  TELEGRAM_CHAT_ID?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>): Env {
@@ -44,6 +47,8 @@ export function validateEnv(config: Record<string, unknown>): Env {
     WEB_ORIGIN: str('WEB_ORIGIN', 'http://localhost:3000'),
     WEB_REVALIDATE_URL: (config['WEB_REVALIDATE_URL'] as string) || undefined,
     REVALIDATE_SECRET: (config['REVALIDATE_SECRET'] as string) || undefined,
+    TELEGRAM_BOT_TOKEN: (config['TELEGRAM_BOT_TOKEN'] as string) || undefined,
+    TELEGRAM_CHAT_ID: (config['TELEGRAM_CHAT_ID'] as string) || undefined,
   };
 
   // Ikkalasi birga bo'lishi kerak — sirsiz webhook ochiq eshik bo'lib qoladi
@@ -52,6 +57,16 @@ export function validateEnv(config: Record<string, unknown>): Env {
   }
   if (env.REVALIDATE_SECRET && env.REVALIDATE_SECRET.length < 16) {
     errors.push('REVALIDATE_SECRET kamida 16 belgi bo‘lishi kerak');
+  }
+
+  if (!!env.TELEGRAM_BOT_TOKEN !== !!env.TELEGRAM_CHAT_ID) {
+    errors.push('TELEGRAM_BOT_TOKEN va TELEGRAM_CHAT_ID birga berilishi kerak');
+  }
+  if (env.TELEGRAM_BOT_TOKEN && !/^\d{6,}:[\w-]{30,}$/.test(env.TELEGRAM_BOT_TOKEN)) {
+    errors.push("TELEGRAM_BOT_TOKEN formati noto'g'ri (BotFather bergan token)");
+  }
+  if (env.TELEGRAM_CHAT_ID && !/^(-?\d{5,}|@\w{4,})$/.test(env.TELEGRAM_CHAT_ID)) {
+    errors.push("TELEGRAM_CHAT_ID noto'g'ri (masalan -1001234567890)");
   }
 
   if (env.JWT_SECRET && env.JWT_SECRET.length < 32) {

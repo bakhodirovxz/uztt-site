@@ -11,6 +11,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { PlayersModule } from './modules/players/players.module';
 import { TournamentsModule } from './modules/tournaments/tournaments.module';
 import { MatchesModule } from './modules/matches/matches.module';
+import { ScoreboardBridgeModule } from './modules/scoreboard-bridge/scoreboard-bridge.module';
 import { LiveModule } from './modules/live/live.module';
 import { RankingsModule } from './modules/rankings/rankings.module';
 import { UttfSyncModule } from './modules/uttf-sync/uttf-sync.module';
@@ -23,6 +24,11 @@ import { CoachModule } from './modules/coach/coach.module';
 import { StreamModule } from './modules/stream/stream.module';
 import { RefereeModule } from './modules/referee/referee.module';
 import { UsersModule } from './modules/users/users.module';
+import { ApplicationsModule } from './modules/applications/applications.module';
+import { AssignmentModule } from './modules/referee-assignment/assignment.module';
+import { ClubsModule } from './modules/clubs/clubs.module';
+import { AppealsModule } from './modules/appeals/appeals.module';
+import { ShowcaseModule } from './modules/showcase/showcase.module';
 import { HealthController } from './modules/health/health.controller';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
@@ -56,6 +62,7 @@ import { SlowRequestInterceptor } from './common/interceptors/slow-request.inter
     PlayersModule,
     TournamentsModule,
     MatchesModule,
+    ScoreboardBridgeModule,
     LiveModule,
     RankingsModule,
     UttfSyncModule,
@@ -68,6 +75,11 @@ import { SlowRequestInterceptor } from './common/interceptors/slow-request.inter
     StreamModule,
     RefereeModule,
     UsersModule,
+    ShowcaseModule,
+    AppealsModule,
+    ApplicationsModule,
+    ClubsModule,
+    AssignmentModule,
   ],
   controllers: [HealthController],
   providers: [

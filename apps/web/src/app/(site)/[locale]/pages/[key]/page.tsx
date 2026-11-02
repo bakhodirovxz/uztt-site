@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import { setRequestLocale } from 'next-intl/server';
+import { pageMeta } from '@/lib/seo';
 import { api, ApiError, cached } from '@/lib/api';
 
 // Sahifa har so'rovda qayta render qilinadi, lekin API javoblari Data Cache'da
@@ -34,7 +35,12 @@ export async function generateMetadata({
   const { locale, key } = await params;
   const page = await fetchPage(key, locale);
   if (!page) return {};
-  return { title: page.title, description: page.body.slice(0, 160) };
+  return pageMeta({
+    locale,
+    href: { pathname: '/pages/[key]', params: { key } },
+    title: page.title,
+    description: page.body.replace(/\s+/g, ' ').slice(0, 160),
+  });
 }
 
 export default async function StaticPageRoute({

@@ -1,3 +1,5 @@
+import type { Metadata } from 'next';
+import { pageMeta } from '@/lib/seo';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { api, cached } from '@/lib/api';
@@ -15,6 +17,12 @@ interface GalleryItem {
   coverUrl: string | null;
   photoCount: number;
   publishedAt: string | null;
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: 'seo' });
+  return pageMeta({ locale, href: '/galleries', title: t('galleries.title'), description: t('galleries.description') });
 }
 
 export default async function GalleriesPage({

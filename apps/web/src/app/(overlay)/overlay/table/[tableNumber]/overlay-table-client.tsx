@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { subscribeToMatch, type MatchPayload } from '@/lib/socket';
 import { OverlayView } from '@/components/match/overlay-view';
+import { ShowcaseLayer } from '@/components/showcase/showcase-layer';
+import { OverlayAds } from '@/components/showcase/overlay-ads';
 
 /**
  * Stolga biriktirilgan overlay: token emas, stol raqami bo'yicha.
@@ -35,7 +37,14 @@ export function OverlayTableClient({ tableNumber }: { tableNumber: number }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [match?.id]);
 
-  if (!match) return null;
+  // Bo'sh vaqt: stolda o'yin yo'q yoki hakam hali kirmagan (kod tasdiqlanmagan) — reklama
+  const idle = !match || (match.status === 'SCHEDULED' && !match.refereeVerified);
 
-  return <OverlayView match={match} />;
+  return (
+    <>
+      {match && <OverlayView match={match} />}
+      <OverlayAds table={tableNumber} idle={idle} />
+      <ShowcaseLayer match={match} variant="overlay" />
+    </>
+  );
 }

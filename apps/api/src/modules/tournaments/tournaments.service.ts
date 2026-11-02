@@ -1,3 +1,4 @@
+import { TelegramService } from '../showcase/telegram.service';
 import {
   ConflictException,
   Injectable,
@@ -18,8 +19,9 @@ const PUBLIC_TOURNAMENT_SELECT = {
   startDate: true,
   endDate: true,
   status: true,
+  createdAt: true,
   bannerImageUrl: true,
-  level: { select: { code: true, name: true, coefficient: true } },
+  level: { select: { code: true, name: true, coefficient: true, ratingK: true, ratingMode: true } },
   ageCategory: { select: { code: true, name: true } },
   translations: { select: { locale: true, name: true } },
 } satisfies Prisma.TournamentSelect;
@@ -69,7 +71,10 @@ const PUBLIC_MATCH_SELECT = {
 
 @Injectable()
 export class TournamentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly telegram: TelegramService,
+  ) {}
 
   async list(filter: { status?: TournamentStatus; locale?: string }) {
     const rows = await this.prisma.tournament.findMany({
@@ -171,7 +176,7 @@ export class TournamentsService {
     throw new ConflictException('Musobaqa uchun bo‘sh slug topilmadi');
   }
 
-  private createWithSlug(
+  private async createWithSlug(
     slug: string,
     levelId: string,
     data: {
@@ -183,7 +188,7 @@ export class TournamentsService {
       endDate: string;
     },
   ) {
-    return this.prisma.tournament.create({
+    const created = await this.prisma.tournament.create({
       data: {
         slug,
         name: data.name,
@@ -196,6 +201,8 @@ export class TournamentsService {
       },
       select: PUBLIC_TOURNAMENT_SELECT,
     });
+    this.telegram.announceTournament(created.slug, created.name, data.startDate, data.endDate, [data.city, data.venue].filter(Boolean).join(', '));
+    return created;
   }
 
   async update(

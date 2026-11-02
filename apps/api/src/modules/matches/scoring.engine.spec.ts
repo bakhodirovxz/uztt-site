@@ -4,6 +4,7 @@ import {
   initialState,
   isSetWon,
   pointAlert,
+  sideChangeDue,
   serverSlot,
   setsToWin,
   type ScoreState,
@@ -220,5 +221,17 @@ describe('scoring.engine (legacy spec porti)', () => {
     expect(isSetWon({ p1: 11, p2: 10 })).toBe(false);
     expect(isSetWon({ p1: 10, p2: 12 })).toBe(true);
     expect(isSetWon({ p1: 10, p2: 10 })).toBe(false);
+  });
+});
+
+describe('tomon almashtirish eslatmasi (2.13.7–8)', () => {
+  const base = { bestOf: 5, status: 'LIVE' as const, sets: [], winnerSlot: null };
+  it('oxirgi setda (2:2) yetakchi 5 ga yetganda', () => {
+    const st = (p1: number, p2: number, s1 = 2, s2 = 2) => ({ ...base, currentSet: { p1, p2 }, player1SetsWon: s1, player2SetsWon: s2 });
+    expect(sideChangeDue(st(5, 3))).toBe(true);
+    expect(sideChangeDue(st(2, 5))).toBe(true);
+    expect(sideChangeDue(st(4, 3))).toBe(false);
+    expect(sideChangeDue(st(5, 5))).toBe(false); // ikkalasi ham 5 dan oshgan — almashtirish allaqachon bo'lgan
+    expect(sideChangeDue(st(5, 3, 1, 2))).toBe(false); // oxirgi set emas
   });
 });

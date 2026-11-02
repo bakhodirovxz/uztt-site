@@ -12,6 +12,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { SkipThrottle } from '@nestjs/throttler';
 import { ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { memoryStorage } from 'multer';
 import { MatchesService } from './matches.service';
@@ -97,8 +98,8 @@ export class MatchesController {
 
   @Get('referee/list')
   @RequirePermissions('match.score')
-  refereeList() {
-    return this.matches.refereeList();
+  refereeList(@Query('all') all?: string) {
+    return this.matches.refereeList({ all: all === '1' || all === 'true' });
   }
 
   @Post(':id/verify')
@@ -108,9 +109,16 @@ export class MatchesController {
     @Body() dto: VerifyCodeDto,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.matches.verify(id, dto.code, user.id);
+    return this.matches.verify(id, dto.code, user.id, user.permissions.includes('match.manage'));
   }
 
+  /**
+   * Hisob kiritish IP chegarasidan CHIQARILGAN: zalda hamma hakam planshetlari va
+   * tomoshabinlar bitta Wi-Fi (bitta tashqi IP) orqasida bo'ladi — umumiy 300/daq
+   * chegara o'yin o'rtasida hakamga 429 berib qo'yardi (yuk sinovida tasdiqlangan).
+   * Himoya: JWT + CSRF + `match.score` ruxsati + hakam kodi bilan tasdiqlangan o'yin.
+   */
+  @SkipThrottle()
   @Post(':id/point')
   @RequirePermissions('match.score')
   point(
@@ -121,12 +129,14 @@ export class MatchesController {
     return this.matches.point(id, dto.player, user.id);
   }
 
+  @SkipThrottle()
   @Post(':id/undo')
   @RequirePermissions('match.score')
   undo(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
     return this.matches.undo(id, user.id);
   }
 
+  @SkipThrottle()
   @Post(':id/card')
   @RequirePermissions('match.score')
   card(
@@ -135,6 +145,18 @@ export class MatchesController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.matches.card(id, dto.player, dto.cardType, user.id);
+  }
+
+  /** Taym-aut: har o'yinchiga o'yinda bir marta, 1 daqiqa (3.4.4.2) */
+  @SkipThrottle()
+  @Post(':id/timeout')
+  @RequirePermissions('match.score')
+  timeout(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: PointDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.matches.timeout(id, dto.player, user.id);
   }
 
   @Post(':id/disqualify')

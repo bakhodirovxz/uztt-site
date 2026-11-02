@@ -1,7 +1,11 @@
+import type { Metadata } from 'next';
+import { pageMeta } from '@/lib/seo';
 import Image from 'next/image';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
+import { PlayerPopupLink } from '@/components/player/player-popup';
 import { api } from '@/lib/api';
+import { Avatar } from '@/components/ui/avatar';
 import { Container, PageTitleBar, chipClass } from '@/components/ui';
 
 interface PlayerRow {
@@ -20,22 +24,24 @@ interface PlayerRow {
 export const dynamic = 'force-dynamic';
 
 /** O'yinchi rasmi — bo'lmasa ismi bosh harflaridan doira */
-function PlayerAvatar({ p, size = 'size-11' }: { p: PlayerRow; size?: string }) {
-  if (p.photoUrl) {
-    return (
-      <span className={`relative block ${size} shrink-0 overflow-hidden rounded-full bg-navy-800`}>
-        <Image src={p.photoUrl} alt="" fill sizes="44px" className="object-cover" />
-      </span>
-    );
-  }
-  return (
-    <span
-      className={`grid ${size} shrink-0 place-items-center rounded-full bg-navy-800 font-heading text-sm font-extrabold text-white`}
-    >
-      {p.firstName[0]}
-      {p.lastName[0]}
-    </span>
-  );
+function PlayerAvatar({ p }: { p: PlayerRow; size?: string }) {
+  return <Avatar photoUrl={p.photoUrl} firstName={p.firstName} lastName={p.lastName} size={44} />;
+}
+
+export async function generateMetadata({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<{ page?: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const { page } = await searchParams;
+  const n = Math.max(1, Number.parseInt(page ?? '1', 10) || 1);
+  const t = await getTranslations({ locale, namespace: 'seo' });
+  const meta = pageMeta({ locale, href: '/players', title: n > 1 ? `${t('players.title')} — ${n}` : t('players.title'), description: t('players.description') });
+  // Sahifalangan ro'yxat: 2+ sahifalar indekslanmaydi, lekin havolalar kuzatiladi (dublikat title/kontent xavfi yo'q)
+  return n > 1 ? { ...meta, robots: { index: false, follow: true } } : meta;
 }
 
 export default async function PlayersPage({
@@ -47,11 +53,12 @@ export default async function PlayersPage({
     gender?: string;
     q?: string;
     region?: string;
+    age?: string;
     page?: string;
   }>;
 }) {
   const { locale } = await params;
-  const { gender, q, region, page } = await searchParams;
+  const { gender, q, region, age, page } = await searchParams;
   setRequestLocale(locale);
   const t = await getTranslations('nav');
   const tp = await getTranslations('playersPage');
@@ -60,6 +67,7 @@ export default async function PlayersPage({
   if (gender === 'MALE' || gender === 'FEMALE') qs.set('gender', gender);
   if (q) qs.set('search', q);
   if (region) qs.set('region', region);
+  if (age) qs.set('ageCategory', age);
   if (page) qs.set('page', page);
   const paged = await api
     .get<{
@@ -77,11 +85,16 @@ export default async function PlayersPage({
     .get<string[]>('/players/regions', { next: { revalidate: 300 } } as RequestInit)
     .catch(() => [] as string[]);
 
+  const ageCats = await api
+    .get<Array<{ id: string; code: string; name: string }>>('/draws/age-categories', { next: { revalidate: 300 } } as RequestInit)
+    .catch(() => []);
+
   const pageQuery = (p: number) => {
     const query: Record<string, string> = {};
     if (gender === 'MALE' || gender === 'FEMALE') query.gender = gender;
     if (q) query.q = q;
     if (region) query.region = region;
+    if (age) query.age = age;
     if (p > 1) query.page = String(p);
     return query;
   };
@@ -95,7 +108,7 @@ export default async function PlayersPage({
   /** Joriy filtrlarni saqlab, bittasini almashtiruvchi havola */
   const hrefWith = (patch: Record<string, string | undefined>) => {
     const next = new URLSearchParams();
-    const merged = { gender, q, region, ...patch };
+    const merged = { gender, q, region, age, ...patch };
     for (const [k, v] of Object.entries(merged)) if (v) next.set(k, v);
     return `?${next}`;
   };
@@ -123,6 +136,7 @@ export default async function PlayersPage({
           className="min-h-10 w-full rounded-md border border-border bg-surface-card px-3.5 text-sm outline-none focus:border-accent-500 sm:w-64"
         />
         {gender && <input type="hidden" name="gender" value={gender} />}
+        {age && <input type="hidden" name="age" value={age} />}
         <select
           name="region"
           defaultValue={region ?? ''}
@@ -144,6 +158,20 @@ export default async function PlayersPage({
         </button>
       </form>
 
+      {/* Yosh segmenti — kumulyativ: U-13 = 13 yosh va undan kichik hamma */}
+      {ageCats.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2" aria-label="Yosh segmenti">
+          <a href={hrefWith({ age: undefined })} className={chipClass(!age)}>
+            {tp('all')}
+          </a>
+          {ageCats.map((c) => (
+            <a key={c.id} href={hrefWith({ age: c.code })} className={chipClass(age === c.code)}>
+              {c.name}
+            </a>
+          ))}
+        </div>
+      )}
+
       <div className="mt-3 flex flex-wrap gap-2">
         {tabs.map((tab) => (
           <a
@@ -164,8 +192,8 @@ export default async function PlayersPage({
         <ol className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {players.map((p, i) => (
             <li key={p.id}>
-              <Link
-                href={{ pathname: '/players/[slug]', params: { slug: p.slug } }}
+              <PlayerPopupLink
+                slug={p.slug}
                 className="group flex items-center gap-4 rounded-card border border-border bg-surface-card px-4 py-3.5 transition-colors hover:border-court-500"
               >
                 {/* Reyting o'rni — asosiy ma'lumot, shuning uchun birinchi */}
@@ -197,7 +225,7 @@ export default async function PlayersPage({
                     {tp('points')}
                   </span>
                 </span>
-              </Link>
+              </PlayerPopupLink>
             </li>
           ))}
         </ol>

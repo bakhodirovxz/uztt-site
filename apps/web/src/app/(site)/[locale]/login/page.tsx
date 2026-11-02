@@ -18,8 +18,9 @@ export default function LoginPage() {
     setBusy(true);
     setError(null);
     try {
-      await api.post<{ user: AuthUser }>('/auth/login', { email, password });
-      router.push('/panel');
+      const { user } = await api.post<{ user: AuthUser }>('/auth/login', { email, password });
+      // Boshlang'ich parol → avval almashtirish; huquqi yo'q (oddiy o'yinchi) → shaxsiy kabinet
+      router.push(user.mustChangePassword ? '/account' : user.permissions.length > 0 ? '/panel' : '/profile');
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiError && err.status === 401 ? t('failed') : String(err));

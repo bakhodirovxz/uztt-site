@@ -65,7 +65,7 @@ describe('Ommaviy API (e2e)', () => {
       const players = await request(app.getHttpServer())
         .get('/api/players')
         .expect(200);
-      const slug = (players.body as Array<{ slug: string }>)[0]?.slug;
+      const slug = (players.body.rows as Array<{ slug: string }>)[0]?.slug;
       if (!slug) return;
 
       const res = await request(app.getHttpServer())
@@ -79,7 +79,7 @@ describe('Ommaviy API (e2e)', () => {
       const players = await request(app.getHttpServer())
         .get('/api/players')
         .expect(200);
-      const [a, b] = players.body as Array<{ slug: string }>;
+      const [a, b] = players.body.rows as Array<{ slug: string }>;
       if (!a || !b) return;
 
       const res = await request(app.getHttpServer())
@@ -93,7 +93,7 @@ describe('Ommaviy API (e2e)', () => {
       const players = await request(app.getHttpServer())
         .get('/api/players')
         .expect(200);
-      const slug = (players.body as Array<{ slug: string }>)[0]?.slug;
+      const slug = (players.body.rows as Array<{ slug: string }>)[0]?.slug;
       if (!slug) return;
 
       await request(app.getHttpServer())
@@ -123,7 +123,7 @@ describe('Ommaviy API (e2e)', () => {
       const players = await request(app.getHttpServer())
         .get('/api/players')
         .expect(200);
-      const name = (players.body as Array<{ lastName: string }>)[0]?.lastName;
+      const name = (players.body.rows as Array<{ lastName: string }>)[0]?.lastName;
       if (!name) return;
 
       const res = await request(app.getHttpServer())

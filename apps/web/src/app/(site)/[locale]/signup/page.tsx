@@ -15,6 +15,7 @@ interface AgeCategory {
 export default function SignupPage() {
   const t = useTranslations('signup');
   const tl = useTranslations('login');
+  const tj = useTranslations('join');
   const [form, setForm] = useState({
     email: '',
     password: '',
@@ -198,6 +199,11 @@ export default function SignupPage() {
           <Link href="/login" className="inline-block min-h-8 py-1 font-semibold text-accent-400">
             {tl('title')}
           </Link>
+        </p>
+        <p className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-sm">
+          <Link href="/join/referee" className="font-semibold text-accent-400">{tj('linkReferee')}</Link>
+          <Link href="/join/coach" className="font-semibold text-accent-400">{tj('linkCoach')}</Link>
+          <Link href="/clubs" className="font-semibold text-accent-400">{tj('linkClubs')}</Link>
         </p>
       </form>
     </div>

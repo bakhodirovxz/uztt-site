@@ -136,6 +136,18 @@ export function pointAlert(state: ScoreState): PointAlert | null {
   return check(p1, p2, 1) ?? check(p2, p1, 2);
 }
 
+/**
+ * Tomon almashtirish eslatmasi (2.13.7–8): oxirgi mumkin bo'lgan setda biror o'yinchi 5 ochkoga
+ * yetishi bilan o'yinchilar tomonlarni almashtiradi. Eslatma: setda yetakchi aynan 5 da, raqib < 5.
+ */
+export function sideChangeDue(state: ScoreState): boolean {
+  if (state.status === 'FINISHED') return false;
+  const target = setsToWin(state.bestOf);
+  if (state.player1SetsWon !== target - 1 || state.player2SetsWon !== target - 1) return false;
+  const { p1, p2 } = state.currentSet;
+  return (p1 === 5 && p2 < 5) || (p2 === 5 && p1 < 5);
+}
+
 /** Diskvalifikatsiya: raqib g'olib, o'yin darhol tugaydi (legacy semantikasi) */
 export function applyDisqualification(
   state: ScoreState,

@@ -12,6 +12,7 @@
  * jadvallar domen mantiqi — ular o'z sahifasida qoladi.
  */
 import type { ReactNode } from 'react';
+import { Avatar } from '@/components/ui/avatar';
 
 export function DataTable({
   head,
@@ -103,25 +104,9 @@ export function PlayerCell({
   /** Klub yoki viloyat kabi ikkinchi darajali matn */
   sub?: ReactNode;
 }) {
-  const initials = `${lastName?.[0] ?? ''}${firstName?.[0] ?? ''}`.toUpperCase();
   return (
     <span className="flex min-w-0 items-center gap-3">
-      {photoUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element -- jadvalda
-        // 35px avatar uchun next/image optimizatsiyasi ortiqcha yuk beradi
-        <img
-          src={photoUrl}
-          alt=""
-          width={35}
-          height={35}
-          loading="lazy"
-          className="size-[35px] shrink-0 rounded-full bg-surface-alt object-cover"
-        />
-      ) : (
-        <span className="grid size-[35px] shrink-0 place-items-center rounded-full bg-navy-800 font-heading text-[11px] font-bold text-white">
-          {initials}
-        </span>
-      )}
+      <Avatar photoUrl={photoUrl} firstName={firstName} lastName={lastName} size={35} />
       <span className="min-w-0">
         <span className="block truncate font-medium text-ink">
           {/* WTT familiyani BOSH HARFLAR bilan beradi */}

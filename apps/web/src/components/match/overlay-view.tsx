@@ -1,10 +1,12 @@
 'use client';
 
 import type { MatchPayload } from '@/lib/socket';
+import { TimeoutAlert } from './timeout-alert';
 
 const STAGE_LABELS: Record<string, string> = {
   FINAL: 'FINAL',
   SEMIFINAL: 'YARIM FINAL',
+  THIRD_PLACE: '3-O\'RIN UCHUN',
   QUARTERFINAL: 'CHORAK FINAL',
   ROUND_OF_16: '1/8 FINAL',
   ROUND_OF_32: '1/16 FINAL',
@@ -131,6 +133,9 @@ export function OverlayView({ match }: { match: MatchPayload }) {
           );
         })}
       </div>
+
+      {/* Taym-aut (3.4.4.2): katta panel ekran markazida */}
+      <TimeoutAlert match={match} />
 
       {/* Tugagan setlar + yakun holati */}
       {(match.sets.length > 0 || finished) && (

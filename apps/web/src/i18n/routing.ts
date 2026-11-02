@@ -14,6 +14,14 @@ export const routing = defineRouting({
   pathnames: {
     '/': '/',
     '/login': '/login',
+    '/account': '/account',
+    '/join/referee': '/join/referee',
+    '/join/coach': '/join/coach',
+    '/clubs': { uz: '/klublar', ru: '/kluby', en: '/clubs' },
+    '/clubs/open': { uz: '/klublar/ochish', ru: '/kluby/otkrytie', en: '/clubs/open' },
+    '/clubs/[slug]': { uz: '/klublar/[slug]', ru: '/kluby/[slug]', en: '/clubs/[slug]' },
+    '/panel/applications': '/panel/applications',
+    '/panel/referees': '/panel/referees',
     '/panel': '/panel',
     '/live': '/live',
     '/events': {
@@ -71,6 +79,8 @@ export const routing = defineRouting({
     '/panel/inbox': '/panel/inbox',
     '/panel/coach': '/panel/coach',
     '/panel/stream': '/panel/stream',
+    '/panel/overlay-ads': '/panel/overlay-ads',
+    '/panel/scoreboard': '/panel/scoreboard',
     '/signup': '/signup',
     '/profile': '/profile',
     '/videos': '/videos',

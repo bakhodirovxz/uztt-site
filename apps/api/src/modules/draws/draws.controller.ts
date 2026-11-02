@@ -21,6 +21,7 @@ import {
 } from 'class-validator';
 import { EventType, Gender } from '@prisma/client';
 import { DrawsService } from './draws.service';
+import { CacheFor } from '../../common/interceptors/cache-control.interceptor';
 import { Public } from '../../common/decorators/public.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -103,6 +104,14 @@ export class DrawsController {
   @Get('age-categories')
   ageCategories() {
     return this.draws.ageCategories();
+  }
+
+  /** Kategoriya bo'yicha setka (TV/overlay uchun) — 5 soniyalik kesh: ko'p ekran bazani urmasin */
+  @Public()
+  @CacheFor(5)
+  @Get('category/:categoryId')
+  async bracketOfCategory(@Param('categoryId', ParseUUIDPipe) categoryId: string) {
+    return this.draws.bracketOfCategory(categoryId);
   }
 
   @Public()

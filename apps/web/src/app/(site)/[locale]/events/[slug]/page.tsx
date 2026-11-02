@@ -2,10 +2,12 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
+import { pageMeta } from '@/lib/seo';
 import { api, ApiError } from '@/lib/api';
 import { safeJsonLd } from '@/lib/json-ld';
 import { MatchCard } from '@/components/match/match-card';
 import { BracketView, type BracketData } from '@/components/match/bracket-view';
+import { GroupsView, type GroupsData } from '@/components/match/groups-view';
 import type { MatchPayload } from '@/lib/socket';
 
 type ApiMatch = Omit<
@@ -30,7 +32,7 @@ interface TournamentDetail {
   startDate: string;
   endDate: string;
   status: string;
-  level: { code: string; name: string; coefficient: number };
+  level: { code: string; name: string; coefficient: number; ratingK?: number; ratingMode?: 'OFFICIAL' | 'LEGACY' };
   matches: ApiMatch[];
   categories: Array<{
     id: string;
@@ -74,6 +76,7 @@ interface VideoItem {
 
 const TABS = [
   'overview',
+  'groups',
   'bracket',
   'matches',
   'results',
@@ -94,12 +97,14 @@ export async function generateMetadata({
     .get<TournamentDetail>(`/tournaments/${slug}?locale=${locale}`)
     .catch(() => null);
   if (!t) return {};
-  const description = `${t.level.name} · ${[t.city, t.venue].filter(Boolean).join(', ')}`;
-  return {
+  const description = [t.level.name, [t.city, t.venue].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
+  return pageMeta({
+    locale,
+    href: { pathname: '/events/[slug]', params: { slug } },
     title: t.name,
     description,
-    openGraph: { title: t.name, description, type: 'website' },
-  };
+    image: (t as { bannerImageUrl?: string | null }).bannerImageUrl ?? null,
+  });
 }
 
 export default async function EventDetailPage({
@@ -126,7 +131,7 @@ export default async function EventDetailPage({
     });
   if (!t) notFound();
 
-  const [brackets, news, galleries, videos, regulation] = await Promise.all([
+  const [brackets, news, galleries, videos, regulation, groupStages] = await Promise.all([
     api
       .get<BracketData[]>(`/draws/tournament/${slug}`)
       .catch(() => [] as BracketData[]),
@@ -142,6 +147,21 @@ export default async function EventDetailPage({
     api
       .get<LevelRegulation>(`/levels/${t.level.code}`)
       .catch(() => null),
+    // Guruh bosqichi (doira tizimi) bor kategoriyalar
+    api
+      .get<Array<{ id: string; gender: 'MALE' | 'FEMALE' | null; ageCategory: { code: string } }>>(`/draws/categories/${t.id}`)
+      .then((cats) =>
+        Promise.all(
+          cats.map((c) =>
+            api
+              .get<GroupsData>(`/groups/category/${c.id}`)
+              .then((data) => ({ cat: c, data }))
+              .catch(() => null),
+          ),
+        ),
+      )
+      .then((x) => x.filter((v): v is NonNullable<typeof v> => v !== null))
+      .catch(() => [] as Array<{ cat: { id: string; gender: 'MALE' | 'FEMALE' | null; ageCategory: { code: string } }; data: GroupsData }>),
   ]);
 
   const finished = t.matches.filter((m) => m.status === 'FINISHED');
@@ -150,6 +170,7 @@ export default async function EventDetailPage({
 
   // Bo'sh bo'limlar tabda ko'rinmaydi — foydalanuvchi bo'sh sahifaga tushmaydi
   const visibleTabs = TABS.filter((key) => {
+    if (key === 'groups') return groupStages.length > 0;
     if (key === 'bracket') return brackets.length > 0;
     if (key === 'news') return news.length > 0;
     if (key === 'gallery') return hasMedia;
@@ -229,7 +250,7 @@ export default async function EventDetailPage({
       <section className="bg-navy-900 text-white">
         <div className="mx-auto max-w-site px-4 py-12">
           <p className="text-sm uppercase tracking-wider text-gold-500">
-            {t.level.name} · ×{t.level.coefficient}
+            {t.level.name} · {t.level.ratingMode === 'OFFICIAL' ? `K ${t.level.ratingK}` : `×${t.level.coefficient}`}
           </p>
           <h1 className="mt-1 font-heading text-4xl font-extrabold uppercase tracking-tight">
             {t.name}
@@ -265,6 +286,7 @@ export default async function EventDetailPage({
                 {te(
                   `tab${key.charAt(0).toUpperCase()}${key.slice(1)}` as
                     | 'tabOverview'
+                    | 'tabGroups'
                     | 'tabBracket'
                     | 'tabMatches'
                     | 'tabResults'
@@ -284,7 +306,7 @@ export default async function EventDetailPage({
             {sectionTitle(te('info'))}
             <dl className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {[
-                [te('level'), `${t.level.name} (×${t.level.coefficient})`],
+                [te('level'), `${t.level.name} (${t.level.ratingMode === 'OFFICIAL' ? `K ${t.level.ratingK}` : `×${t.level.coefficient}`})`],
                 [te('dates'), `${fmt(t.startDate)} — ${fmt(t.endDate)}`],
                 [te('venue'), [t.venue, t.city].filter(Boolean).join(', ') || '—'],
                 [
@@ -401,6 +423,18 @@ export default async function EventDetailPage({
             </section>
           )}
         </div>
+      )}
+
+      {/* ==================== GURUHLAR ==================== */}
+      {tab === 'groups' && (
+        <section className="mx-auto max-w-site px-4 py-10">
+          {sectionTitle(te('tabGroups'))}
+          <div className="mt-5 space-y-10">
+            {groupStages.map((g) => (
+              <GroupsView key={g.cat.id} data={g.data} category={{ code: g.cat.ageCategory.code, gender: g.cat.gender }} />
+            ))}
+          </div>
+        </section>
       )}
 
       {/* ==================== SETKA ==================== */}

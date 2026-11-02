@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { Link } from '@/i18n/navigation';
+import { PlayerPopupLink } from '@/components/player/player-popup';
 import { Container, PageTitleBar } from '@/components/ui';
 import { api } from '@/lib/api';
 
@@ -75,15 +76,15 @@ export default function SearchPage() {
           </h2>
           <div className="mt-2 space-y-2">
             {results.players.map((p) => (
-              <Link
+              <PlayerPopupLink
                 key={p.id}
-                href={{ pathname: '/players/[slug]', params: { slug: p.slug } }}
+                slug={p.slug}
                 className="flex items-center gap-3 rounded-card bg-surface-card px-4 py-3 shadow-card hover:shadow-card-hover"
               >
                 <span className="font-semibold">{p.firstName} {p.lastName}</span>
                 <span className="text-sm text-muted">{p.region}</span>
                 <span className="ml-auto font-heading font-extrabold tabular-nums">{p.rankingPoints}</span>
-              </Link>
+              </PlayerPopupLink>
             ))}
           </div>
         </section>

@@ -1,3 +1,4 @@
+import { TelegramService } from '../showcase/telegram.service';
 import {
   BadRequestException,
   ConflictException,
@@ -6,6 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Gender, PlayerDocumentType } from '@prisma/client';
+import { checkPassword } from '../../common/password-policy';
 import * as argon2 from 'argon2';
 import { randomUUID } from 'crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'fs';
@@ -27,6 +29,7 @@ export class RegistrationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly crypto: CryptoService,
+    private readonly telegram: TelegramService,
   ) {}
 
   /** O'yinchi self-signup: USER akkaunt + PLAYER rol + PENDING profil */
@@ -45,6 +48,12 @@ export class RegistrationService {
     const email = data.email.toLowerCase().trim();
     const exists = await this.prisma.user.findUnique({ where: { email } });
     if (exists) throw new ConflictException('Bu email allaqachon band');
+
+    const policyError = checkPassword(data.password, {
+      email,
+      names: [data.firstName, data.lastName],
+    });
+    if (policyError) throw new BadRequestException(policyError);
 
     const passwordHash = await argon2.hash(data.password, {
       type: argon2.argon2id,
@@ -93,6 +102,7 @@ export class RegistrationService {
           },
         },
       });
+      this.telegram.announce('admin', `🆕 Yangi o'yinchi ro'yxatdan o'tdi: ${data.lastName} ${data.firstName} (${data.region})\nTasdiqlash: ${this.telegram.siteUrl()}/panel/players`);
       return {
         userId: user.id,
         playerId: player.id,

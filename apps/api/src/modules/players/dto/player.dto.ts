@@ -90,6 +90,13 @@ export class ListPlayersQueryDto {
   @MaxLength(64)
   search?: string;
 
+  /** Kumulyativ yosh segmenti: U13 → 13 yosh va undan kichik hamma */
+  @ApiPropertyOptional({ maxLength: 16 })
+  @IsOptional()
+  @IsString()
+  @MaxLength(16)
+  ageCategory?: string;
+
   @ApiPropertyOptional({ minimum: 1, default: 1 })
   @IsOptional()
   @Type(() => Number)
