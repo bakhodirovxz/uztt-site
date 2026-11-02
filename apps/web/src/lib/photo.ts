@@ -1,5 +1,5 @@
 /**
- * O'yinchi rasmining kichik (96 px) nusxasi — jadval, setka, TV va overlay uchun.
+ * O'yinchi rasmining kichik (128 px, yuzga qaratilgan) nusxasi — jadval, setka, TV va overlay uchun.
  * Katta rasm (600×800) faqat profil sahifasida. Yuklangan: `<nom>-thumb.webp`; uttf import: `players/thumb/<id>.webp`.
  * (API dagi common/photo.ts bilan bir xil qoida.)
  */

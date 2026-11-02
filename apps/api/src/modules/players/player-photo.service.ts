@@ -1,9 +1,10 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomBytes } from 'crypto';
-import { existsSync, mkdirSync, unlinkSync } from 'fs';
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import sharp from 'sharp';
 import { PrismaService } from '../../prisma/prisma.service';
+import { avatarThumb } from '../../common/avatar-crop';
 
 const DIR = join(process.cwd(), 'uploads', 'public', 'players');
 
@@ -49,7 +50,8 @@ export class PlayerPhotoService {
     const base = `${playerId}-${randomBytes(4).toString('hex')}`;
     const src = () => sharp(file.buffer, { limitInputPixels: 40_000_000 }).rotate();
     await src().resize(600, 800, { fit: 'cover', position: sharp.strategy.attention }).webp({ quality: 82 }).toFile(join(DIR, `${base}.webp`));
-    await src().resize(96, 96, { fit: 'cover', position: sharp.strategy.attention }).webp({ quality: 70 }).toFile(join(DIR, `${base}-thumb.webp`));
+    // Avatar (doira) — yuzga qaratilgan kesish; uttf importidagi rasmlar bilan bir xil algoritm (scripts/make-thumbs.cjs)
+    writeFileSync(join(DIR, `${base}-thumb.webp`), await avatarThumb(file.buffer));
 
     const url = `/uploads/players/${base}.webp`;
     await this.prisma.player.update({ where: { id: playerId }, data: { photoUrl: url } });
