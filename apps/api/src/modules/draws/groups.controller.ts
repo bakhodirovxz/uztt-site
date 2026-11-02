@@ -58,13 +58,18 @@ export class GroupsController {
     return this.groups.auto(categoryId);
   }
 
-  /** Guruhdan setkaga (play-off) o'tkazish. `?force=1` — tugamagan o'yinlar bilan ham */
+  /**
+   * Guruhdan setkaga (play-off) o'tkazish. `?force=1` — tugamagan o'yinlar bilan ham;
+   * `?acceptLot=1` — chegaradagi tenglik jadvalda ko'rsatilgan jereb natijasi bilan tasdiqlanadi.
+   */
   @Post('category/:categoryId/advance')
   @RequirePermissions('draw.manage')
   advance(
     @Param('categoryId', ParseUUIDPipe) categoryId: string,
     @Query('force') force?: string,
+    @Query('acceptLot') acceptLot?: string,
   ) {
-    return this.groups.advance(categoryId, { force: force === '1' || force === 'true' });
+    const on = (v?: string) => v === '1' || v === 'true';
+    return this.groups.advance(categoryId, { force: on(force), acceptLot: on(acceptLot) });
   }
 }

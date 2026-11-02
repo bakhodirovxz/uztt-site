@@ -8,6 +8,8 @@ import {
 import type { AppealKind, AppealStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
+const APPEAL_STATUSES: AppealStatus[] = ['NEW', 'REJECTED', 'ACCEPTED', 'RECALCULATE'];
+
 @Injectable()
 export class AppealsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -46,9 +48,12 @@ export class AppealsService {
     return this.prisma.appeal.findMany({ where: { playerId: player.id }, orderBy: { createdAt: 'desc' } });
   }
 
-  list(status?: AppealStatus) {
+  list(status?: string) {
+    if (status !== undefined && status !== '' && !APPEAL_STATUSES.includes(status as AppealStatus)) {
+      throw new BadRequestException(`status: ${APPEAL_STATUSES.join(' | ')}`);
+    }
     return this.prisma.appeal.findMany({
-      where: status ? { status } : {},
+      where: status ? { status: status as AppealStatus } : {},
       orderBy: { createdAt: 'desc' },
       take: 200,
       include: { player: { select: { id: true, firstName: true, lastName: true, region: true } } },
@@ -57,12 +62,16 @@ export class AppealsService {
 
   /** Qaror (yakuniy). Reyting bo'yicha qanoatlantirilsa — bonus/jarima/tuzatish endpointlari orqali qo'llanadi. */
   async decide(id: string, userId: string, status: Exclude<AppealStatus, 'NEW'>, decision: string) {
-    const a = await this.prisma.appeal.findUnique({ where: { id } });
-    if (!a) throw new NotFoundException('Murojaat topilmadi');
-    if (a.status !== 'NEW') throw new ConflictException('Qaror allaqachon qabul qilingan (yakuniy)');
-    return this.prisma.appeal.update({
-      where: { id },
+    // Shartli yangilash: ikki administrator bir vaqtda qaror qilsa, faqat bittasi o'tadi
+    const res = await this.prisma.appeal.updateMany({
+      where: { id, status: 'NEW' },
       data: { status, decision: decision.trim(), decidedById: userId, decidedAt: new Date() },
     });
+    if (res.count !== 1) {
+      const exists = await this.prisma.appeal.findUnique({ where: { id }, select: { id: true } });
+      if (!exists) throw new NotFoundException('Murojaat topilmadi');
+      throw new ConflictException('Qaror allaqachon qabul qilingan (yakuniy)');
+    }
+    return this.prisma.appeal.findUniqueOrThrow({ where: { id } });
   }
 }

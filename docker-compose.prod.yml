@@ -44,6 +44,17 @@ services:
       SLOW_REQUEST_MS: ${SLOW_REQUEST_MS:-500}
       WEB_REVALIDATE_URL: ${WEB_REVALIDATE_URL:-}
       REVALIDATE_SECRET: ${REVALIDATE_SECRET:-}
+      # Telegram e'lonlari. TOKEN va CHAT_ID BIRGA beriladi yoki ikkalasi ham
+      # bo'sh — validateEnv bittasi bilan API ni ishga tushirmaydi.
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      TELEGRAM_ADMIN_CHAT_ID: ${TELEGRAM_ADMIN_CHAT_ID:-}
+      TELEGRAM_EVENTS: ${TELEGRAM_EVENTS:-}
+      PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-}
+      # Zal scoreboard'i bilan ko'prik (/api/sb/*). Bo'sh bo'lsa 503 — o'chiq.
+      SB_SECRET: ${SB_SECRET:-}
+      # Shifrlash kaliti almashtirilgandan keyin eski hujjatlarni ochish uchun
+      DATA_ENCRYPTION_KEYS_OLD: ${DATA_ENCRYPTION_KEYS_OLD:-}
     healthcheck:
       test:
         - CMD

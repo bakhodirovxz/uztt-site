@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { MatchPayload } from '@/lib/socket';
 
 function lastName(full: string) {
@@ -27,21 +27,18 @@ export function TimeoutAlert({
   const active = match.status !== 'FINISHED' ? to?.activePlayer ?? null : null;
   const remaining = to?.remainingMs ?? 0;
   const key = `${active}-${to?.activeUntil ?? ''}-${match.seq}`;
-  const receivedAt = useRef(Date.now());
-  const [now, setNow] = useState(() => Date.now());
+  // Har yangi holat (key) kelganda hisob `remaining` dan boshlanadi; oraliq qiymat faqat shu key uchun amal qiladi
+  const [tick, setTick] = useState<{ key: string; left: number } | null>(null);
 
-  useEffect(() => {
-    receivedAt.current = Date.now();
-    setNow(Date.now());
-  }, [key]);
   useEffect(() => {
     if (!active) return;
-    const id = setInterval(() => setNow(Date.now()), 200);
+    const receivedAt = Date.now();
+    const id = setInterval(() => setTick({ key, left: Math.max(0, remaining - (Date.now() - receivedAt)) }), 200);
     return () => clearInterval(id);
-  }, [active]);
+  }, [key, active, remaining]);
 
   if (!active) return null;
-  const left = Math.max(0, remaining - (now - receivedAt.current));
+  const left = tick && tick.key === key ? tick.left : remaining;
   if (left <= 0) return null;
   const secs = Math.ceil(left / 1000);
   const name = lastName(active === 1 ? match.player1Name : match.player2Name);

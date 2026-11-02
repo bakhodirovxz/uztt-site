@@ -150,15 +150,17 @@ for p in missing:
     fio = p.get("fio") or "Noma'lum Sportchi"
     first, last = imp.split_fio(fio)
     base = imp.slugify(fio)
-    slug = f"{base}-{pinfl[:5]}"
+    pid = str(uuid.uuid4())
+    # Slug PINFL raqamlaridan OLINMAYDI (boshi = tug'ilgan kun/oy) — UUID'dan
+    slug = f"{base}-{imp.slug_suffix(pid)}"
     n = 1
     while slug in used:
         n += 1
-        slug = f"{base}-{pinfl[:5]}-{n}"
+        slug = f"{base}-{imp.slug_suffix(pid)}-{n}"
     used.add(slug)
     age = p.get("age") or 0
     rows.append((
-        str(uuid.uuid4()), slug, first, last,
+        pid, slug, first, last,
         "FEMALE" if p.get("genderCode") == 2 else "MALE",
         date(now.year - age, 1, 1) if age and age > 0 else None,
         p.get("regionName") or "Noma'lum", p.get("clubName"), club_by_ext.get(p.get("clubId")),

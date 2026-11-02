@@ -94,8 +94,13 @@ Rasmlar serverda `apps/web/public/uttf-import/players/` ichida bo'lishi kerak (m
    node scripts/apply-accounts.cjs ../../akkauntlar.csv            # faqat hisobot
    node scripts/apply-accounts.cjs ../../akkauntlar.csv --apply    # yaratadi (5520 o'yinchi ~10 daqiqa)
    ```
-   Mavjud hisoblarga tegmaydi (`--reset-staff` bo'lsa boshqaruvchilar parolini faylnikiga almashtiradi). Hammasida birinchi kirishda parol almashtirish majburiy.
-   **Eng muhimi:** server bazasida `admin123`/`hakam123` kabi eski demo parollar bo'lsa, shu skript bilan (`--apply --reset-staff`) almashtiring.
+   Mavjud hisoblarga tegmaydi. `--reset-staff` boshqaruvchilar parolini faylnikiga almashtiradi, LEKIN
+   SUPERADMIN'ga va parolini allaqachon o'zi almashtirgan hisoblarga tegmaydi — ularni faqat aniq nomlab:
+   `--reset-email=a@uztt.uz,b@uztt.uz`. Hisob holati (BLOCKED va h.k.) saqlanadi; reset bo'lganda eski
+   sessiyalar bekor qilinadi va login blok tozalanadi. CSV orqali SUPERADMIN roli berib bo'lmaydi.
+   Hammasida birinchi kirishda parol almashtirish majburiy.
+   **Eslatma (2026-11):** jonli serverdagi barcha hisoblar parollari 2026-09 da tasodifiy 16 belgiliga
+   almashtirilgan (`/root/uztt-parollar.txt`) — demo parollar yo'q.
 3. **SEO:** serverning `.env` ga `NEXT_PUBLIC_SITE_URL=https://stoltennis.uz` (canonical, sitemap, Open Graph shu manzildan quriladi). Tekshiruv: `/sitemap.xml` (≈5600 manzil), `/robots.txt`.
 4. Sitemap barcha o'yinchilarni (sahifalab) o'z ichiga oladi — birinchi so'rovda bir necha soniya oladi, keyin 1 soat keshlanadi.
 5. Parol fayllarini (xlsx/csv) **xavfsiz joyda saqlang** va o'yinchilarga alohida-alohida bering; chatga/ommaviy guruhga tashlamang.

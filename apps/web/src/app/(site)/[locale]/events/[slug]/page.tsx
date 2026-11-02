@@ -23,6 +23,11 @@ type ApiMatch = Omit<
   player2: { firstName: string; lastName: string } | null;
 };
 
+type GroupStage = {
+  cat: { id: string; gender: 'MALE' | 'FEMALE' | null; ageCategory: { code: string } };
+  data: GroupsData;
+};
+
 interface TournamentDetail {
   id: string;
   slug: string;
@@ -131,6 +136,7 @@ export default async function EventDetailPage({
     });
   if (!t) notFound();
 
+  const hasGroupMatches = t.matches.some((m) => m.stage === 'GROUP');
   const [brackets, news, galleries, videos, regulation, groupStages] = await Promise.all([
     api
       .get<BracketData[]>(`/draws/tournament/${slug}`)
@@ -147,21 +153,24 @@ export default async function EventDetailPage({
     api
       .get<LevelRegulation>(`/levels/${t.level.code}`)
       .catch(() => null),
-    // Guruh bosqichi (doira tizimi) bor kategoriyalar
-    api
-      .get<Array<{ id: string; gender: 'MALE' | 'FEMALE' | null; ageCategory: { code: string } }>>(`/draws/categories/${t.id}`)
-      .then((cats) =>
-        Promise.all(
-          cats.map((c) =>
-            api
-              .get<GroupsData>(`/groups/category/${c.id}`)
-              .then((data) => ({ cat: c, data }))
-              .catch(() => null),
+    // Guruh jadvallari faqat "Guruhlar" tabida olinadi: har kategoriya alohida so'rov (1+N),
+    // boshqa tablarda bu yuk keraksiz. Tab ko'rinishi uchun GROUP o'yinlari yetarli belgi.
+    tabParam !== 'groups'
+      ? Promise.resolve([] as GroupStage[])
+      : api
+        .get<Array<{ id: string; gender: 'MALE' | 'FEMALE' | null; ageCategory: { code: string } }>>(`/draws/categories/${t.id}`)
+        .then((cats) =>
+          Promise.all(
+            cats.map((c) =>
+              api
+                .get<GroupsData>(`/groups/category/${c.id}`)
+                .then((data) => ({ cat: c, data }))
+                .catch(() => null),
+            ),
           ),
-        ),
-      )
-      .then((x) => x.filter((v): v is NonNullable<typeof v> => v !== null))
-      .catch(() => [] as Array<{ cat: { id: string; gender: 'MALE' | 'FEMALE' | null; ageCategory: { code: string } }; data: GroupsData }>),
+        )
+        .then((x) => x.filter((v): v is GroupStage => v !== null && (v.data.groups?.length ?? 0) > 0))
+        .catch(() => [] as GroupStage[]),
   ]);
 
   const finished = t.matches.filter((m) => m.status === 'FINISHED');
@@ -170,7 +179,7 @@ export default async function EventDetailPage({
 
   // Bo'sh bo'limlar tabda ko'rinmaydi — foydalanuvchi bo'sh sahifaga tushmaydi
   const visibleTabs = TABS.filter((key) => {
-    if (key === 'groups') return groupStages.length > 0;
+    if (key === 'groups') return hasGroupMatches || groupStages.length > 0;
     if (key === 'bracket') return brackets.length > 0;
     if (key === 'news') return news.length > 0;
     if (key === 'gallery') return hasMedia;

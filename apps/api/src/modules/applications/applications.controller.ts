@@ -51,6 +51,18 @@ class CoachApplicationDto extends ApplicantBase {
   @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(1000) bio?: string;
 }
 
+/** Ro'yxat filtri: noma'lum status Prisma'ga yetib bormaydi (avval 500 berardi) */
+class ListApplicationsQueryDto {
+  @ApiPropertyOptional({ enum: ['referee', 'coach'] })
+  @IsOptional()
+  @IsIn(['referee', 'coach'])
+  type?: 'referee' | 'coach';
+  @ApiPropertyOptional({ enum: ['PENDING', 'APPROVED', 'REJECTED'] })
+  @IsOptional()
+  @IsIn(['PENDING', 'APPROVED', 'REJECTED'])
+  status?: 'PENDING' | 'APPROVED' | 'REJECTED';
+}
+
 class ReviewDto {
   @ApiProperty({ enum: ['APPROVE', 'REJECT'] })
   @IsIn(['APPROVE', 'REJECT'])
@@ -85,11 +97,8 @@ export class ApplicationsController {
 
   @Get()
   @RequirePermissions('applicant.review')
-  list(
-    @Query('type') type: 'referee' | 'coach' = 'referee',
-    @Query('status') status?: 'PENDING' | 'APPROVED' | 'REJECTED',
-  ) {
-    return this.apps.list(type === 'coach' ? 'coach' : 'referee', status);
+  list(@Query() q: ListApplicationsQueryDto) {
+    return this.apps.list(q.type === 'coach' ? 'coach' : 'referee', q.status);
   }
 
   @Post(':type/:userId/review')

@@ -102,7 +102,8 @@ export class RegistrationService {
           },
         },
       });
-      this.telegram.announce('admin', `🆕 Yangi o'yinchi ro'yxatdan o'tdi: ${data.lastName} ${data.firstName} (${data.region})\nTasdiqlash: ${this.telegram.siteUrl()}/panel/players`);
+      // Ism yuborilmaydi: ro'yxatdan o'tuvchilarning ko'pi voyaga yetmagan, Telegram — uchinchi tomon
+      this.telegram.announce('admin', `🆕 Yangi o'yinchi ro'yxatdan o'tdi (${data.region})\nTasdiqlash: ${this.telegram.siteUrl()}/panel/players`);
       return {
         userId: user.id,
         playerId: player.id,

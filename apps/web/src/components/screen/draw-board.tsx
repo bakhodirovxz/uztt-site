@@ -75,7 +75,7 @@ export function DrawBoard({ categoryId, transparent = false, view = 'all' }: { c
                         <td className="w-7 py-1.5 pl-3 text-white/60">{s.place}</td>
                         <td className="py-1.5 pr-2">
                           <span className="flex items-center gap-2">
-                            <Avatar photoUrl={s.player?.photoUrl} firstName={s.player?.firstName} lastName={s.player?.lastName} size={36} />
+                            <Avatar tone="broadcast" photoUrl={s.player?.photoUrl} firstName={s.player?.firstName} lastName={s.player?.lastName} size={36} />
                             <span className="min-w-0">
                               <span className="block truncate">{s.player ? `${s.player.firstName[0]}. ${s.player.lastName}` : '—'}</span>
                               {s.player?.region ? <span className="block truncate text-xs text-white/50">{s.player.region}</span> : null}
@@ -139,7 +139,7 @@ function Box({ m, card, lvl }: { m: BM; card: string; lvl: Lvl }) {
         return (
           <div key={i} className={`flex items-center justify-between gap-2 ${c.pad} ${c.text} ${i === 0 ? 'border-b border-white/10' : ''} ${win ? 'font-bold text-broadcast-gold' : ''}`}>
             <span className="flex min-w-0 items-center gap-3">
-              {p ? <Avatar photoUrl={p.photoUrl} firstName={p.firstName} lastName={p.lastName} size={c.av} /> : <span className="shrink-0 rounded-full bg-white/10" style={{ width: c.av, height: c.av }} />}
+              {p ? <Avatar tone="broadcast" photoUrl={p.photoUrl} firstName={p.firstName} lastName={p.lastName} size={c.av} /> : <span className="shrink-0 rounded-full bg-white/10" style={{ width: c.av, height: c.av }} />}
               <span className={`truncate ${p ? '' : 'italic text-white/40'}`}>{p ? (lvl === 'final' ? `${p.firstName} ${p.lastName}` : `${p.firstName[0]}. ${p.lastName}`) : '—'}</span>
             </span>
             <span className={`grid shrink-0 place-items-center rounded bg-white/15 font-extrabold tabular-nums ${c.score}`}>

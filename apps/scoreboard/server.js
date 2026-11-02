@@ -20,6 +20,13 @@ const HIST = path.join(__dirname, 'history.json'); // tugagan o'yinlar + reyting
 const ADSF = path.join(__dirname, 'ads.json'); // overlay reklamalari
 const TIMEOUT_MS = 60000;
 const COURT_COUNT = Math.max(1, Math.min(32, parseInt(process.env.COURTS || '10', 10) || 10)); // nechta stol (planshet/overlay) doim tayyor turadi
+// Faqat 1..COURT_COUNT stollar ("01", "a", "x-1" kabi ixtiyoriy kalitlar xotira va efirni to'ldirmasin)
+const validCourt = (id) => typeof id === 'string' && /^[1-9]\d?$/.test(id) && +id <= COURT_COUNT;
+// Standart: faqat shu kompyuterdan (127.0.0.1). Zal tarmog'idagi planshetlar uchun SB_HOST=0.0.0.0 + SB_ADMIN_TOKEN.
+const HOST = process.env.SB_HOST || '127.0.0.1';
+const SELF_HOST = HOST === '0.0.0.0' || HOST === '::' ? '127.0.0.1' : HOST; // natija rasmi uchun o'z-o'ziga murojaat
+// Ixtiyoriy kirish kaliti: berilsa, boshqaruv sahifalari va o'zgartiruvchi so'rovlar faqat shu kalit bilan
+const ADMIN_TOKEN = String(process.env.SB_ADMIN_TOKEN || '').trim();
 fs.mkdirSync(ADS_DIR, { recursive: true });
 
 // ===== Fayllarni xavfsiz yozish: avval vaqtinchalik fayl, keyin almashtirish (o'chib qolsa fayl buzilmaydi) =====
@@ -93,7 +100,8 @@ let courts = {};
 {
   const saved = readJson(SAVE, null);
   if (saved && saved.courts) {
-    courts = saved.courts;
+    // eski holatda ruxsat etilmagan stol kalitlari bo'lsa — tashlab yuboriladi
+    courts = Object.fromEntries(Object.entries(saved.courts).filter(([k]) => validCourt(k)));
     meta = Object.assign(defaultMeta(), saved.meta || {});
     // eski standart sarlavha (ITTF-ATTU ...) saqlanib qolgan bo'lsa, yangisiga almashtiramiz
     if (/ITTF|ATTU|Tashkent 2026/i.test((meta.title1 || '') + (meta.title2 || ''))) { const d = defaultMeta(); meta.title1 = d.title1; meta.title2 = d.title2; }
@@ -341,7 +349,7 @@ function renderCard(key, fmt) {
     const args = ['--headless=new', '--disable-gpu', '--hide-scrollbars', '--force-device-scale-factor=1', '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--disable-sync', '--disable-component-update', '--disable-default-apps', '--disable-extensions', '--user-data-dir=' + prof,
       '--window-size=' + w + ',' + h, '--virtual-time-budget=8000', '--screenshot=' + out];
     if (process.getuid && process.getuid() === 0) args.push('--no-sandbox');
-    args.push('http://127.0.0.1:' + PORT + '/card?key=' + encodeURIComponent(key) + '&fmt=' + fmt + '&feed=0');
+    args.push('http://' + SELF_HOST + ':' + PORT + '/card?key=' + encodeURIComponent(key) + '&fmt=' + fmt + '&feed=0');
     const { spawn } = require('child_process');
     const p = spawn(bin, args, { stdio: 'ignore', windowsHide: true });
     const timer = setTimeout(() => p.kill(), 40000);
@@ -412,7 +420,7 @@ const snapshot = (id) => JSON.stringify(Object.assign({}, getCourt(id), { now: D
 let ads = Object.assign({ settings: { enabled: true, whenLive: false, liveEveryS: 60 }, items: [] }, readJson(ADSF, {}));
 ads.settings = Object.assign({ enabled: true, whenLive: false, liveEveryS: 60 }, ads.settings);
 const persistAds = () => writeJsonAtomic(ADSF, ads);
-const ADS_PUBLIC = () => ({ settings: ads.settings, items: ads.items.filter((a) => a.enabled && fs.existsSync(path.join(PUB, a.file))) });
+const ADS_PUBLIC = () => ({ settings: ads.settings, items: ads.items.filter((a) => a.enabled && AD_EXT[path.extname(a.file).toLowerCase()] && fs.existsSync(path.join(PUB, a.file))) });
 
 // Mijozga mos qisqartirilgan holat: planshet faqat o'z stolini oladi (courts=3), reklama ma'lumoti faqat overlay'ga (ads=1)
 const snapCache = new Map();
@@ -435,7 +443,7 @@ function allSnapshot(f) {
   snapCache.set(key, str);
   return str;
 }
-const parseFilter = (url) => ({ courts: url.searchParams.get('courts') ? new Set(url.searchParams.get('courts').split(',').map((x) => x.trim()).filter(Boolean)) : null, ads: url.searchParams.get('ads') !== '0' });
+const parseFilter = (url) => ({ courts: url.searchParams.get('courts') ? new Set(url.searchParams.get('courts').split(',').slice(0, 32).map((x) => x.trim()).filter(validCourt)) : null, ads: url.searchParams.get('ads') !== '0' });
 
 let saveTimer = null;
 function persist() {
@@ -725,15 +733,19 @@ const TYPES = {
   '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.webp': 'image/webp', '.gif': 'image/gif',
   '.mp4': 'video/mp4', '.webm': 'video/webm', '.ico': 'image/x-icon',
 };
-const AD_EXT = { '.png': 'image', '.jpg': 'image', '.jpeg': 'image', '.webp': 'image', '.gif': 'image', '.svg': 'image', '.mp4': 'video', '.webm': 'video' };
+// .svg ataylab YO'Q: SVG ichida skript bo'lishi mumkin — sayt domeni orqali ochilsa saqlangan XSS bo'ladi
+const AD_EXT = { '.png': 'image', '.jpg': 'image', '.jpeg': 'image', '.webp': 'image', '.gif': 'image', '.mp4': 'video', '.webm': 'video' };
 const gzCache = new Map();
 
 function sendFile(req, res, full, url) {
   const st = fs.statSync(full);
   const ext = path.extname(full).toLowerCase();
-  const immutable = url.pathname.startsWith('/flags/') || url.pathname.startsWith('/players/') || url.pathname.startsWith('/ads/');
+  const uploaded = url.pathname.startsWith('/ads/') || url.pathname.startsWith('/players/'); // tashqaridan kelgan fayllar
+  const immutable = url.pathname.startsWith('/flags/') || uploaded;
   const etag = '"' + st.size.toString(36) + '-' + Math.floor(st.mtimeMs).toString(36) + '"';
-  const headers = { 'Content-Type': TYPES[ext] || 'application/octet-stream', ETag: etag, 'Cache-Control': immutable ? 'public, max-age=86400' : 'no-cache' };
+  const headers = { 'Content-Type': TYPES[ext] || 'application/octet-stream', ETag: etag, 'Cache-Control': immutable ? 'public, max-age=86400' : 'no-cache', 'X-Content-Type-Options': 'nosniff' };
+  // Yuklangan fayl to'g'ridan-to'g'ri ochilsa ham skript ishlamaydi (alohida, sandbox qilingan kelib chiqish)
+  if (uploaded) headers['Content-Security-Policy'] = 'sandbox';
   if (req.headers['if-none-match'] === etag) { res.writeHead(304, headers); return res.end(); }
   const textual = ['.html', '.js', '.css', '.json', '.svg'].includes(ext);
   const wantsGz = textual && /\bgzip\b/.test(req.headers['accept-encoding'] || '') && st.size > 800;
@@ -764,11 +776,64 @@ function readBody(req, limit, cb) {
 }
 const json = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(obj)); };
 
+// Bog'lash oynasi (admin) uchun faqat kerakli maydonlar: id, F.I.O., hudud, yosh (adashlarni ajratish uchun), reyting.
+// Klub, rasm, jins va boshqa reyting turlari qaytarilmaydi.
+const pickView = (r) => (r ? { id: r.id, fio: r.fio, region: r.rg || '', age: r.age || 0, Y: r.Y || 0 } : null);
+
+// ===== Kirish kaliti (SB_ADMIN_TOKEN) =====
+// Kalit berilsa: barcha GET bo'lmagan so'rovlar va quyidagi boshqaruv yo'llari faqat kalit bilan.
+// Kalit uchta yo'l bilan keladi: `x-sb-token` sarlavhasi, `sb_token` cookie yoki bir martalik `?token=`
+// (planshetda /control?court=1&token=... ochiladi — server cookie qo'yadi va manzildan kalitni olib tashlaydi).
+// TV, overlay, /live, /card va ommaviy JSON (o'qish uchun) kalitsiz ishlaydi.
+const PROTECTED_GET = new Set(['/control', '/admin', '/api/data', '/api/data/check', '/api/settings', '/api/telegram-test', '/api/pdb/search', '/api/pdb/link', '/api/ads']);
+const TOKEN_COOKIE = 'sb_token';
+function sameToken(t) {
+  if (!ADMIN_TOKEN || typeof t !== 'string' || !t) return false;
+  const a = Buffer.from(t), b = Buffer.from(ADMIN_TOKEN);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+function cookieToken(req) {
+  const m = /(?:^|;\s*)sb_token=([^;]*)/.exec(req.headers.cookie || '');
+  if (!m) return '';
+  try { return decodeURIComponent(m[1]); } catch (e) { return ''; }
+}
+const authorized = (req) => !ADMIN_TOKEN || sameToken(req.headers['x-sb-token']) || sameToken(cookieToken(req));
+function deny(req, res, url) {
+  if (url.pathname.startsWith('/api/')) return json(res, 401, { ok: false, error: 'Kirish kaliti kerak (SB_ADMIN_TOKEN)' });
+  res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+  return res.end("Kirish kaliti kerak. Sahifani bir marta ?token=KALIT bilan oching, masalan: /control?court=1&token=KALIT");
+}
+/** true — so'rovga javob berildi (rad etildi yoki yo'naltirildi) */
+function guard(req, res, url) {
+  if (!ADMIN_TOKEN) return false;
+  const q = url.searchParams.get('token');
+  if (q !== null) {
+    if (!sameToken(q)) { deny(req, res, url); return true; }
+    url.searchParams.delete('token');
+    const cookie = TOKEN_COOKIE + '=' + encodeURIComponent(ADMIN_TOKEN) + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000';
+    if (req.method === 'GET' || req.method === 'HEAD') {
+      // kalit manzilda (tarix, skrinshot, Referer) qolmasin
+      res.writeHead(302, { Location: url.pathname + url.search, 'Set-Cookie': cookie, 'Cache-Control': 'no-store' });
+      res.end();
+      return true;
+    }
+    res.setHeader('Set-Cookie', cookie);
+    return false;
+  }
+  const mutating = req.method !== 'GET' && req.method !== 'HEAD';
+  if ((mutating || PROTECTED_GET.has(url.pathname)) && !authorized(req)) { deny(req, res, url); return true; }
+  return false;
+}
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, 'http://x');
-  const court = (url.searchParams.get('court') || '1').replace(/[^\w-]/g, '').slice(0, 20) || '1';
+  if (guard(req, res, url)) return;
+  const court = url.searchParams.get('court') || '1';
+  const needsCourt = url.pathname === '/api/action' || url.pathname === '/api/state' || ((url.pathname === '/sb/events' || url.pathname === '/events') && url.searchParams.get('all') !== '1');
+  if (needsCourt && !validCourt(court)) return json(res, 400, { ok: false, error: 'Stol raqami 1..' + COURT_COUNT + ' oralig\'ida bo\'lishi kerak' });
 
-  if (url.pathname === '/events') {
+  // /sb/events — jonli oqim (sayt orqali ham shu yo'l); /events — eski to'g'ridan-to'g'ri ulanishlar uchun
+  if (url.pathname === '/sb/events' || url.pathname === '/events') {
     res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive', 'X-Accel-Buffering': 'no', 'Access-Control-Allow-Origin': '*' });
     res.write('retry: 1000\n\n');
     if (url.searchParams.get('all') === '1') {
@@ -829,13 +894,16 @@ const server = http.createServer((req, res) => {
   if (url.pathname === '/api/data/check') {
     const out = data.players.map((p, i) => {
       const r = p.uid ? pdb.byId.get(p.uid) : null;
-      const o = { i, name: p.name, given: p.given || '', country: p.country || '', uid: p.uid || '', linked: pdb.view(r) };
-      if (!r) { const m = pdb.match(p); o.cands = (m.amb || []).map(pdb.view); }
+      const o = { i, name: p.name, given: p.given || '', country: p.country || '', uid: p.uid || '', linked: !!r };
+      if (!r) { const m = pdb.match(p); o.cands = (m.amb || []).map(pickView); }
       return o;
     });
     return json(res, 200, { total: out.length, players: out, dbSize: pdb.size });
   }
-  if (url.pathname === '/api/pdb/search') return json(res, 200, pdb.search(url.searchParams.get('q') || '', 15).map(pdb.view));
+  if (url.pathname === '/api/pdb/search') {
+    const q = (url.searchParams.get('q') || '').slice(0, 60);
+    return json(res, 200, q.trim().length < 2 ? [] : pdb.search(q, 15).map(pickView));
+  }
   if (url.pathname === '/api/pdb/link' && req.method === 'POST') {
     return readBody(req, 1e4, (body) => {
       try {
@@ -865,7 +933,7 @@ const server = http.createServer((req, res) => {
   if (url.pathname === '/api/ads/upload' && req.method === 'POST') {
     const name = path.basename(url.searchParams.get('name') || 'ad');
     const ext = path.extname(name).toLowerCase();
-    if (!AD_EXT[ext]) return json(res, 400, { ok: false, error: 'Fayl turi mos emas (png, jpg, webp, gif, svg, mp4, webm)' });
+    if (!AD_EXT[ext]) return json(res, 400, { ok: false, error: 'Fayl turi mos emas (png, jpg, webp, gif, mp4, webm)' });
     const limit = AD_EXT[ext] === 'video' ? 150e6 : 25e6;
     const id = crypto.randomBytes(5).toString('hex');
     const file = 'ads/' + id + ext;
@@ -993,10 +1061,16 @@ server.on('error', (e) => {
 if (data.players.length && data.players.some((p) => p.uid === undefined)) { linkPlayers(data.players, []); relinkMatches(); saveData(); }
 
 if (require.main === module) {
-  server.listen(PORT, '0.0.0.0', () => {
+  server.listen(PORT, HOST, () => {
     require('./site-bridge').start({ getData: () => data, linkPlayers, relinkMatches, saveData, courts: () => courts, persist });
-    const ips = Object.values(os.networkInterfaces()).flat().filter((i) => i.family === 'IPv4' && !i.internal).map((i) => i.address);
-    console.log('Scoreboard ishga tushdi. Port ' + PORT);
+    const lan = HOST !== '127.0.0.1' && HOST !== 'localhost' && HOST !== '::1';
+    const ips = !lan ? [] : HOST === '0.0.0.0' || HOST === '::'
+      ? Object.values(os.networkInterfaces()).flat().filter((i) => i.family === 'IPv4' && !i.internal).map((i) => i.address)
+      : [HOST];
+    console.log('Scoreboard ishga tushdi. ' + HOST + ':' + PORT);
+    if (!lan) console.log('Faqat shu kompyuterdan ochiladi (127.0.0.1). Zal tarmog\'i uchun: SB_HOST=0.0.0.0 va SB_ADMIN_TOKEN=<uzun kalit>');
+    if (ADMIN_TOKEN) console.log('Kirish kaliti yoqilgan: planshetda bir marta /control?court=1&token=<kalit> oching (admin: /admin?token=<kalit>)');
+    else if (lan) console.log('\n!!! DIQQAT: tarmoqqa ochiq, lekin SB_ADMIN_TOKEN berilmagan — zal Wi-Fi\'dagi istalgan qurilma hisobni o\'zgartira oladi !!!\n');
     console.log('O\'yinchilar bazasi: ' + pdb.size + ' ta, rasmlar: ' + (fs.existsSync(PHOTOS) ? fs.readdirSync(PHOTOS).length : 0) + ' ta');
     console.log(tgConf() ? 'Telegram: sozlangan (test: http://localhost:' + PORT + '/api/telegram-test)' : "Telegram: SOZLANMAGAN — telegram.json ga token va chat_id yozing");
     (ips.length ? ips : ['localhost']).forEach((ip) => {

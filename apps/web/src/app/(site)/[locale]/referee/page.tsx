@@ -8,23 +8,20 @@ import { subscribeToMatch, type MatchPayload } from '@/lib/socket';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
-const STAGE_NAMES: Record<string, string> = {
-  GROUP: 'Guruh bosqichi',
-  ROUND_1: '1-bosqich',
-  ROUND_OF_32: '1/16 final',
-  ROUND_OF_16: '1/8 final',
-  QUARTERFINAL: 'Chorak final',
-  SEMIFINAL: 'Yarim final',
-  THIRD_PLACE: '3-o‘rin uchun',
-  FINAL: 'Final',
-};
+/**
+ * Scoreboard planshet (/control?court=N) havolalari faqat NEXT_PUBLIC_SCOREBOARD=1 bilan
+ * QURILGAN build'da ko'rinadi (NEXT_PUBLIC_* build vaqtida kodga yoziladi). Scoreboard jarayoni
+ * va uning /api/* yo'llari uchun nginx sozlanmagan serverda bu bayroqni yoqmang — standart
+ * oqim: o'yin ro'yxati -> hakam kodi -> ScoreScreen.
+ */
+const SCOREBOARD_TILES = process.env.NEXT_PUBLIC_SCOREBOARD === '1';
+const SCOREBOARD_COURTS = 10;
 
 export default function RefereePage() {
   const t = useTranslations('referee');
   const tc = useTranslations('common');
   const router = useRouter();
   const [authorized, setAuthorized] = useState(false);
-  const [seeNames, setSeeNames] = useState(false);
   const [matches, setMatches] = useState<MatchPayload[]>([]);
   const [selected, setSelected] = useState<MatchPayload | null>(null);
 
@@ -33,7 +30,6 @@ export default function RefereePage() {
       .get<{ user: AuthUser }>('/auth/me')
       .then(({ user }) => {
         if (!user.permissions.includes('match.score')) throw new Error();
-        setSeeNames(user.permissions.includes('match.manage'));
         setAuthorized(true);
       })
       .catch(() => router.replace('/login'));
@@ -72,25 +68,73 @@ export default function RefereePage() {
         {t('title')}
       </h1>
       <p className="mt-1 text-muted">{t('chooseTable')}</p>
-      {/* Hakam planshetining tayyor dizayni (scoreboard) saytning ichida: stolni tanlang */}
-      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3">
-        {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => {
-          const mine = matches.filter((m) => m.tableNumber === n);
-          const live = mine.some((m) => m.status === 'LIVE');
-          return (
-            <a
-              key={n}
-              href={`/control?court=${n}`}
+      {matches.length === 0 ? (
+        <p className="mt-6 text-muted">{t('noMatches')}</p>
+      ) : (
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          {matches.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => setSelected(m)}
               className="rounded-card bg-surface-card p-5 text-left shadow-card transition-shadow hover:shadow-card-hover"
             >
-              <div className="font-heading text-2xl font-extrabold">{n}-stol</div>
-              <div className="mt-1 text-sm text-muted">
-                {live ? <span className="font-bold text-live">LIVE</span> : mine.length ? `${mine.length} ta o‘yin` : 'o‘yin belgilanmagan'}
+              <div className="font-heading text-2xl font-extrabold">
+                {m.tableNumber ? `#${m.tableNumber}` : '—'}
               </div>
-            </a>
-          );
-        })}
-      </div>
+              <div className="mt-1 text-sm text-muted">
+                {m.status === 'LIVE' ? (
+                  <span className="font-bold text-live">LIVE</span>
+                ) : m.scheduledAt ? (
+                  // Vaqt belgilanmagan bo'lsa "hozir" deb ko'rsatish chalg'itardi
+                  new Date(m.scheduledAt).toLocaleTimeString('uz-UZ', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                ) : (
+                  '—'
+                )}
+              </div>
+              {/* Ismlar tasdiqlashdan keyin ko'rinadi (legacy UX) */}
+              {m.refereeVerified && (
+                <div className="mt-2 text-sm font-medium">
+                  {m.player1Name} — {m.player2Name}
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {SCOREBOARD_TILES && (
+        <section className="mt-10">
+          <h2 className="font-heading text-lg font-extrabold uppercase">{t('scoreboardTitle')}</h2>
+          <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-3">
+            {Array.from({ length: SCOREBOARD_COURTS }, (_, i) => i + 1).map((n) => {
+              const mine = matches.filter((m) => m.tableNumber === n);
+              const live = mine.some((m) => m.status === 'LIVE');
+              return (
+                <a
+                  key={n}
+                  href={`/control?court=${n}`}
+                  className="rounded-card bg-surface-card p-5 text-left shadow-card transition-shadow hover:shadow-card-hover"
+                >
+                  <div className="font-heading text-2xl font-extrabold">{t('tableN', { n })}</div>
+                  <div className="mt-1 text-sm text-muted">
+                    {live ? (
+                      <span className="font-bold text-live">LIVE</span>
+                    ) : mine.length ? (
+                      t('tableMatches', { count: mine.length })
+                    ) : (
+                      t('tableEmpty')
+                    )}
+                  </div>
+                </a>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       <RefereeProfileCard />
     </div>

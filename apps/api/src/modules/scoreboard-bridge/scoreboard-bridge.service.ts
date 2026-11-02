@@ -1,7 +1,8 @@
-import { BadRequestException, ConflictException, Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, UnprocessableEntityException } from '@nestjs/common';
 import { MatchStage } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MatchesService } from '../matches/matches.service';
+import { planReplay } from './replay-plan';
 
 const STAGE_LABEL: Record<string, string> = {
   GROUP: 'GROUP STAGE',
@@ -60,17 +61,24 @@ export class ScoreboardBridgeService {
     };
   }
 
-  /** Scoreboard'da tugagan o'yin: geymlar hisobi [[11,7],[9,11],...] — sayt qoidalari bo'yicha qayta o'ynaladi */
+  /**
+   * Scoreboard'da tugagan o'yin: geymlar hisobi [[11,7],[9,11],...] — sayt qoidalari bo'yicha qayta o'ynaladi.
+   * Avval to'liq OLDINDAN o'ynab ko'riladi (planReplay): o'yin sayt qoidalari bo'yicha aynan oxirgi ochkoda
+   * tugamasa — 422, bazaga hech narsa yozilmaydi (yarim qolgan o'yin paydo bo'lmasin).
+   */
   async applyResult(siteId: string, sets: Array<[number, number]>, userId: string) {
     const match = await this.prisma.match.findUnique({ where: { id: siteId } });
     if (!match) throw new BadRequestException("O'yin topilmadi");
-    if (match.status === 'FINISHED') return { already: true };
+    if (match.status === 'FINISHED') return { ok: true, already: true, finished: true };
     if (!match.player1Id || !match.player2Id) throw new BadRequestException("O'yinchilar belgilanmagan");
-    for (const s of sets) {
-      if (!Array.isArray(s) || s.length !== 2 || s.some((v) => !Number.isInteger(v) || v < 0 || v > 60)) {
-        throw new BadRequestException("Geym hisobi noto'g'ri");
-      }
+
+    const plan = planReplay(sets, match.bestOf);
+    if (!plan.ok) {
+      throw new UnprocessableEntityException(
+        `Natija saytga yozilmadi: ${plan.reason}. O'yin natijasini saytda qo'lda kiriting.`,
+      );
     }
+
     const done = await this.prisma.matchSet.count({ where: { matchId: siteId } });
     if (done > 0 || match.currentSetP1 + match.currentSetP2 > 0) {
       throw new ConflictException("Bu o'yin saytda allaqachon boshlangan (ochkolar bor) — natijani qo'lda kiriting");
@@ -81,22 +89,18 @@ export class ScoreboardBridgeService {
         data: { refereeVerifiedAt: new Date(), verifiedByUserId: userId },
       });
     }
+    // Eslatma: har ochko alohida tranzaksiya (MatchesService.point). Oldindan tekshiruv tufayli
+    // qoidaga zid natija yozilmaydi; to'liq atomiklik uchun MatchesService'da tx qabul qiluvchi usul kerak.
     let n = 0;
-    for (const [a, b] of sets) {
-      const lo = Math.min(a, b);
-      const order: Array<1 | 2> = [];
-      for (let i = 0; i < lo; i++) order.push(1, 2);
-      const winner: 1 | 2 = a > b ? 1 : 2;
-      for (let i = 0; i < Math.abs(a - b); i++) order.push(winner);
-      for (const slot of order) {
-        const cur = await this.prisma.match.findUnique({ where: { id: siteId }, select: { status: true } });
-        if (cur?.status === 'FINISHED') break;
-        await this.matches.point(siteId, slot, userId);
-        n++;
-      }
+    for (const slot of plan.order) {
+      // Bridge SUPERADMIN nomidan yozadi — tayinlangan hakam emas, shuning uchun menejer sifatida
+      await this.matches.point(siteId, slot, userId, true);
+      n++;
     }
-    this.log.log(`Scoreboard natijasi yozildi: ${siteId} (${n} ochko)`);
     const after = await this.prisma.match.findUnique({ where: { id: siteId }, select: { status: true } });
-    return { ok: true, points: n, finished: after?.status === 'FINISHED' };
+    const finished = after?.status === 'FINISHED';
+    if (finished) this.log.log(`Scoreboard natijasi yozildi: ${siteId} (${n} ochko)`);
+    else this.log.warn(`Scoreboard natijasi: ${siteId} — ${n} ochko yozildi, lekin o'yin tugamadi`);
+    return { ok: finished, points: n, finished };
   }
 }

@@ -140,7 +140,16 @@ export class AssignmentService implements OnModuleDestroy {
     if (this.running.has(tournamentId)) return;
     this.running.add(tournamentId);
     try {
-      const pending = await this.prisma.match.count({ where: { tournamentId, status: 'SCHEDULED', refereeUserId: null } });
+      // Juftligi aniq bo'lgan, hakami yo'q o'yinlar (TBD o'yinlar engine'da ham o'tkazib yuboriladi)
+      const pending = await this.prisma.match.count({
+        where: {
+          tournamentId,
+          status: 'SCHEDULED',
+          refereeUserId: null,
+          player1Id: { not: null },
+          player2Id: { not: null },
+        },
+      });
       if (!pending) return;
       await this.assignTournament(tournamentId, { onlyUnassigned: true });
     } catch (e) {

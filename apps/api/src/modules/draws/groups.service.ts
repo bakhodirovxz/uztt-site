@@ -8,11 +8,15 @@ import { createHash } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { TelegramService } from '../showcase/telegram.service';
 import { AssignmentService } from '../referee-assignment/assignment.service';
+import { sealedRefereeCodeHash } from '../matches/referee-code';
 import { DrawsService } from './draws.service';
+import { lockCategory } from './category-lock';
 import {
   groupStandings,
+  lotStraddlesBoundary,
   placeQualifiers,
   roundRobinRounds,
+  seededRng,
   snakeDraw,
   type GroupMatchResult,
   type Qualifier,
@@ -98,6 +102,11 @@ export class GroupsService {
     if (![3, 5, 7].includes(bestOf)) throw new BadRequestException('bestOf 3, 5 yoki 7');
 
     await this.prisma.$transaction(async (tx) => {
+      // Setka yaratish bilan bir vaqtda kelsa — kategoriya qatori orqali ketma-ket (qayta tekshiramiz)
+      await lockCategory(tx, categoryId);
+      if ((await tx.draw.count({ where: { tournamentCategoryId: categoryId } })) > 0) {
+        throw new ConflictException('Setka allaqachon yaratilgan');
+      }
       const stage = await tx.groupStage.create({
         data: { tournamentCategoryId: categoryId, groupCount: G, advancing: dto.advancing, bestOf },
       });
@@ -118,9 +127,7 @@ export class GroupsService {
                 bestOf,
                 player1Id: groups[gi][a - 1].playerId,
                 player2Id: groups[gi][b - 1].playerId,
-                refereeCodeHash: createHash('sha256')
-                  .update(String(Math.floor(100000 + Math.random() * 900000)))
-                  .digest('hex'),
+                refereeCodeHash: sealedRefereeCodeHash(),
               },
             });
           }
@@ -171,10 +178,13 @@ export class GroupsService {
       groups: stage.groups.map((g) => {
         const ids = g.entries.map((e) => e.playerId);
         const results = g.matches.map((m) => this.toResult(m));
-        const standings = groupStandings(ids, results, Math.random, { final: allDone });
+        // Jereb (4.2.4) guruh id'siga urug'langan: natija har so'rovda bir xil (Math.random emas)
+        const standings = groupStandings(ids, results, seededRng(g.id), { final: allDone });
         const byId = new Map(g.entries.map((e) => [e.playerId, e.player]));
         return {
           number: g.number,
+          /** Kim setkaga chiqishini faqat jereb hal qiladi — bosh hakam tasdig'i kerak */
+          lotAtBoundary: lotStraddlesBoundary(standings, stage.advancing),
           standings: standings.map((s) => ({ ...s, player: byId.get(s.playerId) })),
           matches: g.matches.map((m) => ({
             id: m.id,
@@ -251,7 +261,7 @@ export class GroupsService {
    * Guruhdan setkaga (4.7.3). Barcha guruh o'yinlari tugagan bo'lishi kerak (yoki `force`).
    * Joylashtirish qoidalari — `placeQualifiers`; bo'sh joylar — 28-ilova.
    */
-  async advance(categoryId: string, opts: { force?: boolean } = {}) {
+  async advance(categoryId: string, opts: { force?: boolean; acceptLot?: boolean } = {}) {
     const category = await this.prisma.tournamentCategory.findUnique({
       where: { id: categoryId },
       select: { id: true, tournamentId: true },
@@ -262,7 +272,15 @@ export class GroupsService {
     if (!view.allMatchesFinished && !opts.force) {
       throw new BadRequestException("Guruh o'yinlari hali tugamagan");
     }
-    // Faqat jereb talab qiladigan tenglik qolmaganini tekshiramiz (4.2.4: jereb tashlanadi — bu hakam ishi)
+    // 4.2.4: chiqish chegarasidagi tenglikni faqat jereb hal qiladi — bu bosh hakam qarori.
+    // Ko'rsatilgan (deterministik) jereb natijasi aniq tasdiqlanmaguncha setka yaratilmaydi.
+    const lotGroups = view.groups.filter((g) => g.lotAtBoundary).map((g) => GroupsService.groupLetter(g.number));
+    if (lotGroups.length && !opts.acceptLot) {
+      throw new BadRequestException(
+        `${lotGroups.join(', ')}-guruhda setkaga kim chiqishini faqat jereb hal qiladi (4.2.4). ` +
+          "Jadvaldagi jereb natijasini bosh hakam tasdiqlasa, qayta yuboring: ?acceptLot=1",
+      );
+    }
     const qualifiers: Qualifier[] = [];
     for (const g of view.groups) {
       for (const s of g.standings) {
@@ -281,8 +299,10 @@ export class GroupsService {
       const q = label ? byLabel.get(label) : undefined;
       return { position: i + 1, seed: q && q.place === 1 ? q.group : null, playerId: q ? q.playerId : null };
     });
-    const draw = await this.draws.persistSlots(categoryId, category.tournamentId, slots);
-    await this.prisma.groupStage.update({ where: { id: view.id }, data: { status: 'ADVANCED' } });
-    return draw;
+    // Status ACTIVE → ADVANCED setka bilan BITTA tranzaksiyada (shartli yangilash): ikki marta
+    // bosilsa ikkinchisi rad etiladi, ikkita setka paydo bo'lmaydi
+    return this.draws.persistSlots(categoryId, category.tournamentId, slots, {
+      fromGroupStageId: view.id,
+    });
   }
 }

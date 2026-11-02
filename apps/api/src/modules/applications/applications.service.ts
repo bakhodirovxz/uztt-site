@@ -76,7 +76,8 @@ export class ApplicationsService {
       },
       select: { id: true },
     });
-    this.telegram.announce('admin', `🆕 Yangi hakam arizasi: ${d.lastName.trim()} ${d.firstName.trim()}${d.region ? ` (${d.region})` : ''}\nKo'rib chiqish: ${this.telegram.siteUrl()}/panel/applications`);
+    // Telegram (uchinchi tomon) xabarida ism yo'q — faqat hudud va panel havolasi
+    this.telegram.announce('admin', `🆕 Yangi hakam arizasi${d.region ? ` (${normalizeRegion(d.region)})` : ''}\nKo'rib chiqish: ${this.telegram.siteUrl()}/panel/applications`);
     return { userId: user.id, status: 'PENDING' as const };
   }
 
@@ -106,7 +107,7 @@ export class ApplicationsService {
       });
       return u;
     });
-    this.telegram.announce('admin', `🆕 Yangi murabbiy arizasi: ${d.lastName.trim()} ${d.firstName.trim()}${d.region ? ` (${d.region})` : ''}\nKo'rib chiqish: ${this.telegram.siteUrl()}/panel/applications`);
+    this.telegram.announce('admin', `🆕 Yangi murabbiy arizasi${d.region ? ` (${normalizeRegion(d.region)})` : ''}\nKo'rib chiqish: ${this.telegram.siteUrl()}/panel/applications`);
     return { userId: user.id, status: 'PENDING' as const };
   }
 
@@ -155,13 +156,6 @@ export class ApplicationsService {
     const role = await this.prisma.role.findUnique({ where: { code: roleCode } });
     if (!role) throw new NotFoundException(`${roleCode} roli topilmadi`);
 
-    const profile =
-      type === 'referee'
-        ? await this.prisma.refereeProfile.findUnique({ where: { userId }, select: { status: true } })
-        : await this.prisma.coachProfile.findUnique({ where: { userId }, select: { status: true } });
-    if (!profile) throw new NotFoundException('Ariza topilmadi');
-    if (profile.status !== 'PENDING') throw new ConflictException('Ariza allaqachon ko‘rib chiqilgan');
-
     const approved = decision === 'APPROVE';
     const data = {
       status: (approved ? 'APPROVED' : 'REJECTED') as ApplicationStatus,
@@ -169,11 +163,21 @@ export class ApplicationsService {
       reviewedById: reviewerId,
       reviewedAt: new Date(),
     };
+    // Shartli yangilash (status = PENDING) tranzaksiya ICHIDA: ikki ko'rib chiquvchi bir vaqtda
+    // bosganda faqat bittasi o'tadi; ikkinchisi 409 oladi (rol "REJECTED" holatda berilib qolmaydi).
     await this.prisma.$transaction(async (tx) => {
-      if (type === 'referee') {
-        await tx.refereeProfile.update({ where: { userId }, data: { ...data, available: approved } });
-      } else {
-        await tx.coachProfile.update({ where: { userId }, data });
+      const where = { userId, status: 'PENDING' as ApplicationStatus };
+      const { count } =
+        type === 'referee'
+          ? await tx.refereeProfile.updateMany({ where, data: { ...data, available: approved } })
+          : await tx.coachProfile.updateMany({ where, data });
+      if (count !== 1) {
+        const exists =
+          type === 'referee'
+            ? await tx.refereeProfile.findUnique({ where: { userId }, select: { id: true } })
+            : await tx.coachProfile.findUnique({ where: { userId }, select: { id: true } });
+        if (!exists) throw new NotFoundException('Ariza topilmadi');
+        throw new ConflictException('Ariza allaqachon ko‘rib chiqilgan');
       }
       if (approved) {
         await tx.userRole.upsert({

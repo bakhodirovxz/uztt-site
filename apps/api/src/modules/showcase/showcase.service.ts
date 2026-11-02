@@ -73,6 +73,12 @@ export class ShowcaseService {
     return value;
   }
 
+  /** O'yin keshini tozalash (masalan, Telegram natijasi — undo'dan keyin eski natija olinmasin) */
+  forget(matchId: string): void {
+    this.cache.delete(`rating:${matchId}`);
+    this.cache.delete(`profiles:${matchId}`);
+  }
+
   /** O'yin boshida ko'rsatiladigan o'yinchi kartochkalari (rasm, reyting, o'rin, yosh, hudud, statistika) */
   async profiles(matchId: string): Promise<MatchProfiles> {
     return this.cached(`profiles:${matchId}`, 10_000, async () => {

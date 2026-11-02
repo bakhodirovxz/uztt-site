@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
+import { Link } from '@/i18n/navigation';
 import { api } from '@/lib/api';
 
 interface Detail {
@@ -143,6 +144,12 @@ function PlayerDialog({ slug, onClose }: { slug: string; onClose: () => void }) 
                 <Item label={t('region')} value={data.region} />
                 <Item label={t('club')} value={data.club ?? '—'} />
               </dl>
+              <Link
+                href={{ pathname: '/players/[slug]', params: { slug } }}
+                className="inline-flex min-h-11 w-fit items-center rounded-md bg-accent-600 px-5 text-sm font-semibold text-white hover:bg-accent-500"
+              >
+                {t('fullProfile')} →
+              </Link>
             </>
           )}
         </div>

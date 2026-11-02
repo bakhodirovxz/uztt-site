@@ -81,7 +81,7 @@ export class PlayersController {
     return this.players.update(id, dto);
   }
 
-  /** Rasm yuklash: admin, o'yinchining o'zi yoki uning murabbiyi. Server qayta kodlaydi (sharp) */
+  /** Rasm yuklash: admin (player.manage) yoki o'yinchining o'zi. Server qayta kodlaydi (sharp) */
   @Post(':id/photo')
   @Throttle({ default: { limit: 20, ttl: 3_600_000 } })
   @UseInterceptors(FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1 } }))

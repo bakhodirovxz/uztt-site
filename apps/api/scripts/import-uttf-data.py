@@ -9,6 +9,7 @@ Rasmlar: apps/web/public/uttf-import/{players,clubs,news}/
 Ishlatish:
     DATABASE_URL=postgresql://user:pass@host:5432/db python3 import-uttf-data.py
 """
+import hashlib
 import json
 import os
 import re
@@ -43,6 +44,13 @@ def pts(value):
     except (TypeError, ValueError):
         return 0
     return max(0, int(v + 0.5))
+
+
+def slug_suffix(player_id: str) -> str:
+    """Slug oxiri — o'yinchi UUID'sidan, qaytarib bo'lmaydigan 5 belgi.
+    PINFL raqamlaridan OLINMAYDI: haqiqiy PINFL'ning boshi = jins + tug'ilgan kun/oy (ommaviy URL'da edi).
+    Formula migratsiya 20261103100000_player_slug_unlink_pinfl bilan bir xil."""
+    return hashlib.md5((player_id + "uztt-slug").encode()).hexdigest()[:5]
 
 
 def slugify(text: str) -> str:
@@ -144,11 +152,12 @@ def main():
         fio = p.get("fio") or "Noma'lum Sportchi"
         first, last = split_fio(fio)
         base_slug = slugify(fio)
-        slug = f"{base_slug}-{pinfl[:5]}"
+        pid = str(uuid.uuid4())
+        slug = f"{base_slug}-{slug_suffix(pid)}"
         n = 1
         while slug in used_slugs:
             n += 1
-            slug = f"{base_slug}-{pinfl[:5]}-{n}"
+            slug = f"{base_slug}-{slug_suffix(pid)}-{n}"
         used_slugs.add(slug)
 
         gender = "FEMALE" if p.get("genderCode") == 2 else "MALE"
@@ -162,7 +171,6 @@ def main():
         club_id = club_id_by_external.get(club_uttf_id)
 
         points = p.get("points") or 0
-        pid = str(uuid.uuid4())
 
         player_rows.append((
             pid, slug, first, last, gender, birth_date,

@@ -7,7 +7,7 @@ import { Container, PageTitleBar, PlayerCell } from '@/components/ui';
 
 interface ClubDetail {
   id: string; slug: string; name: string; clubType: string | null; regionName: string | null;
-  districtName: string | null; address: string | null; phoneNumber: string | null; tableCount: number | null;
+  tableCount: number | null;
   players: Array<{ id: string; slug: string; firstName: string; lastName: string; rankingPoints: number; photoUrl: string | null }>;
   coaches: Array<{ id: string }>;
 }
@@ -26,7 +26,7 @@ export default async function ClubPage({ params }: { params: Promise<{ locale: s
       <PageTitleBar title={club.name} />
       <Container className="py-8">
         <p className="text-sm text-muted">
-          {[club.clubType, club.regionName, club.districtName, club.address].filter(Boolean).join(' · ')}
+          {[club.clubType, club.regionName].filter(Boolean).join(' · ')}
         </p>
         <p className="mt-1 text-sm text-muted">
           {t('coaches')}: {club.coaches.length}{club.tableCount ? ` · ${t('tables')}: ${club.tableCount}` : ''}

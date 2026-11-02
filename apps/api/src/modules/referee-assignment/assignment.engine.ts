@@ -102,8 +102,11 @@ export function assignReferees(matches: AsgMatch[], referees: AsgReferee[], opts
     }
   }
 
+  // O'yinchilari hali aniq bo'lmagan o'yinlarga tayinlanmaydi: 4.6.1.1 va xolislikni tekshirib
+  // bo'lmaydi (hakam-o'yinchi keyin o'z o'yiniga tushib qolishi mumkin). Juftlik aniq bo'lgach
+  // (o'yin tugaganda autoAssign) tayinlanadi.
   const todo = matches
-    .filter((m) => !keep(m))
+    .filter((m) => !keep(m) && m.playerIds.length === 2 && m.playerIds.every((p) => !!p))
     .sort((a, b) => {
       // Muhim bosqichlar birinchi (eng yaxshi hakamlar ularga tegsin), keyin vaqt bo'yicha
       const ra = requiredRank(a.stage), rb = requiredRank(b.stage);

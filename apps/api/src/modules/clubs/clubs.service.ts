@@ -29,15 +29,17 @@ const slugify = (s: string) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '') || 'klub';
 
-const PUBLIC_SELECT = {
+/**
+ * Ommaviy (autentifikatsiyasiz) klub maydonlari. phoneNumber / address / districtName ATAYLAB YO'Q:
+ * uttf.uz dan import qilingan klublarda bu murabbiy yoki rahbarning SHAXSIY mobil raqami va manzili.
+ * Ular faqat egasi (`mine`) va admin (`pending`) javoblarida. public-selects.spec.ts tekshiradi.
+ */
+export const PUBLIC_CLUB_SELECT = {
   id: true,
   slug: true,
   name: true,
   clubType: true,
   regionName: true,
-  districtName: true,
-  address: true,
-  phoneNumber: true,
   tableCount: true,
   logoUrl: true,
   _count: { select: { players: true } },
@@ -63,7 +65,7 @@ export class ClubsService {
         orderBy: { name: 'asc' },
         skip: (Math.max(1, page) - 1) * pageSize,
         take: pageSize,
-        select: PUBLIC_SELECT,
+        select: PUBLIC_CLUB_SELECT,
       }),
       this.prisma.club.count({ where }),
     ]);
@@ -74,7 +76,7 @@ export class ClubsService {
     const club = await this.prisma.club.findFirst({
       where: { status: 'ACTIVE', OR: [{ id: idOrSlug.match(/^[0-9a-f-]{36}$/i) ? idOrSlug : undefined }, { slug: idOrSlug }] },
       select: {
-        ...PUBLIC_SELECT,
+        ...PUBLIC_CLUB_SELECT,
         players: {
           where: { status: 'ACTIVE' },
           orderBy: { rankingPoints: 'desc' },
@@ -99,9 +101,13 @@ export class ClubsService {
     return slug;
   }
 
-  private async assertNameFree(name: string) {
+  private async assertNameFree(name: string, exceptId?: string) {
     const dup = await this.prisma.club.findFirst({
-      where: { name: { equals: name.trim(), mode: 'insensitive' }, status: { not: 'REJECTED' } },
+      where: {
+        name: { equals: name.trim(), mode: 'insensitive' },
+        status: { not: 'REJECTED' },
+        ...(exceptId ? { id: { not: exceptId } } : {}),
+      },
       select: { id: true },
     });
     if (dup) throw new ConflictException('Bu nomdagi klub allaqachon mavjud (yoki ko‘rib chiqilmoqda)');
@@ -138,7 +144,11 @@ export class ClubsService {
     return this.prisma.club.findMany({
       where: { ownerUserId: userId },
       orderBy: { createdAt: 'desc' },
-      select: { id: true, slug: true, name: true, status: true, rejectReason: true, regionName: true },
+      // Egasining o'z klublari — aloqa maydonlari shu yerda ko'rinadi (ommaviy javobda yo'q)
+      select: {
+        id: true, slug: true, name: true, status: true, rejectReason: true, regionName: true,
+        districtName: true, address: true, phoneNumber: true, tableCount: true, managerName: true, coachName: true,
+      },
     });
   }
 
@@ -161,10 +171,8 @@ export class ClubsService {
       // egasi nomni va hududni o'zgartira olmaydi — faqat aloqa/manzil/stol soni
       d = { address: d.address, phoneNumber: d.phoneNumber, tableCount: d.tableCount, managerName: d.managerName, coachName: d.coachName };
     } else if (d.name) {
-      await this.assertNameFree(d.name).catch((e) => {
-        // o'z nomini qayta yuborish xato emas
-        throw e;
-      });
+      // o'z nomini qayta yuborish xato emas — klubning o'zi hisobga olinmaydi
+      await this.assertNameFree(d.name, id);
     }
     const patch = Object.fromEntries(Object.entries(this.data({ name: d.name ?? '', ...d })).filter(([k, v]) => v !== undefined && !(k === 'name' && !d.name)));
     return this.prisma.club.update({ where: { id }, data: patch, select: { id: true, slug: true, name: true, status: true } });
@@ -176,17 +184,20 @@ export class ClubsService {
 
   async review(id: string, decision: 'APPROVE' | 'REJECT', reason?: string) {
     if (decision === 'REJECT' && !reason?.trim()) throw new BadRequestException('Rad etish sababi majburiy');
-    const club = await this.prisma.club.findUnique({ where: { id }, select: { status: true } });
-    if (!club) throw new NotFoundException('Klub topilmadi');
-    if (club.status !== 'PENDING') throw new ConflictException('Ariza allaqachon ko‘rib chiqilgan');
-    return this.prisma.club.update({
-      where: { id },
+    // Shartli (status = PENDING): ikki admin bir vaqtda bossa faqat bittasi o'tadi
+    const { count } = await this.prisma.club.updateMany({
+      where: { id, status: 'PENDING' },
       data: {
         status: decision === 'APPROVE' ? 'ACTIVE' : 'REJECTED',
         rejectReason: decision === 'REJECT' ? reason!.trim() : null,
         reviewedAt: new Date(),
       },
-      select: { id: true, name: true, status: true },
     });
+    if (count !== 1) {
+      const club = await this.prisma.club.findUnique({ where: { id }, select: { id: true } });
+      if (!club) throw new NotFoundException('Klub topilmadi');
+      throw new ConflictException('Ariza allaqachon ko‘rib chiqilgan');
+    }
+    return this.prisma.club.findUniqueOrThrow({ where: { id }, select: { id: true, name: true, status: true } });
   }
 }

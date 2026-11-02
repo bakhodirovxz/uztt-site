@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { pageMeta } from '@/lib/seo';
-import Image from 'next/image';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { PlayerPopupLink } from '@/components/player/player-popup';
@@ -24,7 +23,7 @@ interface PlayerRow {
 export const dynamic = 'force-dynamic';
 
 /** O'yinchi rasmi — bo'lmasa ismi bosh harflaridan doira */
-function PlayerAvatar({ p }: { p: PlayerRow; size?: string }) {
+function PlayerAvatar({ p }: { p: PlayerRow }) {
   return <Avatar photoUrl={p.photoUrl} firstName={p.firstName} lastName={p.lastName} size={44} />;
 }
 
@@ -160,7 +159,7 @@ export default async function PlayersPage({
 
       {/* Yosh segmenti — kumulyativ: U-13 = 13 yosh va undan kichik hamma */}
       {ageCats.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2" aria-label="Yosh segmenti">
+        <div className="mt-3 flex flex-wrap gap-2" aria-label={tp('ageSegment')}>
           <a href={hrefWith({ age: undefined })} className={chipClass(!age)}>
             {tp('all')}
           </a>

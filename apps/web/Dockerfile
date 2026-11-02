@@ -17,6 +17,11 @@ COPY apps/web apps/web
 ARG NEXT_PUBLIC_API_URL=http://localhost:4000
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_TELEMETRY_DISABLED=1
+# next.config.ts dagi /uploads rewrite manzili build vaqtida routes-manifest'ga
+# muhrlanadi. Standart localhost:4000 konteyner ichida hech narsa emas — Next
+# o'zi so'raydigan /uploads (masalan next/image optimizatori) yiqilardi.
+ARG UPLOADS_PROXY=http://api:4000
+ENV UPLOADS_PROXY=$UPLOADS_PROXY
 
 WORKDIR /repo/apps/web
 RUN pnpm build

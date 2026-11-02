@@ -16,16 +16,16 @@ const DIR = join(process.cwd(), 'uploads', 'public', 'players');
 export class PlayerPhotoService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Kim rasm yuklay oladi: player.manage, o'yinchining o'zi, yoki uning tasdiqlangan murabbiyi */
+  /**
+   * Kim rasm yuklay oladi: faqat player.manage yoki o'yinchining o'zi.
+   * Murabbiyga ATAYLAB ruxsat yo'q: coachPlayer bog'lanishi bir tomonlama (murabbiy ommaviy
+   * ID bo'yicha istalgan o'yinchini o'zi qo'sha oladi, o'yinchi roziligisiz) — bu yozish
+   * huquqi uchun asos bo'la olmaydi (aks holda istalgan murabbiy istalgan bolaning rasmini almashtirardi).
+   */
   private async assertCanEdit(playerId: string, user: { id: string; permissions: string[] }) {
     const p = await this.prisma.player.findUnique({ where: { id: playerId }, select: { id: true, userId: true, photoUrl: true } });
     if (!p) throw new NotFoundException("O'yinchi topilmadi");
     if (user.permissions.includes('player.manage') || p.userId === user.id) return p;
-    const coach = await this.prisma.coachProfile.findUnique({ where: { userId: user.id }, select: { id: true, status: true } });
-    if (coach?.status === 'APPROVED') {
-      const link = await this.prisma.coachPlayer.findUnique({ where: { coachId_playerId: { coachId: coach.id, playerId } } });
-      if (link) return p;
-    }
     throw new ForbiddenException("Bu o'yinchi rasmini o'zgartirish huquqi yo'q");
   }
 

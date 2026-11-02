@@ -12,3 +12,10 @@ uploads
 *.log
 .git
 apps/web/public/uttf-import
+# Lokal ishga tushirish va zal scoreboard'i — real ma'lumot (baza papkasi,
+# o'yinchilar bazasi, bot tokeni). Image'ga hech qachon kirmasin.
+local
+demo-data
+apps/scoreboard
+*.zip
+DEPLOY.local.md

@@ -18,7 +18,7 @@ const DEFAULT_PAGE_SIZE = 100;
 const MAX_PAGE_SIZE = 500;
 
 /** Public javoblarda faqat shu maydonlar — hech qanday maxfiy narsa chiqmaydi */
-const PUBLIC_PLAYER_SELECT = {
+export const PUBLIC_PLAYER_SELECT = {
   id: true,
   slug: true,
   firstName: true,
@@ -38,13 +38,19 @@ const PUBLIC_PLAYER_SELECT = {
   rankingPoints: true,
   photoUrl: true,
   countryCode: true,
-  // Federatsiya reyting ID'si (uttf.uz'dagi "ID raqami"ga mos) — maxfiy emas,
-  // reyting jadvalida ham ochiq ko'rinadi.
-  licenseNumber: true,
+  // licenseNumber ATAYLAB YO'Q: import qilingan o'yinchilarning bir qismida bu ustunda
+  // haqiqiy PINFL (14 xonali milliy ID) saqlanadi. Ommaviy javobga hech qachon qo'shmang
+  // (public-selects.spec.ts buni tekshiradi). Admin javoblari — ADMIN_PLAYER_SELECT.
   ageCategory: { select: { code: true, name: true } },
 } satisfies Prisma.PlayerSelect;
 
-const PUBLIC_MATCH_SELECT = {
+/** Faqat player.manage endpointlari (create/update) javobi uchun */
+export const ADMIN_PLAYER_SELECT = {
+  ...PUBLIC_PLAYER_SELECT,
+  licenseNumber: true,
+} satisfies Prisma.PlayerSelect;
+
+export const PUBLIC_MATCH_SELECT = {
   id: true,
   stage: true,
   status: true,
@@ -72,7 +78,7 @@ const PUBLIC_MATCH_SELECT = {
 } satisfies Prisma.MatchSelect;
 
 /** To'liq tug'ilgan sana ommaga chiqmaydi — faqat yosh */
-function withAge<T extends { birthDate: Date | null }>(p: T): Omit<T, 'birthDate'> & { age: number | null } {
+export function withAge<T extends { birthDate: Date | null }>(p: T): Omit<T, 'birthDate'> & { age: number | null } {
   const { birthDate, ...rest } = p;
   return { ...rest, age: ageOf(birthDate) };
 }
@@ -361,7 +367,7 @@ export class PlayersService {
             birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
             slug,
           },
-          select: PUBLIC_PLAYER_SELECT,
+          select: ADMIN_PLAYER_SELECT,
         });
       } catch (e) {
         const target = uniqueViolationTarget(e);
@@ -398,7 +404,7 @@ export class PlayersService {
         ...data,
         birthDate: data.birthDate ? new Date(data.birthDate) : undefined,
       },
-      select: PUBLIC_PLAYER_SELECT,
+      select: ADMIN_PLAYER_SELECT,
     });
   }
 

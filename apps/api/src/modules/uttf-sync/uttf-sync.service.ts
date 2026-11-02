@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Gender, TournamentStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { randomUUID } from 'crypto';
+import { normalizeRegion } from '../../common/regions';
 import { UttfClient, parseUttfDate, type Locale } from './uttf-client';
+import { playerSlugCandidates } from './player-slug';
 
 /**
  * uttf.uz'dan ma'lumot sinxronizatsiyasi.
@@ -440,18 +443,27 @@ export class UttfSyncService {
           result.skipped++;
           continue;
         }
-        const parts = fio.split(/s+/);
+        const parts = fio.split(/\s+/); // eslatma: avval /s+/ edi — "s" harfi bo'yicha bo'lib yuborardi
         const lastName = parts[0] ?? fio;
         const firstName = parts.slice(1).join(' ') || lastName;
         if (!dryRun) {
+          // Slug PINFL'dan emas, yangi id'dan (PINFL raqamlari ommaviy URL'ga chiqmasin)
+          const id = randomUUID();
+          let slug = '';
+          for (const cand of playerSlugCandidates(fio, id)) {
+            slug = cand;
+            if (!(await this.prisma.player.findFirst({ where: { slug: cand }, select: { id: true } }))) break;
+          }
           await this.prisma.player.create({
             data: {
-              slug: `${slugify(fio, 0).replace(/-0$/, '')}-${pinfl.slice(-5)}`,
+              id,
+              slug,
               firstName,
               lastName,
               gender: String(p.genderCode) === '2' ? 'FEMALE' : 'MALE',
               birthDate,
-              region: p.regionName ?? '—',
+              // uttf inglizcha beradi ("Tashkent City") — yagona o'zbekcha shaklga keltiramiz
+              region: normalizeRegion(p.regionName) || '—',
               club: p.clubName ?? p.clubInfo?.name ?? null,
               clubId,
               licenseNumber: pinfl,

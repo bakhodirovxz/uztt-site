@@ -34,7 +34,14 @@ const sgn = (d: number) => (d > 0 ? '+' : '') + d;
 export class TelegramService {
   private readonly log = new Logger('Telegram');
   private readonly recent = new Map<string, number>();
-  private queue: Promise<unknown> = Promise.resolve();
+  /** Yuborilgan natijalar: matchId + g'olib + geymlar hisobi (undo -> qayta tugatish bir xil natijani takrorlamasin) */
+  private readonly sentResults = new Set<string>();
+  /**
+   * Ketma-ket navbat (Telegram chegarasiga urilmaslik uchun). Cheklangan: TELEGRAM_QUEUE_MAX dan oshsa eng eskisi
+   * tashlanadi; navbatda 10 daqiqadan ortiq turgan e'lon yuborilmaydi (Telegram sekin bo'lsa soatlab kechikmasin).
+   */
+  private readonly jobs: Array<{ label: string; at: number; run: () => Promise<void> }> = [];
+  private draining = false;
 
   constructor(
     private readonly config: ConfigService,
@@ -54,7 +61,7 @@ export class TelegramService {
 
   /** O'yin tugaganda chaqiriladi — javobni kutmaydi, xato otmaydi, dublikat yubormaydi */
   notifyFinished(matchId: string, seq: number): void {
-    if (!this.enabled) return;
+    if (!this.enabled || !this.eventOn('match')) return;
     const key = `${matchId}:${seq}`;
     if (this.recent.has(key)) return;
     this.recent.set(key, Date.now());
@@ -63,9 +70,46 @@ export class TelegramService {
       if (first !== undefined) this.recent.delete(first);
     }
     // Navbat: ko'p stol bir vaqtda tugasa, Telegram chegarasiga urilmaslik uchun ketma-ket
-    this.queue = this.queue
-      .then(() => this.sendMatch(matchId))
-      .catch((e: unknown) => this.log.warn(`Yuborilmadi: ${this.safe(e)}`));
+    this.enqueue(`match ${matchId}`, () => this.sendMatch(matchId));
+  }
+
+  private enqueue(label: string, run: () => Promise<void>): void {
+    const max = Number(this.config.get<string>('TELEGRAM_QUEUE_MAX') ?? 50) || 50;
+    while (this.jobs.length >= max) {
+      const dropped = this.jobs.shift();
+      this.log.warn(`Navbat to'la (${max}) — eng eski e'lon tashlab yuborildi: ${dropped?.label}`);
+    }
+    this.jobs.push({ label, at: Date.now(), run });
+    void this.drain();
+  }
+
+  private async drain(): Promise<void> {
+    if (this.draining) return;
+    this.draining = true;
+    try {
+      while (this.jobs.length) {
+        const job = this.jobs.shift()!;
+        if (Date.now() - job.at > TelegramService.MAX_AGE_MS) {
+          this.log.warn(`Eskirgan e'lon yuborilmadi (${Math.round((Date.now() - job.at) / 60_000)} daqiqa navbatda): ${job.label}`);
+          continue;
+        }
+        try {
+          await job.run();
+        } catch (e) {
+          this.log.warn(`Yuborilmadi (${job.label}): ${this.safe(e)}`);
+        }
+      }
+    } finally {
+      this.draining = false;
+    }
+  }
+
+  /** Navbatda shundan uzoq turgan e'lon yuborilmaydi */
+  static readonly MAX_AGE_MS = 10 * 60_000;
+
+  /** Natija kaliti: o'yin + g'olib + geymlar hisobi */
+  static resultKey(r: { matchId: string; winnerSlot: 1 | 2 | null; games: Array<[number, number]> }): string {
+    return `${r.matchId}|${r.winnerSlot ?? '-'}|${r.games.map((g) => `${g[0]}-${g[1]}`).join(',')}`;
   }
 
   // ==================== UMUMIY E'LONLAR (yangilik, musobaqa, setka, reyting, arizalar) ====================
@@ -95,13 +139,11 @@ export class TelegramService {
     const chat = kind === 'admin' ? this.adminChatId : this.chatId;
     if (!chat) return;
     const clean = text.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').slice(0, 3800);
-    this.queue = this.queue
-      .then(async () => {
-        const jpeg = opts.photo ? await this.localJpeg(opts.photo) : null;
-        if (jpeg) await this.sendPhotoTo(chat, jpeg, clean.slice(0, 1000), 'image/jpeg');
-        else await this.sendMessageTo(chat, clean);
-      })
-      .catch((e: unknown) => this.log.warn(`E'lon yuborilmadi (${kind}): ${this.safe(e)}`));
+    this.enqueue(`e'lon ${kind}`, async () => {
+      const jpeg = opts.photo ? await this.localJpeg(opts.photo) : null;
+      if (jpeg) await this.sendPhotoTo(chat, jpeg, clean.slice(0, 1000), 'image/jpeg');
+      else await this.sendMessageTo(chat, clean);
+    });
   }
 
   /** Yangi musobaqa e'loni */
@@ -165,7 +207,7 @@ export class TelegramService {
       id = last?.id;
     }
     if (!id) throw new NotFoundException('Tugagan o\'yin yo\'q');
-    await this.sendMatch(id);
+    await this.sendMatch(id, true);
     return { ok: true, matchId: id };
   }
 
@@ -177,11 +219,20 @@ export class TelegramService {
     return t ? msg.split(t).join('***') : msg;
   }
 
-  private async sendMatch(matchId: string) {
+  private async sendMatch(matchId: string, force = false) {
+    this.showcase.forget(matchId); // undo -> qayta tugatishda 15 s keshdagi eski natija olinmasin
     const res = await this.showcase.rating(matchId);
+    // Bir xil natija (masalan, oxirgi ochko bekor qilinib, xuddi shunday qayta kiritilgan) ikkinchi marta yuborilmaydi
+    const key = TelegramService.resultKey(res);
+    if (!force && this.sentResults.has(key)) return;
     const data = await this.cardData(res);
     const text = this.text(res);
     await this.sendMessage(text);
+    this.sentResults.add(key);
+    if (this.sentResults.size > 1000) {
+      const first = this.sentResults.values().next().value;
+      if (first !== undefined) this.sentResults.delete(first);
+    }
     for (const f of ['h', 'v'] as CardFormat[]) {
       const png = await renderCardPng(data, f);
       const { w, h } = CARD_SIZE[f];

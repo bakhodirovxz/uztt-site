@@ -152,7 +152,7 @@ pull(); setInterval(pull, 8000);
 // jonli hisob SSE orqali (darhol)
 let es;
 function connect() {
-  es = new EventSource('/events?all=1');
+  es = new EventSource('/sb/events?all=1');
   es.onopen = () => { document.getElementById('dot').className = 'dot on'; };
   es.onmessage = (e) => {
     const d = JSON.parse(e.data), live = {};

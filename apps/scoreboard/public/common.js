@@ -21,7 +21,7 @@ function versionBad(d) {
 // POST so'rovlar navbatda qolib, hammasi "qotib" qoladi. Shuning uchun bitta brauzerdagi hamma sahifalar 1 ta ulanishni
 // bo'lishadi (Web Locks + BroadcastChannel); mumkin bo'lmasa har sahifa o'zi 1 ta ulanish ochadi.
 // Har sahifa faqat o'ziga kerakli ma'lumotni oladi: planshet — o'z stoli, overlay — reklama bilan, TV — o'z stollari
-const FEED_URL = '/events?all=1' + (location.pathname === '/control' ? '&courts=' + encodeURIComponent(COURT) + '&ads=0'
+const FEED_URL = '/sb/events?all=1' + (location.pathname === '/control' ? '&courts=' + encodeURIComponent(COURT) + '&ads=0'
   : location.pathname === '/overlay' ? '&ads=1' : (Q.get('courts') && location.pathname === '/tv' ? '&courts=' + encodeURIComponent(Q.get('courts')) + '&ads=0' : '&ads=0'));
 const Feed = (() => {
   if (Q.get('feed') === '0') return { sub: () => {} }; // ?feed=0 — jonli ulanishsiz (natija rasmi uchun)

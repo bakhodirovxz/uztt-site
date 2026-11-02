@@ -129,7 +129,8 @@
     "back": "Back",
     "tabInfo": "Info",
     "tabMatches": "Matches",
-    "tabPointsHistory": "Points history"
+    "tabPointsHistory": "Points history",
+    "ageSegment": "Age category"
   },
   "rankingsPage": {
     "title": "National rankings",
@@ -235,7 +236,11 @@
     "statFinished": "Finished",
     "statCards": "Cards",
     "statDq": "Disqualifications",
-    "sideChange": "Change ends (deciding game, 5 points)"
+    "sideChange": "Change ends (deciding game, 5 points)",
+    "scoreboardTitle": "Scoreboard tablet (by table)",
+    "tableN": "Table {n}",
+    "tableMatches": "{count, plural, one {# match} other {# matches}}",
+    "tableEmpty": "No matches assigned"
   },
   "signup": {
     "title": "Register as a player",
@@ -390,7 +395,12 @@
     "openSubmit": "Send request",
     "openSuccess": "Request sent. The club appears in the list once approved.",
     "needLogin": "Please sign in first",
-    "back": "Back"
+    "back": "Back",
+    "ok": "OK",
+    "loginCta": "Log in",
+    "pagination": "Pages",
+    "prevPage": "Previous page",
+    "nextPage": "Next page"
   },
   "playerPopup": {
     "loading": "Loading…",
@@ -404,7 +414,8 @@
     "female": "Female",
     "age": "Age group",
     "region": "Region",
-    "club": "Club"
+    "club": "Club",
+    "fullProfile": "Full profile"
   },
   "account": {
     "title": "Change password",

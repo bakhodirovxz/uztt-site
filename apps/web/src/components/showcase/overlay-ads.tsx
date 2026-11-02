@@ -52,7 +52,9 @@ export function OverlayAds({ table, idle }: { table: number; idle: boolean }) {
 
   // Ro'yxatlar so'rov oralig'ida o'zgarsa ham aylanma buzilmasin — ref orqali o'qiladi
   const live = useRef({ ads, sections });
-  live.current = { ads, sections };
+  useEffect(() => {
+    live.current = { ads, sections };
+  }, [ads, sections]);
 
   const nextAdBlock = useCallback((): OverlayAdPublic[] => {
     const all = live.current.ads;
@@ -70,26 +72,33 @@ export function OverlayAds({ table, idle }: { table: number; idle: boolean }) {
 
   const advance = useCallback((after: Step | null) => {
     const { sections: secs } = live.current;
-    // Bo'limdan keyin — reklama bloki; reklamadan keyin — keyingi bo'lim (yoki faqat reklama bo'lsa — yana reklama)
-    if (!after || after.type === 'ads') {
-      if (secs.length) {
-        const s = secs[cursor.current.section++ % secs.length];
-        setStep({ type: 'section', section: s });
+    // Bo'limdan keyin — reklama bloki (reklama bo'lmasa — darhol keyingi bo'lim)
+    if (after?.type === 'section') {
+      const block = nextAdBlock();
+      if (block.length) {
+        setStep({ type: 'ads', ads: block });
         return;
       }
-      const block = nextAdBlock();
-      setStep(block.length ? { type: 'ads', ads: block } : null);
+    }
+    // Reklamadan keyin (yoki boshida) — keyingi bo'lim; bo'lim yo'q bo'lsa — yana reklama
+    if (secs.length) {
+      setStep({ type: 'section', section: secs[cursor.current.section++ % secs.length] });
       return;
     }
     const block = nextAdBlock();
-    if (block.length) setStep({ type: 'ads', ads: block });
-    else advance({ type: 'ads', ads: [] });
+    setStep(block.length ? { type: 'ads', ads: block } : null);
   }, [nextAdBlock]);
 
-  // Bo'sh vaqt boshlanganda aylanma yoqiladi, tugaganda to'xtaydi
+  // Bo'sh vaqt tugaganda aylanma to'xtaydi (render paytida holatni tiklash — effect'siz)
+  const [wasIdle, setWasIdle] = useState(idle);
+  if (wasIdle !== idle) {
+    setWasIdle(idle);
+    if (!idle) setStep(null);
+  }
+
+  // Bo'sh vaqt boshlanganda aylanma yoqiladi
   useEffect(() => {
-    if (!idle) { setStep(null); return; }
-    if (!step && feed && (sections.length || ads.length)) advance(null);
+    if (idle && !step && feed && (sections.length || ads.length)) advance(null);
   }, [idle, step, feed, sections.length, ads.length, advance]);
 
   // Bo'lim vaqti tugagach keyingi qadam
@@ -111,14 +120,21 @@ export function OverlayAds({ table, idle }: { table: number; idle: boolean }) {
   );
 }
 
-/** Reklamalar ketma-ket: rasm — durationS soniya; rolik — tugaguncha (yoki durationS+1 s dan oshmasin) */
+/**
+ * Reklamalar ketma-ket: rasm — durationS soniya; rolik — tugaguncha (yoki durationS+1 s dan oshmasin).
+ * `onDone` ref'da: ota komponent har 20 s so'rovda qayta chizilganda taymer qayta boshlanmasin.
+ */
 function AdBlock({ ads, onDone }: { ads: OverlayAdPublic[]; onDone: () => void }) {
   const [i, setI] = useState(0);
   const ad = ads[i];
+  const doneRef = useRef(onDone);
+  useEffect(() => {
+    doneRef.current = onDone;
+  }, [onDone]);
   const next = useCallback(() => {
     if (i + 1 < ads.length) setI(i + 1);
-    else onDone();
-  }, [i, ads.length, onDone]);
+    else doneRef.current();
+  }, [i, ads.length]);
 
   useEffect(() => {
     const ms = (ad.videoUrl ? ad.durationS + 1 : ad.durationS) * 1000;
@@ -178,7 +194,7 @@ function PlayerSide({ s, score }: { s: Side; score: boolean }) {
   const [first, ...rest] = s.name.split(' ');
   return (
     <div className={`flex min-w-0 flex-1 items-center gap-3 text-2xl ${s.won ? 'font-bold text-broadcast-gold' : ''}`}>
-      <Avatar photoUrl={s.photoUrl} firstName={first.replace('.', '')} lastName={rest.join(' ')} size={52} />
+      <Avatar tone="broadcast" photoUrl={s.photoUrl} firstName={first.replace('.', '')} lastName={rest.join(' ')} size={52} />
       <span className="truncate">{s.name}</span>
       {score && <span className="ml-auto grid size-11 place-items-center rounded bg-white/15 text-2xl font-extrabold tabular-nums">{s.sets}</span>}
     </div>

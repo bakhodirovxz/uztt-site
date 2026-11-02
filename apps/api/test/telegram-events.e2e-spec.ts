@@ -84,14 +84,18 @@ describe('Telegram avtomatik e‘lonlar (e2e)', () => {
     expect(calls.find((c) => c.text.includes(`Kubok ${stamp}`))!.text).toContain('/musobaqalar/');
   });
 
-  it('ariza → faqat ADMIN chatga, shaxsiy ma‘lumotsiz (email/telefon yo‘q)', async () => {
+  it('ariza → faqat ADMIN chatga, shaxsiy ma‘lumotsiz (ism/email/telefon yo‘q)', async () => {
+    const before = calls.length;
     await post('/api/applications/referee').send({ email: `hk-${stamp}@test.uz`, password: 'Kuchli-Parol-12345', firstName: 'Aziz', lastName: `Sinov${stamp}`, phone: '+998901112233', region: 'Toshkent shahri' }).expect(201);
-    await waitFor(() => calls.some((c) => c.text.includes(`Sinov${stamp}`)));
-    const c = calls.find((x) => x.text.includes(`Sinov${stamp}`))!;
+    const isApp = (x: { text: string }) => x.text.includes('Yangi hakam arizasi');
+    await waitFor(() => calls.slice(before).some(isApp));
+    const c = calls.slice(before).find(isApp)!;
     expect(c.chat).toBe('-2002');
-    expect(c.text).not.toMatch(/@test\.uz|\+998|Kuchli-Parol/);
+    // Admin guruhiga ham ism bormaydi (arizachilar orasida bolalar bor) — faqat hudud va panel havolasi
+    expect(c.text).not.toMatch(/@test\.uz|\+998|Kuchli-Parol|Sinov|Aziz/);
+    expect(c.text).toContain('Toshkent shahri');
     // ommaviy kanalga chiqmagan
-    expect(calls.some((x) => x.chat === '-1001' && x.text.includes(`Sinov${stamp}`))).toBe(false);
+    expect(calls.slice(before).some((x) => x.chat === '-1001' && isApp(x))).toBe(false);
   });
 
   it('token xabar matnlarida va yo‘lda faqat Bot API yo‘lida bor; matnda yo‘q', () => {

@@ -4,6 +4,7 @@ import { timingSafeEqual } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Public } from '../../common/decorators/public.decorator';
 import { ScoreboardBridgeService } from './scoreboard-bridge.service';
+import { SbResultDto } from './dto';
 
 /** Scoreboard dasturi bilan ulanish: umumiy maxfiy kalit (SB_SECRET) bilan himoyalangan */
 @ApiTags('scoreboard-bridge')
@@ -34,7 +35,7 @@ export class ScoreboardBridgeController {
   @HttpCode(200)
   async result(
     @Headers('x-sb-secret') secret: string | undefined,
-    @Body() body: { siteId: string; sets: Array<[number, number]> },
+    @Body() body: SbResultDto,
   ) {
     this.check(secret);
     const root = await this.prisma.user.findFirst({
@@ -42,6 +43,6 @@ export class ScoreboardBridgeController {
       select: { id: true },
     });
     if (!root) throw new ServiceUnavailableException('Administrator topilmadi');
-    return this.bridge.applyResult(String(body?.siteId ?? ''), body?.sets ?? [], root.id);
+    return this.bridge.applyResult(body.siteId, body.sets, root.id);
   }
 }

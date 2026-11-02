@@ -1,6 +1,7 @@
 # Stol tennisi scoreboard — ko'p stolli (standart 10 ta), planshet + TV + YouTube overlay
 
 Faqat Node.js kerak (nodejs.org). Windows'da `start.bat` ni ikki marta bosing.
+Standart holatda faqat shu kompyuterdan ochiladi — zal tarmog'i uchun pastdagi "Xavfsizlik" bo'limiga qarang.
 Bayroqlar loyiha ichida (internet kerak emas).
 
 ## Qanday ishlaydi
@@ -75,7 +76,26 @@ Reyting hisoblangan bo'lsa — reyting yangilanishi kartochkasi (rasm, o'zgarish
 
 ### Umumiy saytga ulash
 - Iframe: `<iframe src="http://KOMPYUTER_IP:3100/live?embed=1" style="width:100%;height:900px;border:0"></iframe>`
-- Ma'lumot (JSON, CORS ochiq): `/api/public` (jonli, jadval, natijalar, reyting), `/api/all`, jonli oqim `/events?all=1`.
+- Ma'lumot (JSON, CORS ochiq): `/api/public` (jonli, jadval, natijalar, reyting), `/api/all`, jonli oqim `/sb/events?all=1`
+  (eski `/events` ham hozircha ishlaydi, lekin sayt orqali faqat `/sb/events` yo'naltiriladi).
+- Sayt bazasi bilan ko'prik (`site-bridge.js`): `SITE_URL` va `SB_SECRET` (saytdagi bilan bir xil, kamida 16 belgi).
+  `SITE_URL` `/api` bilan yoki `/api`siz yozilishi mumkin: `https://stoltennis.uz` va `https://stoltennis.uz/api` bir xil ishlaydi.
+  Natija saytga faqat o'yin sayt qoidalari bo'yicha (11 ochko, 2 ochko farq, kerakli geymlar soni) to'liq tugagan bo'lsa yoziladi;
+  aks holda sayt rad etadi (422) va konsolda "QABUL QILINMADI — saytda qo'lda kiriting" chiqadi (hisob o'zgarmaguncha qayta yuborilmaydi).
+
+## Xavfsizlik: tarmoq va kirish kaliti
+- Standart holatda server **faqat shu kompyuterdan** ochiladi (`127.0.0.1`). OBS va TV shu kompyuterda bo'lsa — hech narsa sozlash shart emas.
+- Zal planshetlari sayt orqali kirsa (sayt hakam/administrator login'ini o'zi tekshiradi), serverni tarmoqqa ochish shart emas.
+- Planshetlar to'g'ridan-to'g'ri (Wi-Fi orqali) ulansa: `SB_HOST=0.0.0.0` **va** `SB_ADMIN_TOKEN=<uzun tasodifiy kalit>` bilan ishga tushiring:
+  `set SB_HOST=0.0.0.0 & set SB_ADMIN_TOKEN=... & node server.js`. Kalitsiz tarmoqqa ochsangiz, konsolda ogohlantirish chiqadi —
+  Wi-Fi'dagi istalgan qurilma hisobni o'zgartira, qurani o'chira va fayl yuklay oladi.
+- Kalit yoqilganda: planshetda **bir marta** `http://IP:3100/control?court=1&token=KALIT` oching (admin: `/admin?token=KALIT`).
+  Server 30 kunlik `sb_token` cookie qo'yadi va manzildan kalitni olib tashlaydi — keyin oddiy `/control?court=1` ishlayveradi.
+  Skriptlar uchun: `x-sb-token: KALIT` sarlavhasi.
+- Kalit talab qilinadi: barcha POST so'rovlar (hisob, qura, sozlama, reklama yuklash/o'chirish) va `/control`, `/admin`,
+  `/api/data`, `/api/data/check`, `/api/settings`, `/api/ads`, `/api/pdb/*`, `/api/telegram-test`.
+  Kalitsiz: `/tv`, `/overlay`, `/live`, `/card`, `/sb/events`, `/api/public`, `/api/all`, `/api/state`, `/api/history`, `/api/card`.
+- Stol raqami faqat `1..COURTS` (standart 10). Reklama fayllari: png, jpg, webp, gif, mp4, webm (SVG ataylab qabul qilinmaydi).
 
 ### Yuk sinovi (men o'tkazdim)
 500 o'yinchi, 10 stol bir vaqtda o'ynaydi, 10 planshet + 10 TV + 10 overlay (30 ta haqiqiy brauzer oynasi) + 150 tomoshabin: POST kechikishi o'rtacha 2 ms (p95 116 ms),

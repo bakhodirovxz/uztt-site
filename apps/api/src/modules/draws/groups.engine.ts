@@ -140,8 +140,41 @@ export interface Standing {
   pointsLost: number;
   /** Teng ko'rsatkichda faqat jereb hal qiladi (4.2.4) */
   lot: boolean;
+  /** Jereb bilan hal qilinadigan bir xil tenglik sinfi (shu sinfdagilarda bir xil raqam), aks holda null */
+  lotGroup: number | null;
   /** 4.2.6: o'yinlarining yarmidan kami o'ynagan — natijalari bekor */
   annulled: boolean;
+}
+
+/**
+ * Urug'li deterministik [0,1) generator (mulberry32). Bir xil `seed` — har doim bir xil ketma-ketlik:
+ * ommaviy jadvalda jereb natijasi har so'rovda o'zgarib turmaydi.
+ */
+export function seededRng(seed: string): () => number {
+  let a = 0x811c9dc5;
+  for (let i = 0; i < seed.length; i++) a = Math.imul(a ^ seed.charCodeAt(i), 0x01000193);
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Jereb talab qiladigan tenglik setkaga chiqish chegarasini kesib o'tadimi: bir tenglik sinfidan
+ * kimdir `advancing` o'ringa kiradi, kimdir kirmaydi — demak kim chiqishini faqat jereb hal qiladi.
+ */
+export function lotStraddlesBoundary(standings: Standing[], advancing: number): boolean {
+  const inside = new Set<number>();
+  const outside = new Set<number>();
+  for (const s of standings) {
+    if (s.annulled || s.lotGroup === null) continue;
+    (s.place <= advancing ? inside : outside).add(s.lotGroup);
+  }
+  for (const g of inside) if (outside.has(g)) return true;
+  return false;
 }
 
 interface Norm {
@@ -208,7 +241,11 @@ function cmpFrac(x: Frac, y: Frac): number {
 }
 
 /** Bir nechta o'yinchi tengligini faqat o'zaro o'yinlar bo'yicha ketma-ket hal qilish (4.2.2–4.2.4) */
-function resolveTied(ids: string[], matches: Norm[], rng: () => number): Array<{ id: string; lot: boolean }> {
+function resolveTied(
+  ids: string[],
+  matches: Norm[],
+  rng: () => number,
+): Array<{ id: string; lot: boolean; cls?: string }> {
   if (ids.length === 1) return [{ id: ids[0], lot: false }];
   const set = new Set(ids);
   const mutual = matches.filter((m) => set.has(m.a) && set.has(m.b));
@@ -243,8 +280,9 @@ function resolveTied(ids: string[], matches: Norm[], rng: () => number): Array<{
       return classes.flatMap((c) => resolveTied(c, matches, rng));
     }
   }
-  // 4.2.4: jereb
-  return shuffle([...ids], rng).map((id) => ({ id, lot: true }));
+  // 4.2.4: jereb (sinf kaliti — shu tenglikdagilar to'plami)
+  const cls = [...ids].sort().join('|');
+  return shuffle([...ids], rng).map((id) => ({ id, lot: true, cls }));
 }
 
 /**
@@ -273,7 +311,7 @@ export function groupStandings(
   for (const id of playerIds) {
     stat.set(id, {
       playerId: id, place: 0, points: 0, played: 0, won: 0, lost: 0,
-      setsWon: 0, setsLost: 0, pointsWon: 0, pointsLost: 0, lot: false,
+      setsWon: 0, setsLost: 0, pointsWon: 0, pointsLost: 0, lot: false, lotGroup: null,
       annulled: annulled.has(id),
     });
   }
@@ -299,13 +337,18 @@ export function groupStandings(
     if (last && stat.get(last[0])!.points === stat.get(id)!.points) last.push(id);
     else blocks.push([id]);
   }
-  const ordered: Array<{ id: string; lot: boolean }> = blocks.flatMap((b) => resolveTied(b, norms, rng));
+  const ordered: Array<{ id: string; lot: boolean; cls?: string }> = blocks.flatMap((b) =>
+    resolveTied(b, norms, rng),
+  );
   // bekor qilinganlar eng oxirida (natijasiz)
   for (const id of playerIds) if (annulled.has(id)) ordered.push({ id, lot: false });
+  const clsNum = new Map<string, number>();
   return ordered.map((o, i) => {
     const s = stat.get(o.id)!;
     s.place = i + 1;
     s.lot = o.lot;
+    if (o.cls !== undefined && !clsNum.has(o.cls)) clsNum.set(o.cls, clsNum.size + 1);
+    s.lotGroup = o.cls !== undefined ? clsNum.get(o.cls)! : null;
     return s;
   });
 }

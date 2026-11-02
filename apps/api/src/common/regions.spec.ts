@@ -20,6 +20,19 @@ describe('hududlar (o‘zbekcha)', () => {
     expect(normalizeRegion(null)).toBe('');
   });
 
+  it.each([
+    ['Farg‘ona viloyati'],
+    ['Farg’ona viloyati'],
+    ['Fargʻona viloyati'],
+    ['  fargʼona   VILOYATI '],
+  ])('apostrof turidan qat’i nazar bitta hudud: %j', (input) => {
+    expect(normalizeRegion(input)).toBe("Farg'ona viloyati");
+  });
+
+  it("Qoraqalpog'iston: o'zbek lotin apostrofi (ʻ) bilan", () => {
+    expect(normalizeRegion('Qoraqalpogʻiston Respublikasi')).toBe("Qoraqalpog'iston Respublikasi");
+  });
+
   it('qisqa shakl: kartochkaga sig‘adi', () => {
     expect(regionShort('Fergana Region')).toBe("Farg'ona");
     expect(regionShort('Republic of Karakalpakstan')).toBe("Qoraqalpog'iston");

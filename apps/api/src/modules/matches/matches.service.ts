@@ -12,7 +12,9 @@ import { join } from 'path';
 import { AssignmentService } from '../referee-assignment/assignment.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CryptoService } from '../../common/crypto/crypto.service';
-import { addPlayerPoints } from '../../common/points';
+import { applyPoints, netReversal } from '../../common/points';
+import { bonusNote, lockTournamentRating, playersWithBonus } from '../rankings/bonus';
+import { newRefereeCode } from './referee-code';
 import {
   matchExactPoints,
   placeBonus,
@@ -396,9 +398,9 @@ export class MatchesService {
   }
 
   /** Ochko qo'shish — scoring engine + snapshot + ball berish, bitta tranzaksiyada */
-  async point(matchId: string, player: 1 | 2, userId: string) {
+  async point(matchId: string, player: 1 | 2, userId: string, isManager = false) {
     const updated = await this.prisma.$transaction((tx) =>
-      this.pointTx(tx, matchId, player, userId),
+      this.pointTx(tx, matchId, player, userId, isManager),
     );
     return this.emitAndReturn(updated);
   }
@@ -409,9 +411,10 @@ export class MatchesService {
     matchId: string,
     player: 1 | 2,
     userId: string,
+    isManager: boolean,
   ) {
     const match = await this.lockMatch(tx, matchId);
-    this.assertVerified(match);
+    this.assertVerified(match, userId, isManager);
     if (match.status === 'FINISHED') {
       throw new BadRequestException("O'yin allaqachon yakunlangan");
     }
@@ -510,18 +513,35 @@ export class MatchesService {
     return updatedMatch;
   }
 
-  /** Oxirgi ochkoni bekor qilish — snapshot tiklanadi, ball qaytariladi */
-  async undo(matchId: string, userId: string) {
+  /**
+   * Oxirgi ochkoni bekor qilish — snapshot tiklanadi, ball qaytariladi.
+   * Faqat OCHKO bekor qilinadi: oxirgi amal kartochka bo'lsa yoki o'yinda diskvalifikatsiya bo'lsa
+   * rad etiladi (aks holda undo undan oldingi haqiqiy ochkoni o'chirib yuborardi).
+   */
+  async undo(matchId: string, userId: string, isManager = false) {
     const updated = await this.prisma.$transaction(async (tx) => {
       const match = await this.lockMatch(tx, matchId);
+      this.assertVerified(match, userId, isManager);
+      if (match.disqualifiedPlayerId) {
+        throw new BadRequestException(
+          "Diskvalifikatsiya qilingan o'yinda ochkoni bekor qilib bo'lmaydi — administratorga murojaat qiling",
+        );
+      }
 
-      const lastPoint = await tx.matchEvent.findFirst({
-        where: { matchId, type: 'POINT' },
+      // Taym-aut, tasdiqlash va oldingi undo'lar hisobni o'zgartirmaydi — ular o'tkazib yuboriladi
+      const lastAction = await tx.matchEvent.findFirst({
+        where: { matchId, type: { in: ['POINT', 'CARD', 'DISQUALIFY'] } },
         orderBy: { seq: 'desc' },
       });
-      if (!lastPoint) {
+      if (!lastAction) {
         throw new BadRequestException('Bekor qilinadigan harakat yo‘q');
       }
+      if (lastAction.type !== 'POINT') {
+        throw new BadRequestException(
+          "Oxirgi amal ochko emas (kartochka) — uni bekor qilib bo'lmaydi; zarur bo'lsa administratorga murojaat qiling",
+        );
+      }
+      const lastPoint = lastAction;
       const { snapshot } = lastPoint.payload as unknown as {
         snapshot: PointSnapshot;
       };
@@ -532,27 +552,26 @@ export class MatchesService {
         snapshot.status !== 'FINISHED' &&
         match.winnerId
       ) {
+        // Keyingi bosqich o'yini boshlangan bo'lsa — rad (aks holda g'olib u yerda qolib ketadi)
+        await this.assertNextNotStarted(tx, match);
         await this.unpropagateWinner(tx, match);
         await this.unpropagateLoser(tx, match);
-        // Reglament bo'yicha bir o'yinda bir NECHTA o'yinchi ball olishi
-        // mumkin (masalan finalda ikkalasi ham). Shuning uchun jurnal
-        // yozuvlarining o'zi teskari qilinadi — bitta "pointsAwarded"
-        // qiymatiga tayanish yetarli emas.
-        const awarded = await tx.playerPointsLog.findMany({
-          where: { matchId, reason: 'MATCH_WIN' },
+        // Bir o'yinda bir NECHTA o'yinchi ball olishi mumkin va o'yin bir necha marta
+        // "tugadi → undo" siklidan o'tishi mumkin. Shuning uchun shu o'yin jurnalining SOF
+        // yig'indisi (MATCH_WIN + oldingi UNDO) har o'yinchi/izoh bo'yicha teskari qilinadi.
+        const logged = await tx.playerPointsLog.findMany({
+          where: { matchId, reason: { in: ['MATCH_WIN', 'UNDO'] } },
+          select: { playerId: true, note: true, delta: true, exact: true },
         });
-        for (const row of awarded) {
-          await addPlayerPoints(tx, row.playerId, -row.delta);
-          await tx.playerPointsLog.create({
-            data: {
-              playerId: row.playerId,
-              delta: -row.delta,
-              exact: row.exact === null ? null : -row.exact,
-              reason: 'UNDO',
-              matchId,
-              tournamentId: match.tournamentId,
-              note: row.note,
-            },
+        for (const r of netReversal(logged)) {
+          await applyPoints(tx, {
+            playerId: r.playerId,
+            delta: r.delta,
+            exact: r.exact,
+            reason: 'UNDO',
+            matchId,
+            tournamentId: match.tournamentId,
+            note: r.note,
           });
         }
       }
@@ -602,10 +621,11 @@ export class MatchesService {
     player: 1 | 2,
     type: 'YELLOW' | 'RED',
     userId: string,
+    isManager = false,
   ) {
     const updated = await this.prisma.$transaction(async (tx) => {
       const match = await this.lockMatch(tx, matchId);
-      this.assertVerified(match);
+      this.assertVerified(match, userId, isManager);
       if (match.status === 'FINISHED') {
         throw new BadRequestException("O'yin allaqachon yakunlangan");
       }
@@ -659,7 +679,7 @@ export class MatchesService {
       const opponent: 1 | 2 = player === 1 ? 2 : 1;
       for (let i = 0; i < penaltyPoints; i++) {
         if (updatedMatch.status === 'FINISHED') break;
-        updatedMatch = await this.pointTx(tx, matchId, opponent, userId);
+        updatedMatch = await this.pointTx(tx, matchId, opponent, userId, isManager);
       }
       return updatedMatch;
     });
@@ -671,10 +691,10 @@ export class MatchesService {
    * Taym-aut (3.4.4.2): har o'yinchi o'yin davomida BIR marta, 1 daqiqagacha. Faqat o'yin davomida
    * (ochkolar orasida) olinadi; ikkala tomon bir vaqtda so'rasa ham ikkalasi bittadan sarflaydi.
    */
-  async timeout(matchId: string, player: 1 | 2, userId: string) {
+  async timeout(matchId: string, player: 1 | 2, userId: string, isManager = false) {
     const updated = await this.prisma.$transaction(async (tx) => {
       const match = await this.lockMatch(tx, matchId);
-      this.assertVerified(match);
+      this.assertVerified(match, userId, isManager);
       if (match.status === 'FINISHED') {
         throw new BadRequestException("O'yin allaqachon yakunlangan");
       }
@@ -713,6 +733,7 @@ export class MatchesService {
     reason: string | undefined,
     audio: { buffer: Buffer; mimetype: string } | undefined,
     userId: string,
+    isManager = false,
   ) {
     if (!reason && !audio) {
       throw new BadRequestException(
@@ -733,7 +754,7 @@ export class MatchesService {
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const match = await this.lockMatch(tx, matchId);
-      this.assertVerified(match);
+      this.assertVerified(match, userId, isManager);
       if (match.status === 'FINISHED') {
         throw new BadRequestException("O'yin allaqachon yakunlangan");
       }
@@ -748,11 +769,15 @@ export class MatchesService {
         matchId,
         tournamentId: match.tournamentId,
         stage: match.stage,
+        hasThirdPlace: !!match.loserNextMatchId,
         winnerId,
         // Diskvalifikatsiya qilingan o'yinchi finalda ishtirok ballini olmaydi
         loserId: null,
       });
       await this.propagateWinner(tx, match, winnerId);
+      // Oddiy yakun bilan bir xil: yarim final yutqazgani 3-o'rin o'yiniga o'tadi — aks holda u
+      // o'yin bitta o'yinchi bilan qotib qoladi (keyin hakam uni o'sha o'yinda hal qiladi)
+      await this.propagateLoser(tx, match, disqualifiedId);
 
       const updatedMatch = await tx.match.update({
         where: { id: matchId },
@@ -838,6 +863,15 @@ export class MatchesService {
       k: cfg.k,
     });
 
+    // Bonus bosqichlarida: musobaqa bo'yicha lock (qo'lda `?apply=1` bilan poyga bo'lmasin).
+    // O'yinchi qatorlari qulflanishidan OLDIN olinadi — deadlock bo'lmasligi uchun.
+    const bonusStage =
+      args.stage === 'FINAL' ||
+      args.stage === 'THIRD_PLACE' ||
+      args.stage === 'QUARTERFINAL' ||
+      (args.stage === 'SEMIFINAL' && !args.hasThirdPlace);
+    if (bonusStage) await lockTournamentRating(tx, args.tournamentId);
+
     let winnerDelta = 0;
     const sides: Array<[string, number, string]> = [
       [args.winnerId, exact.winner, "Nizom: g'alaba"],
@@ -853,20 +887,18 @@ export class MatchesService {
         wholeSoFar: sums._sum.delta ?? 0,
       });
       if (inactive.has(playerId)) continue;
-      if (playerId === args.winnerId) winnerDelta = delta;
       if (delta === 0 && exactDelta === 0) continue;
-      await addPlayerPoints(tx, playerId, delta);
-      await tx.playerPointsLog.create({
-        data: {
-          playerId,
-          delta,
-          exact: exactDelta,
-          reason: 'MATCH_WIN',
-          matchId: args.matchId,
-          tournamentId: args.tournamentId,
-          note,
-        },
+      // Jurnalga HAQIQATDA qo'llangan delta yoziladi (0 chegarasi kesgan bo'lsa ham)
+      const applied = await applyPoints(tx, {
+        playerId,
+        delta,
+        exact: exactDelta,
+        reason: 'MATCH_WIN',
+        matchId: args.matchId,
+        tournamentId: args.tournamentId,
+        note,
       });
+      if (playerId === args.winnerId) winnerDelta = applied;
     }
 
     // 1–8-o'rin bonuslari (Б) — o'rin aniq bo'lgan zahoti beriladi (efirda reyting yangilanishi shu bilan ko'rinadi):
@@ -876,22 +908,23 @@ export class MatchesService {
     else if (args.stage === 'THIRD_PLACE') places.push([args.winnerId, 3], [args.loserId, 4]);
     else if (args.stage === 'QUARTERFINAL') places.push([args.loserId, 5]);
     else if (args.stage === 'SEMIFINAL' && !args.hasThirdPlace) places.push([args.loserId, 3]);
+    // Bonusi allaqachon amalda bo'lgan (masalan qo'lda `?apply=1`) o'yinchiga qayta berilmaydi
+    const hasBonus = places.length
+      ? await playersWithBonus(tx, args.tournamentId)
+      : new Set<string>();
     for (const [playerId, place] of places) {
-      if (inactive.has(playerId)) continue;
+      if (inactive.has(playerId) || hasBonus.has(playerId)) continue;
       const bonus = placeBonus(place, cfg.k);
       if (bonus <= 0) continue;
-      await addPlayerPoints(tx, playerId, bonus);
-      await tx.playerPointsLog.create({
-        data: {
-          playerId,
-          delta: bonus,
-          reason: 'MATCH_WIN',
-          matchId: args.matchId,
-          tournamentId: args.tournamentId,
-          note: `Nizom: bonus (${place}-o'rin)`,
-        },
+      const applied = await applyPoints(tx, {
+        playerId,
+        delta: bonus,
+        reason: 'MATCH_WIN',
+        matchId: args.matchId,
+        tournamentId: args.tournamentId,
+        note: bonusNote(place),
       });
-      if (playerId === args.winnerId) winnerDelta += bonus;
+      if (playerId === args.winnerId) winnerDelta += applied;
     }
     return winnerDelta;
   }
@@ -952,15 +985,19 @@ export class MatchesService {
     );
     let newParticipants: string[] = [];
     if ((rules.get('PARTICIPATION') ?? 0) > 0 && bothPlayers.length > 0) {
-      const already = await tx.playerPointsLog.findMany({
+      // Sof yig'indi bo'yicha: undo qilingan o'yindagi ishtirok balli "berilgan" hisoblanmaydi
+      const already = await tx.playerPointsLog.groupBy({
+        by: ['playerId'],
         where: {
           tournamentId: args.tournamentId,
           playerId: { in: bothPlayers },
           note: RULE_LABEL_UZ.PARTICIPATION,
         },
-        select: { playerId: true },
+        _sum: { delta: true },
       });
-      const has = new Set(already.map((a) => a.playerId));
+      const has = new Set(
+        already.filter((a) => (a._sum.delta ?? 0) > 0).map((a) => a.playerId),
+      );
       newParticipants = bothPlayers.filter((id) => !has.has(id));
     }
 
@@ -973,21 +1010,19 @@ export class MatchesService {
       fallbackPoints,
     });
 
+    let total = 0;
     for (const award of awards) {
-      await addPlayerPoints(tx, award.playerId, award.points);
-      await tx.playerPointsLog.create({
-        data: {
-          playerId: award.playerId,
-          delta: award.points,
-          reason: 'MATCH_WIN',
-          matchId: args.matchId,
-          tournamentId: args.tournamentId,
-          note: RULE_LABEL_UZ[award.key],
-        },
+      total += await applyPoints(tx, {
+        playerId: award.playerId,
+        delta: award.points,
+        reason: 'MATCH_WIN',
+        matchId: args.matchId,
+        tournamentId: args.tournamentId,
+        note: RULE_LABEL_UZ[award.key],
       });
     }
 
-    return awards.reduce((sum, a) => sum + a.points, 0);
+    return total;
   }
 
   /** G'olibni keyingi raund o'yinining slotiga yozish (setka propagatsiyasi) */
@@ -1065,14 +1100,59 @@ export class MatchesService {
     return match;
   }
 
-  private assertVerified(match: { refereeVerifiedAt: Date | null }) {
+  /**
+   * Hisob kiritishga ruxsat: o'yin kod bilan tasdiqlangan VA foydalanuvchi shu o'yinning
+   * hakami (kodni kiritgan yoki tayinlangan yetakchi/yordamchi). `match.manage` — istisno.
+   */
+  private assertVerified(
+    match: {
+      refereeVerifiedAt: Date | null;
+      verifiedByUserId: string | null;
+      refereeUserId: string | null;
+      assistantUserId: string | null;
+    },
+    userId: string,
+    isManager: boolean,
+  ) {
     if (!match.refereeVerifiedAt) {
       throw new ForbiddenException('Avval hakam kodini tasdiqlang');
+    }
+    if (isManager) return;
+    const allowed = [
+      match.verifiedByUserId,
+      match.refereeUserId,
+      match.assistantUserId,
+    ];
+    if (!allowed.includes(userId)) {
+      throw new ForbiddenException(
+        'Bu o‘yinni boshqa hakam olib boryapti — avval hakam kodini kiriting',
+      );
+    }
+  }
+
+  /**
+   * Undo o'yin natijasini bekor qilsa: keyingi bosqich (g'olib/yutqazgan o'tgan) o'yini hali
+   * boshlanmagan bo'lishi shart. Qatorlar qulflanadi — tekshiruv va slotni tozalash orasida u
+   * o'yin boshlanib qolmasin (tartib doim oldingi raund → keyingi, shuning uchun deadlock yo'q).
+   */
+  private async assertNextNotStarted(
+    tx: Tx,
+    match: { nextMatchId: string | null; loserNextMatchId: string | null },
+  ) {
+    for (const id of [match.nextMatchId, match.loserNextMatchId]) {
+      if (!id) continue;
+      const rows = await tx.$queryRaw<Array<{ status: string }>>`
+        SELECT status::text AS status FROM matches WHERE id = ${id} FOR UPDATE`;
+      if (rows.length && rows[0].status !== 'SCHEDULED') {
+        throw new BadRequestException(
+          "Keyingi bosqich o'yini allaqachon boshlangan — bu o'yin natijasini bekor qilib bo'lmaydi (administratorga murojaat qiling)",
+        );
+      }
     }
   }
 
   private genCode(): string {
-    return String(Math.floor(100000 + Math.random() * 900000));
+    return newRefereeCode();
   }
 
   private async logEvent(

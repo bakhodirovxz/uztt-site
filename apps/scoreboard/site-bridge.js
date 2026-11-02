@@ -1,17 +1,34 @@
 // Sayt (stoltennis.uz / lokal sayt) bilan ko'prik. SITE_URL va SB_SECRET berilmasa — hech narsa qilmaydi.
 //  1) har 15 soniyada saytdan ayni paytdagi musobaqa o'yinlarini oladi (qura ro'yxatiga);
 //  2) o'yin tugagach geymlar hisobini saytga yuboradi (sayt guruh, setka va reytingni o'zi yangilaydi).
-const SITE = (process.env.SITE_URL || '').replace(/\/$/, '');
+// SITE_URL: sayt manzili, "/api" bilan yoki "/api"siz — ikkalasi ham ishlaydi
+//   (https://stoltennis.uz  yoki  https://stoltennis.uz/api  ->  https://stoltennis.uz/api/sb/...).
+function apiBase(site) {
+  const s = String(site || '').trim().replace(/\/+$/, '');
+  if (!s) return '';
+  return /\/api$/i.test(s) ? s : s + '/api';
+}
+const API = apiBase(process.env.SITE_URL);
 const SECRET = process.env.SB_SECRET || '';
 const ORIGIN = process.env.SITE_ORIGIN || 'http://localhost:3000';
 
+/** Sayt javobi: faqat o'yin saytda haqiqatan TUGAGAN bo'lsa muvaffaqiyat */
+function resultAccepted(status, body) {
+  if (status < 200 || status >= 300 || !body) return false;
+  return body.finished === true || body.already === true;
+}
+
 function start(api) {
-  if (!SITE || !SECRET) { console.log('Sayt bilan ulanish: o\'chiq (SITE_URL / SB_SECRET berilmagan)'); return; }
+  if (!API || !SECRET) { console.log('Sayt bilan ulanish: o\'chiq (SITE_URL / SB_SECRET berilmagan)'); return; }
+  console.log('Sayt bilan ulanish: ' + API + '/sb');
   const headers = { 'x-sb-secret': SECRET, Origin: ORIGIN, 'Content-Type': 'application/json' };
   let lastKey = '';
+  let pulling = false, pushing = false; // oldingi aylanish tugamagan bo'lsa, ustma-ust ishga tushmasin
   async function pull() {
+    if (pulling) return;
+    pulling = true;
     try {
-      const r = await fetch(SITE + '/sb/export', { headers, signal: AbortSignal.timeout(10000) });
+      const r = await fetch(API + '/sb/export', { headers, signal: AbortSignal.timeout(10000) });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const d = await r.json();
       const data = api.getData();
@@ -29,24 +46,42 @@ function start(api) {
       api.relinkMatches();
       api.saveData();
       console.log('Sayt: ' + matches.length + ' ta o\'yin olindi');
-    } catch (e) { console.log('Sayt bilan ulanib bo\'lmadi (' + e.message + ') — keyinroq qayta uriniladi'); }
+    } catch (e) {
+      console.log('Sayt bilan ulanib bo\'lmadi (' + e.message + ') — keyinroq qayta uriniladi');
+    } finally { pulling = false; }
   }
   async function push() {
-    const courts = api.courts();
-    for (const id of Object.keys(courts)) {
-      const c = courts[id];
-      if (c.winner === null || !c.siteId || c.sitePosted) continue;
-      if (!c.sets.length) continue; // texnik g'alaba (hisobsiz) — qo'lda kiritiladi
-      try {
-        const r = await fetch(SITE + '/sb/result', { method: 'POST', headers, body: JSON.stringify({ siteId: c.siteId, sets: c.sets }), signal: AbortSignal.timeout(30000) });
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        c.sitePosted = true;
-        api.persist();
-        console.log('Sayt: ' + id + '-stol natijasi yozildi');
-        lastKey = ''; // ro'yxat yangilansin
-      } catch (e) { console.log('Sayt: natijani yuborib bo\'lmadi (' + e.message + ') — qayta uriniladi'); }
-    }
+    if (pushing) return;
+    pushing = true;
+    try {
+      const courts = api.courts();
+      for (const id of Object.keys(courts)) {
+        const c = courts[id];
+        if (c.winner === null || !c.siteId || c.sitePosted) continue;
+        if (!c.sets.length) continue; // texnik g'alaba (hisobsiz) — qo'lda kiritiladi
+        const setsKey = JSON.stringify(c.sets);
+        if (c.siteRejected === setsKey) continue; // sayt shu hisobni rad etgan — hisob o'zgarmaguncha qayta yuborilmaydi
+        try {
+          const r = await fetch(API + '/sb/result', { method: 'POST', headers, body: JSON.stringify({ siteId: c.siteId, sets: c.sets }), signal: AbortSignal.timeout(30000) });
+          const body = await r.json().catch(() => null);
+          if (resultAccepted(r.status, body)) {
+            c.sitePosted = true;
+            c.siteRejected = undefined;
+            api.persist();
+            console.log('Sayt: ' + id + '-stol natijasi yozildi');
+            lastKey = ''; // ro'yxat yangilansin
+          } else if (r.status === 422 || r.status === 409 || (r.ok && body && body.finished === false)) {
+            // Qayta urinish foyda bermaydi (hisob sayt qoidalariga mos emas yoki o'yin saytda boshlangan)
+            c.siteRejected = setsKey;
+            api.persist();
+            console.log('Sayt: ' + id + '-stol natijasi QABUL QILINMADI — saytda qo\'lda kiriting. ' + ((body && body.message) || ('HTTP ' + r.status)));
+          } else {
+            throw new Error('HTTP ' + r.status);
+          }
+        } catch (e) { console.log('Sayt: natijani yuborib bo\'lmadi (' + e.message + ') — qayta uriniladi'); }
+      }
+    } finally { pushing = false; }
   }
   pull(); setInterval(pull, 15000); setInterval(push, 4000);
 }
-module.exports = { start };
+module.exports = { start, apiBase, resultAccepted };

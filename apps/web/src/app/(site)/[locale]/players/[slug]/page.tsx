@@ -25,7 +25,7 @@ interface PlayerDetail {
   } | null;
   rankingPoints: number;
   photoUrl: string | null;
-  licenseNumber: string | null;
+
   ageCategory: { code: string; name: string } | null;
   rank: number | null;
   matches: Array<{
@@ -224,8 +224,9 @@ export default async function PlayerDetailPage({
                 </span>
               )}
 
-              {/* Yoshi / Reyting / Ballar / ID raqami — uttf.uz'dagi statistika qatoriga mos */}
-              <dl className="mt-6 grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-4">
+              {/* Yoshi / Reyting / Ballar. ID raqami ATAYLAB yo'q: licenseNumber ba'zi
+                  o'yinchilarda haqiqiy PINFL (milliy ID) — ommaviy API uni qaytarmaydi. */}
+              <dl className="mt-6 grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-3">
                 <div>
                   <dt className="text-xs font-bold uppercase tracking-wider text-muted">
                     {tp('age')}
@@ -248,14 +249,6 @@ export default async function PlayerDetailPage({
                   </dt>
                   <dd className="mt-1 font-heading text-2xl font-extrabold tabular-nums text-accent-500">
                     {player.rankingPoints}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs font-bold uppercase tracking-wider text-muted">
-                    {tp('idNumber')}
-                  </dt>
-                  <dd className="mt-1 font-heading text-lg font-extrabold tabular-nums text-ink">
-                    {player.licenseNumber ?? '—'}
                   </dd>
                 </div>
               </dl>

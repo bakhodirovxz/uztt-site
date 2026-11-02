@@ -62,17 +62,29 @@ export class AuthService {
       '$argon2id$v=19$m=65536,t=3,p=4$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
     const valid = await argon2.verify(hash, password).catch(() => false);
 
+    // Hisob bloklash faqat oddiy (PLAYER) hisoblarga. Boshqaruvchi hisoblar (root, admin, hakam...)
+    // bloklanmaydi: ularning emaili oson topiladi va 8 ta xato urinish bilan jonli musobaqa kuni
+    // hisobni cheksiz bloklab qo'yish mumkin edi (DoS). Ular uchun himoya — ≥14 belgili parol
+    // siyosati + IP bo'yicha throttling (login: 15 daqiqada 20 urinish).
+    const lockable = !!user && !isPrivileged(user.roles.map((r) => r.role.code));
     // Hisob bloklangan bo'lsa to'g'ri parol ham o'tmaydi; xabar bir xil (email mavjudligi oshkor bo'lmasin)
-    const locked = !!user?.lockedUntil && user.lockedUntil > new Date();
+    const locked = lockable && !!user?.lockedUntil && user.lockedUntil > new Date();
     if (!user || !valid || locked || user.status !== 'ACTIVE') {
-      if (user && !valid && !locked) {
-        const count = user.failedLoginCount + 1;
-        await this.prisma.user.update({
+      if (user && lockable && !valid && !locked) {
+        // Atomik increment: "o'qi → +1 → yoz" parallel urinishlarda hisobni
+        // yo'qotardi (8 ta bir vaqtdagi xato urinish 1 ta deb sanalardi).
+        const { failedLoginCount } = await this.prisma.user.update({
           where: { id: user.id },
-          data: count >= MAX_FAILED_LOGINS
-            ? { failedLoginCount: 0, lockedUntil: new Date(Date.now() + LOCK_MINUTES * 60_000) }
-            : { failedLoginCount: count },
+          data: { failedLoginCount: { increment: 1 } },
+          select: { failedLoginCount: true },
         });
+        if (failedLoginCount >= MAX_FAILED_LOGINS) {
+          // Shartli: parallel so'rovlardan faqat bittasi blokni o'rnatadi
+          await this.prisma.user.updateMany({
+            where: { id: user.id, failedLoginCount: { gte: MAX_FAILED_LOGINS } },
+            data: { failedLoginCount: 0, lockedUntil: new Date(Date.now() + LOCK_MINUTES * 60_000) },
+          });
+        }
       }
       throw new UnauthorizedException('Email yoki parol noto‘g‘ri (yoki hisob vaqtincha bloklangan)');
     }

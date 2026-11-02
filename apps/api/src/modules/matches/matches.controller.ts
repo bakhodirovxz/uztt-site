@@ -29,6 +29,9 @@ import { RequirePermissions } from '../../common/decorators/require-permissions.
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { AuthUser } from '../../common/types/auth-user';
 
+/** `match.manage` — istalgan o'yinda hisob kiritishi mumkin (tayinlangan hakam bo'lmasa ham) */
+const isManager = (user: AuthUser) => user.permissions.includes('match.manage');
+
 @ApiTags('matches')
 @Controller('matches')
 export class MatchesController {
@@ -109,7 +112,7 @@ export class MatchesController {
     @Body() dto: VerifyCodeDto,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.matches.verify(id, dto.code, user.id, user.permissions.includes('match.manage'));
+    return this.matches.verify(id, dto.code, user.id, isManager(user));
   }
 
   /**
@@ -126,14 +129,14 @@ export class MatchesController {
     @Body() dto: PointDto,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.matches.point(id, dto.player, user.id);
+    return this.matches.point(id, dto.player, user.id, isManager(user));
   }
 
   @SkipThrottle()
   @Post(':id/undo')
   @RequirePermissions('match.score')
   undo(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser) {
-    return this.matches.undo(id, user.id);
+    return this.matches.undo(id, user.id, isManager(user));
   }
 
   @SkipThrottle()
@@ -144,7 +147,7 @@ export class MatchesController {
     @Body() dto: CardDto,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.matches.card(id, dto.player, dto.cardType, user.id);
+    return this.matches.card(id, dto.player, dto.cardType, user.id, isManager(user));
   }
 
   /** Taym-aut: har o'yinchiga o'yinda bir marta, 1 daqiqa (3.4.4.2) */
@@ -156,7 +159,7 @@ export class MatchesController {
     @Body() dto: PointDto,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.matches.timeout(id, dto.player, user.id);
+    return this.matches.timeout(id, dto.player, user.id, isManager(user));
   }
 
   @Post(':id/disqualify')
@@ -180,6 +183,7 @@ export class MatchesController {
       dto.reason,
       audio ? { buffer: audio.buffer, mimetype: audio.mimetype } : undefined,
       user.id,
+      isManager(user),
     );
   }
 }

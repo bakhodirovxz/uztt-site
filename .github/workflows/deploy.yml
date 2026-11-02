@@ -47,7 +47,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          # To'liq tarix: push'dagi BARCHA commitlar solishtiriladi (pastga qarang)
+          fetch-depth: 0
 
       # `version` ATAYLAB berilmagan: package.json da
       # `packageManager: pnpm@11.18.0` bor va ikkalasi birga berilsa
@@ -77,6 +78,15 @@ jobs:
       - name: Tiplar — Web
         run: pnpm --filter @uztt/web exec tsc --noEmit -p tsconfig.json
 
+      # Faqat xatolar (--quiet). 2026-11 da inline komponentlar har harfda
+      # input fokusini yo'qotardi — eslint react-hooks/static-components
+      # aynan shuni tutadi, tsc esa yo'q.
+      - name: Lint — Web
+        run: pnpm --filter @uztt/web exec eslint src --quiet
+
+      - name: Unit testlar — API
+        run: pnpm --filter @uztt/api exec jest --silent
+
       # Uchala til fayli bir xil kalitlar bilan turishi shart.
       # Busiz drift xavf emas, KAFOLAT — kimdir bitta tilga kalit
       # qo'shib qolgan ikkitasini unutadi.
@@ -90,12 +100,20 @@ jobs:
             echo "services=${{ inputs.services }}" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          CHANGED=$(git diff --name-only HEAD~1 HEAD || echo "")
+          # Push'dagi barcha commitlar: oxirgi commit faqat hujjat bo'lsa ham
+          # oldingi commitlardagi kod o'zgarishi o'tkazib yuborilmasin.
+          # Yangi branch / qo'lda ishga tushirishda before = 000… → HEAD~1.
+          BEFORE="${{ github.event.before }}"
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "$BEFORE" 2>/dev/null; then
+            BEFORE="HEAD~1"
+          fi
+          CHANGED=$(git diff --name-only "$BEFORE" HEAD || echo "")
           SVC=""
           echo "$CHANGED" | grep -qE '^(apps/api|packages/shared)/' && SVC="api"
           echo "$CHANGED" | grep -qE '^(apps/web|packages/shared)/' && SVC="$SVC web"
           # Compose yoki lockfile tegilgan bo'lsa — ikkalasi
-          echo "$CHANGED" | grep -qE '^(docker-compose|pnpm-lock|package\.json)' && SVC="api web"
+          echo "$CHANGED" | grep -qE '^(docker-compose|pnpm-lock|pnpm-workspace|package\.json|\.dockerignore)' && SVC="api web"
           SVC=$(echo "$SVC" | xargs)
           # Ilovaga tegishli hech narsa o'zgarmagan bo'lsa (masalan faqat
           # workflow yoki hujjat) — deploy qilishning ma'nosi yo'q.
@@ -159,8 +177,12 @@ jobs:
       - name: Musobaqa kuni qo'riqchisi
         if: steps.gate.outputs.ready == 'true' && !inputs.force
         run: |
+          # Faqat muddati hali tugamagan LIVE musobaqalar hisoblanadi. uttf.uz
+          # sinxronizatsiyasi tugagan musobaqani LIVE holatida qoldirishi mumkin
+          # (2026-11 da 1–30 sentabrdagi kubok shunday qolgan edi) — busiz
+          # qo'riqchi har bir deployni abadiy to'xtatib turardi.
           LIVE=$(curl -s --max-time 20 "${{ secrets.SITE_URL }}/api/tournaments?status=LIVE" \
-                 | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{console.log(JSON.parse(s).length)}catch{console.log(0)}})')
+                 | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{try{const today=new Date().toISOString().slice(0,10);const rows=JSON.parse(s);const live=rows.filter(t=>!t.endDate||String(t.endDate).slice(0,10)>=today);for(const t of rows)if(!live.includes(t))console.error("eskirgan LIVE (hisobga olinmadi): "+t.name+" "+String(t.endDate).slice(0,10));console.log(live.length)}catch{console.log(0)}})')
           echo "Jonli musobaqalar: $LIVE"
           if [ "$LIVE" != "0" ]; then
             echo "::error::$LIVE ta musobaqa JONLI. Deploy to'xtatildi — /screen va /overlay uziladi."
@@ -188,6 +210,7 @@ jobs:
             --exclude='tools/visual-parity/broadcast' --exclude='tools/audit' \
             --exclude='.env' --exclude='*.tar.gz' --exclude='*.tsbuildinfo' \
             --exclude='DEPLOY.local.md' \
+            --exclude='local' --exclude='demo-data' --exclude='apps/scoreboard' --exclude='*.zip' \
             package.json pnpm-workspace.yaml pnpm-lock.yaml .dockerignore .gitignore \
             docker-compose.prod.yml docker-compose.server.yml docker-compose.yml \
             apps packages deploy tools README.md CLAUDE.md .env.example

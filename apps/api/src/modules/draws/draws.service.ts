@@ -4,9 +4,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { addPlayerPoints } from '../../common/points';
+import { applyPoints } from '../../common/points';
 import { Prisma, type EventType } from '@prisma/client';
-import { createHash, randomUUID } from 'crypto';
+import { randomUUID } from 'crypto';
+import { sealedRefereeCodeHash } from '../matches/referee-code';
+import { lockCategory } from './category-lock';
 import { TelegramService } from '../showcase/telegram.service';
 import { AssignmentService } from '../referee-assignment/assignment.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -41,12 +43,19 @@ export class DrawsService {
           },
         },
         draws: true,
+        groupStage: { select: { id: true } },
       },
     });
     if (!category) throw new NotFoundException('Kategoriya topilmadi');
     if (category.draws.length > 0) {
       throw new BadRequestException(
         'Bu kategoriya uchun setka allaqachon yaratilgan',
+      );
+    }
+    // Guruh bosqichi bor kategoriyada setka faqat guruhdan o'tkazish (advance) orqali yaratiladi
+    if (category.groupStage) {
+      throw new ConflictException(
+        "Bu kategoriyada guruh bosqichi bor — setka guruhlar tugagach \"Guruhdan setkaga\" orqali yaratiladi",
       );
     }
     if (category.registrations.length < 2) {
@@ -76,8 +85,9 @@ export class DrawsService {
     tournamentCategoryId: string,
     tournamentId: string,
     slots: Array<{ position: number; seed: number | null; playerId: string | null }>,
+    opts: { fromGroupStageId?: string } = {},
   ) {
-    const draw = await this.persistSlotsInner(tournamentCategoryId, tournamentId, slots);
+    const draw = await this.persistSlotsInner(tournamentCategoryId, tournamentId, slots, opts);
     await this.assignment.autoAssign(tournamentId);
     this.telegram.announceDraw(tournamentCategoryId, 'bracket');
     return draw;
@@ -87,11 +97,29 @@ export class DrawsService {
     tournamentCategoryId: string,
     tournamentId: string,
     slots: Array<{ position: number; seed: number | null; playerId: string | null }>,
+    opts: { fromGroupStageId?: string },
   ) {
     const planned = planMatches(slots);
     const totalRounds = Math.log2(slots.length);
 
     return this.prisma.$transaction(async (tx) => {
+      // Kategoriya qatori qulflanadi: ikki parallel so'rov (ikki marta bosish) ikkita setka yaratmasin.
+      // Guruh yaratish (GroupsService.create) ham shu qatorni qulflaydi.
+      await lockCategory(tx, tournamentCategoryId);
+      const existing = await tx.draw.count({ where: { tournamentCategoryId } });
+      if (existing > 0) {
+        throw new ConflictException('Bu kategoriya uchun setka allaqachon yaratilgan');
+      }
+      if (opts.fromGroupStageId) {
+        const flipped = await tx.groupStage.updateMany({
+          where: { id: opts.fromGroupStageId, status: 'ACTIVE' },
+          data: { status: 'ADVANCED' },
+        });
+        if (flipped.count !== 1) {
+          throw new ConflictException('Setka allaqachon yaratilgan');
+        }
+      }
+
       const draw = await tx.draw.create({
         data: {
           tournamentCategoryId,
@@ -136,9 +164,7 @@ export class DrawsService {
             player2Id: pm.player2Id,
             status: isWalkover ? 'FINISHED' : 'SCHEDULED',
             winnerId: pm.walkoverWinnerId,
-            refereeCodeHash: createHash('sha256')
-              .update(String(Math.floor(100000 + Math.random() * 900000)))
-              .digest('hex'),
+            refereeCodeHash: sealedRefereeCodeHash(),
           },
         });
       }
@@ -157,9 +183,7 @@ export class DrawsService {
             roundNumber: totalRounds,
             bracketPosition: 2,
             status: 'SCHEDULED',
-            refereeCodeHash: createHash('sha256')
-              .update(String(Math.floor(100000 + Math.random() * 900000)))
-              .digest('hex'),
+            refereeCodeHash: sealedRefereeCodeHash(),
           },
         });
         for (const sf of semis) {
@@ -239,15 +263,12 @@ export class DrawsService {
 
     for (const playerId of played) {
       if (skip.has(playerId)) continue;
-      await addPlayerPoints(tx, playerId, points);
-      await tx.playerPointsLog.create({
-        data: {
-          playerId,
-          delta: points,
-          reason: 'MATCH_WIN',
-          tournamentId,
-          note: RULE_LABEL_UZ.GROUP_ADVANCE,
-        },
+      await applyPoints(tx, {
+        playerId,
+        delta: points,
+        reason: 'MATCH_WIN',
+        tournamentId,
+        note: RULE_LABEL_UZ.GROUP_ADVANCE,
       });
     }
   }

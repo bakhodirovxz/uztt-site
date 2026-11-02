@@ -129,7 +129,8 @@
     "back": "Orqaga",
     "tabInfo": "Ma'lumotlar",
     "tabMatches": "Musobaqalar",
-    "tabPointsHistory": "Ballar tarixi"
+    "tabPointsHistory": "Ballar tarixi",
+    "ageSegment": "Yosh toifasi"
   },
   "rankingsPage": {
     "title": "Milliy reyting",
@@ -235,7 +236,11 @@
     "statFinished": "Yakunlangan",
     "statCards": "Kartochkalar",
     "statDq": "Diskvalifikatsiya",
-    "sideChange": "Tomonlarni almashtiring (oxirgi set, 5 ochko)"
+    "sideChange": "Tomonlarni almashtiring (oxirgi set, 5 ochko)",
+    "scoreboardTitle": "Scoreboard planshet (stol bo'yicha)",
+    "tableN": "{n}-stol",
+    "tableMatches": "{count} ta o'yin",
+    "tableEmpty": "O'yin belgilanmagan"
   },
   "signup": {
     "title": "O'yinchi sifatida ro'yxatdan o'tish",
@@ -390,7 +395,12 @@
     "openSubmit": "So'rov yuborish",
     "openSuccess": "So'rov yuborildi. Administrator tasdiqlagach klub ro'yxatda chiqadi.",
     "needLogin": "Avval tizimga kiring",
-    "back": "Orqaga"
+    "back": "Orqaga",
+    "ok": "OK",
+    "loginCta": "Kirish",
+    "pagination": "Sahifalar",
+    "prevPage": "Oldingi sahifa",
+    "nextPage": "Keyingi sahifa"
   },
   "playerPopup": {
     "loading": "Yuklanmoqda…",
@@ -404,7 +414,8 @@
     "female": "Ayol",
     "age": "Yosh toifasi",
     "region": "Hudud",
-    "club": "Klub"
+    "club": "Klub",
+    "fullProfile": "To'liq profil"
   },
   "account": {
     "title": "Parolni almashtirish",

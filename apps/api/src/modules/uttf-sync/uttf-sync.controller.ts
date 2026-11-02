@@ -6,6 +6,7 @@ import { RequirePermissions } from '../../common/decorators/require-permissions.
 import { Revalidates } from '../../common/revalidate/revalidate.decorator';
 import { UttfSyncService } from './uttf-sync.service';
 import { UttfContentService } from './uttf-content.service';
+import { SyncLock } from './sync-lock';
 
 /**
  * uttf.uz sinxronizatsiyasi — FAQAT admin uchun.
@@ -64,9 +65,16 @@ export class UttfSyncController {
     return this.content.probe();
   }
 
+  /** Har bo'lim bir vaqtda faqat bir marta ishlaydi (ikkinchi so'rov — 409) */
+  private readonly lock = new SyncLock();
+
   @Post('run')
   @RequirePermissions('uttf.sync')
   run(@Body() dto: RunSyncDto) {
+    return this.lock.run(dto.scope, () => this.dispatch(dto));
+  }
+
+  private async dispatch(dto: RunSyncDto) {
     const dryRun = dto.dryRun ?? true;
     if (dto.scope === 'news') return this.content.syncNews({ dryRun });
     if (dto.scope === 'clubs') return this.content.syncClubs({ dryRun });

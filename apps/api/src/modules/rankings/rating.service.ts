@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import { addPlayerPoints } from '../../common/points';
+import { applyPoints } from '../../common/points';
+import { bonusNote, lockTournamentRating, playersWithBonus } from './bonus';
 import {
   penaltyPoints,
   placeBonus,
@@ -14,7 +16,6 @@ export interface BonusRow {
   bonus: number;
 }
 
-const BONUS_NOTE = 'Nizom: bonus';
 const PENALTY_NOTE = 'Nizom: jarima';
 
 /** Musobaqa yakunida: 1–8-o'rin bonuslari (Б) va hakam taqdimnomasi bo'yicha jarima (Ж). */
@@ -37,8 +38,11 @@ export class RatingService {
   }
 
   /** O'rinlar: final (1/2), yarim final yutqazganlar (3), chorak final yutqazganlar (5) — setka (draw) bo'yicha. */
-  async places(tournamentId: string): Promise<Map<string, number>> {
-    const matches = await this.prisma.match.findMany({
+  async places(
+    tournamentId: string,
+    db: Prisma.TransactionClient = this.prisma,
+  ): Promise<Map<string, number>> {
+    const matches = await db.match.findMany({
       where: {
         tournamentId,
         status: 'FINISHED',
@@ -76,43 +80,57 @@ export class RatingService {
     return best;
   }
 
-  /** Bonuslarni hisoblaydi; `apply` bo'lsa yozadi (bir musobaqada FAQAT BIR MARTA). */
+  /**
+   * Bonuslarni hisoblaydi; `apply` bo'lsa yozadi (bir musobaqada FAQAT BIR MARTA).
+   * Qo'llash bitta tranzaksiyada, musobaqa bo'yicha advisory lock ostida: ikki parallel `?apply=1`
+   * (ikki marta bosish) yoki o'yin tugashidagi avtomatik bonus bilan poyga bo'lmaydi.
+   */
   async awardBonuses(
     tournamentId: string,
     opts: { apply: boolean; userId?: string },
   ): Promise<{ k: number; rows: BonusRow[]; applied: boolean }> {
     const { k } = await this.context(tournamentId);
-    const places = await this.places(tournamentId);
-    // O'yin tugashi bilan avtomatik berilgan bonuslar (matches.service) qayta berilmaydi
-    const given = await this.prisma.playerPointsLog.findMany({
-      where: { tournamentId, note: { startsWith: BONUS_NOTE } },
-      select: { playerId: true },
-    });
-    const has = new Set(given.map((g) => g.playerId));
-    const rows: BonusRow[] = [...places.entries()]
-      .filter(([playerId]) => !has.has(playerId))
-      .map(([playerId, place]) => ({ playerId, place, bonus: placeBonus(place, k) }))
-      .filter((r) => r.bonus > 0)
-      .sort((a, b) => a.place - b.place);
 
-    if (!opts.apply) return { k, rows, applied: false };
-    if (rows.length === 0) {
-      throw new BadRequestException('Bonus allaqachon berilgan (yoki berilishi kerak bo‘lgan o‘yinchi yo‘q)');
-    }
-    await this.prisma.$transaction(async (tx) => {
+    const compute = async (db: Prisma.TransactionClient): Promise<BonusRow[]> => {
+      const places = await this.places(tournamentId, db);
+      // O'yin tugashi bilan avtomatik berilgan (va undo qilinmagan) bonuslar qayta berilmaydi
+      const has = await playersWithBonus(db, tournamentId);
+      return [...places.entries()]
+        .filter(([playerId]) => !has.has(playerId))
+        .map(([playerId, place]) => ({ playerId, place, bonus: placeBonus(place, k) }))
+        .filter((r) => r.bonus > 0)
+        .sort((a, b) => a.place - b.place);
+    };
+
+    if (!opts.apply) return { k, rows: await compute(this.prisma), applied: false };
+
+    const rows = await this.prisma.$transaction(async (tx) => {
+      await lockTournamentRating(tx, tournamentId);
+      // 3-o'rin o'yini tugamaguncha yarim final yutqazganlari "3-o'rin" deb hisoblanadi —
+      // keyin o'yin 3/4 bonusini yana berib yuboradi. Shuning uchun kutamiz.
+      const thirdOpen = await tx.match.count({
+        where: { tournamentId, stage: 'THIRD_PLACE', status: { not: 'FINISHED' } },
+      });
+      if (thirdOpen > 0) {
+        throw new BadRequestException(
+          "3-o'rin uchun o'yin hali tugamagan — bonusni u tugagandan keyin qo'llang",
+        );
+      }
+      const rows = await compute(tx);
+      if (rows.length === 0) {
+        throw new BadRequestException('Bonus allaqachon berilgan (yoki berilishi kerak bo‘lgan o‘yinchi yo‘q)');
+      }
       for (const r of rows) {
-        await addPlayerPoints(tx, r.playerId, r.bonus);
-        await tx.playerPointsLog.create({
-          data: {
-            playerId: r.playerId,
-            delta: r.bonus,
-            reason: 'ADJUSTMENT',
-            tournamentId,
-            note: `${BONUS_NOTE} (${r.place}-o'rin)`,
-            createdById: opts.userId ?? null,
-          },
+        await applyPoints(tx, {
+          playerId: r.playerId,
+          delta: r.bonus,
+          reason: 'ADJUSTMENT',
+          tournamentId,
+          note: bonusNote(r.place),
+          createdById: opts.userId ?? null,
         });
       }
+      return rows;
     });
     return { k, rows, applied: true };
   }
@@ -174,22 +192,20 @@ export class RatingService {
     playerId: string,
     userId: string,
     reason: string,
-  ): Promise<{ penalty: number }> {
+  ): Promise<{ penalty: number; applied: number }> {
     const { k } = await this.context(tournamentId);
     const penalty = penaltyPoints(k);
-    await this.prisma.$transaction(async (tx) => {
-      await addPlayerPoints(tx, playerId, -penalty);
-      await tx.playerPointsLog.create({
-        data: {
-          playerId,
-          delta: -penalty,
-          reason: 'ADJUSTMENT',
-          tournamentId,
-          note: `${PENALTY_NOTE}: ${reason}`.slice(0, 200),
-          createdById: userId,
-        },
-      });
-    });
-    return { penalty };
+    // Jurnalga haqiqatda ayirilgan miqdor yoziladi (ball 0 dan pastga tushmaydi)
+    const applied = await this.prisma.$transaction((tx) =>
+      applyPoints(tx, {
+        playerId,
+        delta: -penalty,
+        reason: 'ADJUSTMENT',
+        tournamentId,
+        note: `${PENALTY_NOTE}: ${reason}`.slice(0, 200),
+        createdById: userId,
+      }),
+    );
+    return { penalty, applied: -applied };
   }
 }

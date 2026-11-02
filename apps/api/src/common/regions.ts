@@ -36,17 +36,31 @@ export const REGION_ALIASES: Array<[string, string[]]> = [
   ['Surxondaryo viloyati', ['surkhandarya region', 'surkhandarya', 'surxondaryo', 'сурхандарьинская область']],
 ];
 
+/**
+ * Taqqoslash kaliti: kichik harf, bo'shliqlar bittaga, apostrofning barcha
+ * turlari (' ‘ ’ ʻ ʼ ` ´) bitta ' ga. Aks holda "Farg‘ona viloyati" va
+ * "Farg'ona viloyati" ikki xil hudud bo'lib qoladi (prod nusxasida 34 o'yinchi
+ * shunday ajralib qolgan edi).
+ */
+export function regionKey(v: string): string {
+  return v
+    .trim()
+    .toLowerCase()
+    .replace(/[‘’ʻʼ`´]/g, "'")
+    .replace(/\s+/g, ' ');
+}
+
 const LOOKUP = new Map<string, string>();
 for (const [uz, list] of REGION_ALIASES) {
-  LOOKUP.set(uz.toLowerCase(), uz);
-  for (const a of list) LOOKUP.set(a.toLowerCase(), uz);
+  LOOKUP.set(regionKey(uz), uz);
+  for (const a of list) LOOKUP.set(regionKey(a), uz);
 }
 
 /** Hudud nomini o'zbekcha to'liq shaklga keltiradi; noma'lum bo'lsa o'zini qaytaradi */
 export function normalizeRegion(v: string | null | undefined): string {
   const s = (v ?? '').trim();
   if (!s) return '';
-  return LOOKUP.get(s.toLowerCase()) ?? s;
+  return LOOKUP.get(regionKey(s)) ?? s;
 }
 
 /** Kartochka/sahnalar uchun qisqa shakl: "Farg'ona", "Toshkent sh.", "Toshkent vil.", "Qoraqalpog'iston" */

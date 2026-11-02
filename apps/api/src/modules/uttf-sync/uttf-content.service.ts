@@ -12,6 +12,56 @@ const BASE = process.env.UTTF_BASE_URL ?? 'https://uttf.uz';
 const IMAGES = join(process.cwd(), 'uploads', 'public', 'images');
 const PLAYERS = join(process.cwd(), 'uploads', 'public', 'players');
 
+/** Bitta so'rov ichidagi ish vaqti chegarasi: host nginx /api/ uchun 60 s kutadi — undan ancha oldin javob qaytaramiz */
+const BUDGET_MS = Number(process.env.UTTF_SYNC_BUDGET_MS ?? 40_000);
+/** Bir chaqiruvda nechta o'yinchi rasmi yuklanadi (qolgani `remaining` da — qayta ishga tushiriladi) */
+export const PHOTO_LIMIT_MAX = 50;
+const PHOTO_LIMIT_DEFAULT = 30;
+/** Bir chaqiruvda nechta yangilik yoziladi (muqova yuklash bilan) */
+export const NEWS_WRITE_MAX = 25;
+/** Manba ro'yxatlari (yangiliklar, sportchilar) qisqa muddat keshlanadi — qayta chaqiruv tez bo'lsin */
+const LIST_TTL_MS = 10 * 60_000;
+/** Rasm hajmi chegarasi */
+export const IMAGE_MAX_BYTES = 15 * 1024 * 1024;
+const IMAGE_TIMEOUT_MS = 15_000;
+
+type WithRemaining = SyncResult & { remaining: number; perRun?: number };
+
+/** Faqat jpeg/png/webp — sehrli baytlar bo'yicha (Content-Type'ga ishonmaymiz). SVG/TIFF/HEIF va boshqalar o'tmaydi. */
+export function imageFormatOf(buf: Buffer): 'jpeg' | 'png' | 'webp' | null {
+  if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'jpeg';
+  if (buf.length >= 8 && buf.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return 'png';
+  if (buf.length >= 12 && buf.toString('latin1', 0, 4) === 'RIFF' && buf.toString('latin1', 8, 12) === 'WEBP') return 'webp';
+  return null;
+}
+
+/**
+ * Javob tanasini chegaralab o'qiydi: Content-Length katta bo'lsa — o'qimasdan rad etadi,
+ * yo'q bo'lsa oqim bo'yicha sanaydi va chegaradan oshgan zahoti uzadi (xotira to'lib ketmasin).
+ */
+export async function readLimited(res: Response, max: number): Promise<Buffer | null> {
+  const len = Number(res.headers.get('content-length') ?? NaN);
+  if (Number.isFinite(len) && len > max) {
+    await res.body?.cancel().catch(() => undefined);
+    return null;
+  }
+  if (!res.body) return null;
+  const reader = res.body.getReader();
+  const chunks: Buffer[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > max) {
+      await reader.cancel().catch(() => undefined);
+      return null;
+    }
+    chunks.push(Buffer.from(value));
+  }
+  return Buffer.concat(chunks);
+}
+
 interface UttfNews { id: number | string; tag: string | null; title: string | null; description: string | null; photoId: string | null; createdAt: string | null; status?: string | number | null }
 interface UttfClub {
   id: number; name: string | null; shortName?: string | null; type?: string | null; regionName: string | null; districtName: string | null;
@@ -41,23 +91,65 @@ export class UttfContentService {
   private readonly log = new Logger(UttfContentService.name);
   constructor(private readonly prisma: PrismaService) {}
 
-  /** uttf.uz fayli → bizning WebP (sharp qayta kodlaydi). Xato bo'lsa null. */
+  /** Manba ro'yxatlari keshi (kalit -> qatorlar) */
+  private readonly lists = new Map<string, { at: number; rows: unknown[] }>();
+  /** Yaqinda yuklab bo'lmagan rasmlar (photoId -> vaqt): 1 soat davomida qayta urinilmaydi */
+  private readonly failed = new Map<string, number>();
+
+  private recentlyFailed(photoId: string): boolean {
+    const at = this.failed.get(photoId);
+    if (at === undefined) return false;
+    if (Date.now() - at > 60 * 60_000) {
+      this.failed.delete(photoId);
+      return false;
+    }
+    return true;
+  }
+
+  private async listing<T>(key: string, load: () => Promise<T[]>): Promise<T[]> {
+    const hit = this.lists.get(key);
+    if (hit && Date.now() - hit.at < LIST_TTL_MS) return hit.rows as T[];
+    const rows = await load();
+    if (rows.length) this.lists.set(key, { at: Date.now(), rows });
+    return rows;
+  }
+
+  /**
+   * uttf.uz fayli → bizning WebP (sharp qayta kodlaydi). Xato bo'lsa null.
+   * Xavfsizlik: yo'naltirish (redirect) qabul qilinmaydi — so'rov faqat UTTF_BASE_URL hostiga boradi;
+   * hajm oqim bo'yicha cheklanadi; faqat jpeg/png/webp (sehrli baytlar + sharp metadata) qabul qilinadi.
+   */
   private async fetchImage(photoId: string | null, kind: 'cover' | 'logo' | 'player'): Promise<{ url: string; thumb?: string } | null> {
     if (!photoId || !/^[\w-]{8,64}$/.test(photoId)) return null;
     try {
-      const res = await fetch(`${BASE}/api/table-tennis/files/get-file/${photoId}`, { signal: AbortSignal.timeout(30_000), headers: { 'User-Agent': 'uztt-sync/1.0 (+https://stoltennis.uz)' } });
-      if (!res.ok) return null;
-      const buf = Buffer.from(await res.arrayBuffer());
-      if (buf.length < 500 || buf.length > 15 * 1024 * 1024) return null;
+      const res = await fetch(`${BASE}/api/table-tennis/files/get-file/${photoId}`, {
+        redirect: 'error',
+        signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS),
+        headers: { 'User-Agent': 'uztt-sync/1.0 (+https://stoltennis.uz)' },
+      });
+      if (!res.ok) {
+        await res.body?.cancel().catch(() => undefined);
+        return null;
+      }
+      const buf = await readLimited(res, IMAGE_MAX_BYTES);
+      if (!buf || buf.length < 500) return null;
+      const fmt = imageFormatOf(buf);
+      if (!fmt) {
+        this.log.warn(`rasm ${photoId}: ruxsat etilmagan format`);
+        return null;
+      }
+      const opts = { limitInputPixels: 40_000_000 };
+      const meta = await sharp(buf, opts).metadata();
+      if (meta.format !== fmt) return null;
       const name = `uttf-${photoId.slice(0, 8)}-${randomBytes(3).toString('hex')}`;
       if (kind === 'player') {
         mkdirSync(PLAYERS, { recursive: true });
-        await sharp(buf, { limitInputPixels: 40_000_000 }).rotate().resize(600, 800, { fit: 'cover', position: sharp.strategy.attention }).webp({ quality: 82 }).toFile(join(PLAYERS, `${name}.webp`));
-        await sharp(buf, { limitInputPixels: 40_000_000 }).rotate().resize(96, 96, { fit: 'cover', position: sharp.strategy.attention }).webp({ quality: 70 }).toFile(join(PLAYERS, `${name}-thumb.webp`));
+        await sharp(buf, opts).rotate().resize(600, 800, { fit: 'cover', position: sharp.strategy.attention }).webp({ quality: 82 }).toFile(join(PLAYERS, `${name}.webp`));
+        await sharp(buf, opts).rotate().resize(96, 96, { fit: 'cover', position: sharp.strategy.attention }).webp({ quality: 70 }).toFile(join(PLAYERS, `${name}-thumb.webp`));
         return { url: `/uploads/players/${name}.webp`, thumb: `/uploads/players/${name}-thumb.webp` };
       }
       mkdirSync(IMAGES, { recursive: true });
-      await sharp(buf, { limitInputPixels: 40_000_000 }).rotate().resize(kind === 'logo' ? 400 : 1600, kind === 'logo' ? 400 : 1600, { fit: 'inside', withoutEnlargement: true }).webp({ quality: 82 }).toFile(join(IMAGES, `${name}.webp`));
+      await sharp(buf, opts).rotate().resize(kind === 'logo' ? 400 : 1600, kind === 'logo' ? 400 : 1600, { fit: 'inside', withoutEnlargement: true }).webp({ quality: 82 }).toFile(join(IMAGES, `${name}.webp`));
       return { url: `/uploads/images/${name}.webp` };
     } catch (e) {
       this.log.warn(`rasm ${photoId}: ${(e as Error).message}`);
@@ -71,14 +163,15 @@ export class UttfContentService {
    * (manba o'sha tilda tarjima bermagan) — takroriy tarjima yaratilmaydi. Mavjud (tahrirlangan) matnlar ustiga yozilmaydi.
    */
   async syncNews({ dryRun = true }: { dryRun?: boolean } = {}) {
-    const result = emptyResult('news', dryRun);
+    const deadline = Date.now() + BUDGET_MS;
+    const result: WithRemaining = { ...emptyResult('news', dryRun), remaining: 0 };
     type Item = { id: number; photoId: string | null; createdAt: string | null; tr: Partial<Record<Locale, { title: string; body: string }>> };
     const items = new Map<number, Item>();
     const locales: Locale[] = ['uz', 'ru', 'en'];
     for (const loc of locales) {
       let rows: UttfNews[] = [];
       try {
-        rows = await new UttfClient(loc).getAll<UttfNews>('/news/index', {}, { size: 50, maxPages: 200 });
+        rows = await this.listing(`news:${loc}`, () => new UttfClient(loc).getAll<UttfNews>('/news/index', {}, { size: 50, maxPages: 60 }));
       } catch (e) {
         result.warnings.push(`${loc}: yangiliklar olinmadi — ${(e as Error).message}`);
         if (loc === 'uz') return result;
@@ -98,7 +191,16 @@ export class UttfContentService {
     result.fetched = items.size;
     if (!items.size) { result.warnings.push("Manba 0 ta yangilik qaytardi — to'xtatildi"); return result; }
 
-    for (const it of [...items.values()].sort((a, b) => a.id - b.id)) {
+    const all = [...items.values()].sort((a, b) => a.id - b.id);
+    let writes = 0;
+    for (let idx = 0; idx < all.length; idx++) {
+      const it = all[idx];
+      // Bir so'rovda cheklangan ish: yozuvlar soni yoki vaqt tugasa — qolgani keyingi chaqiruvga
+      if ((!dryRun && writes >= NEWS_WRITE_MAX) || Date.now() > deadline) {
+        result.remaining = all.length - idx;
+        result.warnings.push(`To'xtatildi: ${result.remaining} ta yangilik hali ko'rib chiqilmadi — qayta ishga tushiring`);
+        break;
+      }
       // Boshqa til matni uz bilan bir xil bo'lsa — tarjima emas
       const uz = it.tr.uz;
       const trs = (Object.entries(it.tr) as Array<[Locale, { title: string; body: string }]>).filter(([l, t]) => l === 'uz' || !uz || t.title !== uz.title);
@@ -130,6 +232,7 @@ export class UttfContentService {
           });
         }
         result.translations += rows.length;
+        writes++;
       }
       if (prev) result.updated++; else result.created++;
       if (result.sample.length < 8) result.sample.push({ action: prev ? 'update' : 'create', id: String(it.id), name: (it.tr.uz ?? trs[0][1]).title });
@@ -164,19 +267,26 @@ export class UttfContentService {
 
   /** Klublar jadvali. Kalit: Club.externalId. Mavjudlari yangilanadi, o'chirilmaydi. */
   async syncClubs({ dryRun = true }: { dryRun?: boolean } = {}) {
-    const result = emptyResult('clubs', dryRun);
-    const rows = await new UttfClient('uz').getAll<UttfClub>('/club/get-all', {}, { size: 200, maxPages: 30 });
+    const deadline = Date.now() + BUDGET_MS;
+    const result: WithRemaining = { ...emptyResult('clubs', dryRun), remaining: 0 };
+    const rows = await this.listing('clubs', () => new UttfClient('uz').getAll<UttfClub>('/club/get-all', {}, { size: 200, maxPages: 30 }));
     result.fetched = rows.length;
     if (!rows.length) { result.warnings.push("Manba 0 ta klub qaytardi — to'xtatildi"); return result; }
 
-    for (const c of rows) {
+    for (let idx = 0; idx < rows.length; idx++) {
+      const c = rows[idx];
+      if (Date.now() > deadline) {
+        result.remaining = rows.length - idx;
+        result.warnings.push(`Vaqt chegarasi: ${result.remaining} ta klub qoldi — qayta ishga tushiring (yangilanganlar takrorlanmaydi)`);
+        break;
+      }
       const name = clean(c.name);
       if (!name || c.deleted === 1) { result.skipped++; continue; }
       const num = (v: string | number | null) => (v === null || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
       const data = {
         name,
         clubType: clean(c.type),
-        regionName: c.regionName ? normalizeRegion(c.regionName) : null,
+        regionName: normalizeRegion(c.regionName) || null,
         districtName: clean(c.districtName),
         address: clean(c.address),
         latitude: num(c.latitude),
@@ -188,7 +298,9 @@ export class UttfContentService {
       };
       const prev = await this.prisma.club.findUnique({ where: { externalId: c.id }, select: { id: true, logoUrl: true } });
       if (!dryRun) {
-        const logo = prev?.logoUrl ? null : await this.fetchImage(c.photoId, 'logo');
+        const tryLogo = !prev?.logoUrl && !!c.photoId && !this.recentlyFailed(c.photoId);
+        const logo = tryLogo ? await this.fetchImage(c.photoId, 'logo') : null;
+        if (tryLogo && !logo) this.failed.set(c.photoId!, Date.now());
         if (prev) await this.prisma.club.update({ where: { id: prev.id }, data: { ...data, ...(logo ? { logoUrl: logo.url } : {}) } });
         else await this.prisma.club.create({ data: { ...data, slug: slugOf(name, c.id), externalId: c.id, logoUrl: logo?.url ?? null } });
       }
@@ -202,9 +314,11 @@ export class UttfContentService {
    * O'yinchi rasmlari: manbadagi photoId bo'yicha yuklab, bizning WebP (+kichik nusxa) qilib saqlaydi.
    * Faqat rasmi yo'qlarga (yoki `force` bo'lsa hammaga). Bir chaqiruvda `limit` ta — qolgani `remaining` da.
    */
-  async syncPhotos({ dryRun = true, limit = 300, force = false }: { dryRun?: boolean; limit?: number; force?: boolean } = {}) {
-    const result = emptyResult('photos', dryRun);
-    const rows = await new UttfClient('uz').getAll<UttfSportsman>('/sportsman/index', {}, { size: 200, maxPages: 60 });
+  async syncPhotos({ dryRun = true, limit, force = false }: { dryRun?: boolean; limit?: number; force?: boolean } = {}) {
+    const deadline = Date.now() + BUDGET_MS;
+    const perRun = Math.min(PHOTO_LIMIT_MAX, Math.max(1, limit ?? PHOTO_LIMIT_DEFAULT));
+    const result: WithRemaining = { ...emptyResult('photos', dryRun), remaining: 0, perRun };
+    const rows = await this.listing('sportsman', () => new UttfClient('uz').getAll<UttfSportsman>('/sportsman/index', {}, { size: 200, maxPages: 60 }));
     result.fetched = rows.length;
     if (!rows.length) { result.warnings.push("Manba 0 ta sportchi qaytardi — to'xtatildi"); return result; }
     const withPhoto = rows.filter((r) => r.pinfl && r.photoId);
@@ -216,19 +330,33 @@ export class UttfContentService {
     // Bizning o'z rasmimiz (/uploads/players) bo'lsa — tegmaymiz (foydalanuvchi yuklagan bo'lishi mumkin)
     const todo = withPhoto.filter((r) => {
       const p = byLicense.get(r.pinfl!);
-      return p && (force ? !p.photoUrl?.startsWith('/uploads/players/') : !p.photoUrl);
+      return p && !this.recentlyFailed(r.photoId!) && (force ? !p.photoUrl?.startsWith('/uploads/players/') : !p.photoUrl);
     });
-    const batch = todo.slice(0, limit);
-    for (const r of batch) {
-      const p = byLicense.get(r.pinfl!)!;
-      if (!dryRun) {
-        const img = await this.fetchImage(r.photoId, 'player');
-        if (!img) { result.skipped++; continue; }
-        await this.prisma.player.update({ where: { id: p.id }, data: { photoUrl: img.url } });
+    if (dryRun) {
+      // Yozuvsiz: faqat qancha ish borligini ko'rsatamiz
+      result.updated = todo.length;
+      result.remaining = todo.length;
+      return result;
+    }
+    let processed = 0;
+    for (const r of todo.slice(0, perRun)) {
+      if (Date.now() > deadline) {
+        result.warnings.push('Vaqt chegarasi — qolganlari keyingi chaqiruvda');
+        break;
       }
+      processed++;
+      const p = byLicense.get(r.pinfl!)!;
+      const img = await this.fetchImage(r.photoId, 'player');
+      if (!img) {
+        // Yuklanmagan rasm keyingi chaqiruvlarda qayta-qayta navbat boshini egallamasin
+        this.failed.set(r.photoId!, Date.now());
+        result.skipped++;
+        continue;
+      }
+      await this.prisma.player.update({ where: { id: p.id }, data: { photoUrl: img.url } });
       result.updated++;
     }
-    (result as SyncResult & { remaining: number }).remaining = Math.max(0, todo.length - batch.length);
+    result.remaining = Math.max(0, todo.length - processed);
     return result;
   }
 }
