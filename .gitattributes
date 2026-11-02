@@ -1,0 +1,15 @@
+# Barcha matn fayllari repoda va ishchi papkada LF bilan.
+# Sabab (2026-11): Windows'da core.autocrlf=true bilan `git archive`
+# docker-entrypoint.sh ni CRLF bilan chiqardi → konteynerda
+# "docker-entrypoint.sh: No such file or directory" va API ishga tushmadi.
+# .sql ham muhim: Prisma qo'llangan migratsiyalar checksum'ini solishtiradi.
+* text=auto eol=lf
+*.sh  text eol=lf
+*.sql text eol=lf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+*.png binary
+*.jpg binary
+*.webp binary
+*.ico binary
+*.woff2 binary

@@ -24,3 +24,8 @@ overrides:
   deepmerge-ts: '>=8.0.0'
   source-map-js: '>=1.2.2'
   multer: '^2.5.0'
+  # PROD SERVER CPU (QEMU Virtual CPU 2.5+) x86-64-v2 ni qo'llamaydi (SSE4.2/POPCNT yo'q).
+  # sharp 0.35+ prebuilt binarlari v2 talab qiladi → API ishga tushmaydi
+  # ("Unsupported CPU: Prebuilt binaries for Linux x64 require v2 microarchitecture").
+  # Server almashtirilmaguncha 0.34.x da qoladi. Tekshirish: grep -c sse4_2 /proc/cpuinfo
+  sharp: '0.34.5'
