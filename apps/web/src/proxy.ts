@@ -8,26 +8,53 @@ const intl = createMiddleware(routing);
  * Scoreboard (planshet / TV / overlay) saytning ichida, shu manzilda ishlaydi:
  *   /control?court=1  — hakam planshetini
  *   /tv, /overlay?court=1, /admin
- * Ichkarida u alohida jarayon (SB_ORIGIN, standart http://localhost:3100) — yo'llar o'zgarmaydi,
- * shuning uchun tayyor dizayn aynan shu holida qoladi.
+ * Ichkarida u alohida jarayon (SB_ORIGIN, lokalda standart http://localhost:3101) — yo'llar
+ * o'zgarmaydi, shuning uchun tayyor dizayn aynan shu holida qoladi.
+ *
+ * PRODUCTION'da faqat `SB_ORIGIN` ANIQ berilganda yoqiladi. Prod docker compose'da scoreboard
+ * jarayoni yo'q: standart localhost:3101 ga yo'naltirish /tv, /admin, /control kabi yo'llarni
+ * 500 xatoga aylantirardi. Bundan tashqari host nginx barcha /api/* ni NestJS'ga yuboradi, ya'ni
+ * scoreboard'ning /api/action, /api/settings ... yo'llari prod'da bu yerga umuman yetib kelmaydi.
+ * Scoreboard zaldagi kompyuterda ishlaydi va saytga SB_SECRET bilan /api/sb/* orqali ulanadi.
  */
 const SB_ORIGIN = (process.env.SB_ORIGIN ?? 'http://localhost:3101').replace(/\/$/, '');
+const SB_ENABLED = !!process.env.SB_ORIGIN || process.env.NODE_ENV !== 'production';
 
 const SB_EXACT = new Set([
-  '/control', '/tv', '/overlay', '/admin', '/card',
+  '/control', '/tv', '/overlay', '/admin', '/card', '/sb/events',
   '/api/action', '/api/data', '/api/data/check', '/api/settings', '/api/ads', '/api/card',
   '/api/public', '/api/history', '/api/all', '/api/state', '/api/telegram-test', '/api/pdb/search', '/api/pdb/link',
 ]);
 const SB_PREFIX = ['/api/ads/', '/flags/', '/ads/'];
 const SB_STATIC = /^\/(board\.css|board\.js|common\.js|scenes\.js|flags\.js|logo-left\.png|logo-right\.png)$/;
 const SB_PHOTO = /^\/players\/[\w-]+\.(jpg|jpeg|png|webp|svg)$/;
-// o'zgartiruvchi yoki boshqaruv yo'llari: faqat tizimga kirgan hakam/administrator
-const SB_PROTECTED = new Set(['/control', '/admin', '/api/action', '/api/data', '/api/data/check', '/api/settings', '/api/telegram-test', '/api/pdb/link']);
+/**
+ * Ruxsat darajalari:
+ *  - 'score'  — hakam planshetini (match.score yoki match.manage)
+ *  - 'manage' — boshqaruv: admin sahifasi, sozlamalar, ma'lumotni yozish, reklamalar (faqat match.manage)
+ * GET/HEAD dan boshqa HAR QANDAY scoreboard so'rovi kamida 'manage' talab qiladi (hakam amali bundan mustasno).
+ */
+type SbPerm = 'score' | 'manage' | null;
+const SB_SCORE_WRITE = new Set(['/api/action']);
+// /api/pdb/search — o'yinchilar bazasi (ism, yosh, hudud; asosan bolalar): faqat hakam/admin
+const SB_SCORE_READ = new Set(['/control', '/api/data', '/api/pdb/search']);
+const SB_MANAGE_ANY = new Set(['/admin', '/api/settings', '/api/data/check', '/api/telegram-test', '/api/pdb/link']);
+
+function requiredPerm(pathname: string, method: string): SbPerm {
+  const read = method === 'GET' || method === 'HEAD';
+  if (SB_MANAGE_ANY.has(pathname)) return 'manage';
+  if (!read) return SB_SCORE_WRITE.has(pathname) ? 'score' : 'manage';
+  if (pathname.startsWith('/api/ads/')) return 'manage';
+  if (SB_SCORE_READ.has(pathname)) return 'score';
+  return null;
+}
 
 const I18N_PATH = /^\/(?!api|_next|_vercel|overlay|screen)[^.]*$/;
 
 function isScoreboardPath(p: string, sp: URLSearchParams) {
-  // /events — saytning o'z sahifasi; scoreboard jonli oqimi faqat ?all= yoki ?court= bilan keladi
+  if (!SB_ENABLED) return false;
+  // /events — saytning o'z sahifasi (next-intl ichki yo'li). Eski scoreboard mijozlari jonli
+  // oqimni shu yerdan ?all= yoki ?court= bilan so'raydi; yangilari /sb/events ishlatadi.
   if (p === '/events') return sp.has('all') || sp.has('court');
   return SB_EXACT.has(p) || SB_STATIC.test(p) || SB_PHOTO.test(p) || SB_PREFIX.some((x) => p.startsWith(x));
 }
@@ -37,7 +64,7 @@ function guardOn() {
   return process.env.SB_GUARD === '1' || process.env.NODE_ENV === 'production';
 }
 
-async function allowed(req: NextRequest): Promise<boolean> {
+async function allowed(req: NextRequest, need: 'score' | 'manage'): Promise<boolean> {
   try {
     const api = (process.env.API_INTERNAL_URL ?? 'http://localhost:4000').replace(/\/$/, '');
     const r = await fetch(`${api}/api/auth/me`, {
@@ -48,7 +75,8 @@ async function allowed(req: NextRequest): Promise<boolean> {
     if (!r.ok) return false;
     const { user } = (await r.json()) as { user?: { permissions?: string[] } };
     const perms = user?.permissions ?? [];
-    return perms.includes('match.score') || perms.includes('match.manage');
+    if (perms.includes('match.manage')) return true;
+    return need === 'score' && perms.includes('match.score');
   } catch {
     return false;
   }
@@ -57,13 +85,21 @@ async function allowed(req: NextRequest): Promise<boolean> {
 export default async function proxy(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
   if (isScoreboardPath(pathname, req.nextUrl.searchParams)) {
-    if (SB_PROTECTED.has(pathname) && guardOn() && !(await allowed(req))) {
+    const need = requiredPerm(pathname, req.method);
+    if (need && guardOn() && !(await allowed(req, need))) {
       if (pathname === '/control' || pathname === '/admin') {
         return NextResponse.redirect(new URL('/login', req.url));
       }
       return NextResponse.json({ ok: false, error: 'Kirish talab qilinadi' }, { status: 401 });
     }
-    return NextResponse.rewrite(new URL(SB_ORIGIN + pathname + search));
+    // Saytning auth cookie'lari (JWT) scoreboard jarayoniga uzatilmaydi: ruxsat yuqorida tekshirildi.
+    // Faqat scoreboard'ning o'z tokeni (sb_token, SB_ADMIN_TOKEN bilan) o'tadi — aks holda
+    // token bilan himoyalangan scoreboard planshetlarga 401 qaytaradi.
+    const headers = new Headers(req.headers);
+    const sbToken = req.cookies.get('sb_token')?.value;
+    if (sbToken) headers.set('cookie', `sb_token=${sbToken}`);
+    else headers.delete('cookie');
+    return NextResponse.rewrite(new URL(SB_ORIGIN + pathname + search), { request: { headers } });
   }
   // faqat sayt sahifalari i18n'dan o'tadi (qolgan moslashuvlar yuqoridagi scoreboard yo'llari uchun edi)
   if (!I18N_PATH.test(pathname)) return NextResponse.next();
