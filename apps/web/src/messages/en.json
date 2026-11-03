@@ -271,7 +271,14 @@
     "player": "Player",
     "played": "W–L",
     "sets": "Sets",
-    "points": "Pts"
+    "points": "Pts",
+    "men": "Men",
+    "women": "Women",
+    "open": "Open",
+    "event_SINGLES": "Singles",
+    "event_DOUBLES": "Doubles",
+    "event_MIXED_DOUBLES": "Mixed doubles",
+    "event_TEAM": "Team"
   },
   "profile": {
     "title": "Player profile",

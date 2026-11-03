@@ -271,7 +271,14 @@
     "player": "Игрок",
     "played": "П–П",
     "sets": "Партии",
-    "points": "Очки"
+    "points": "Очки",
+    "men": "Мужчины",
+    "women": "Женщины",
+    "open": "Открытая",
+    "event_SINGLES": "Одиночный разряд",
+    "event_DOUBLES": "Парный разряд",
+    "event_MIXED_DOUBLES": "Смешанный разряд",
+    "event_TEAM": "Командный зачёт"
   },
   "profile": {
     "title": "Профиль игрока",

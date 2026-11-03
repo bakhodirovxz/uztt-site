@@ -271,7 +271,14 @@
     "player": "O'yinchi",
     "played": "G–M",
     "sets": "Setlar",
-    "points": "Ochko"
+    "points": "Ochko",
+    "men": "Erkaklar",
+    "women": "Ayollar",
+    "open": "Ochiq",
+    "event_SINGLES": "Yakkalik",
+    "event_DOUBLES": "Juftlik",
+    "event_MIXED_DOUBLES": "Aralash juftlik",
+    "event_TEAM": "Jamoaviy"
   },
   "profile": {
     "title": "O'yinchi profili",
