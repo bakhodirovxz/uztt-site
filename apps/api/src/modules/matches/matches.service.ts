@@ -49,6 +49,16 @@ interface PointSnapshot {
 
 type Tx = Prisma.TransactionClient;
 
+/** Scoreboard planshetidagi o'yin holati; har 20 soniyada tasdiqlanadi */
+interface BoardState {
+  court: string;
+  points: [number, number];
+  setsWon: [number, number];
+  sets: Array<[number, number]>;
+  at: number;
+}
+const BOARD_TTL_MS = 60_000;
+
 @Injectable()
 export class MatchesService {
   constructor(
@@ -87,13 +97,48 @@ export class MatchesService {
     return value;
   }
 
+  /**
+   * Scoreboard planshetidagi jonli hisob: faqat xotirada, bazaga yozilmaydi. Natija o'yin tugaganda
+   * bir marta sb/result orqali yoziladi (reyting va setka shu yerda). Planshet yangilab turmasa eskiradi.
+   */
+  private boardStates = new Map<string, BoardState>();
+
+  private boardOf(id: string): BoardState | null {
+    const s = this.boardStates.get(id);
+    return s && Date.now() - s.at < BOARD_TTL_MS ? s : null;
+  }
+
+  /** Scoreboard'dan kelgan to'liq ro'yxat: o'zgargan va ro'yxatdan chiqqan o'yinlar tomoshabinlarga yuboriladi */
+  async setBoardStates(list: Array<Omit<BoardState, 'at'> & { siteId: string }>) {
+    const at = Date.now();
+    const next = new Map(list.map(({ siteId, ...s }) => [siteId, { ...s, at }]));
+    const same = (a?: BoardState, b?: BoardState) =>
+      !!a && !!b && a.court === b.court && JSON.stringify([a.points, a.setsWon, a.sets]) === JSON.stringify([b.points, b.setsWon, b.sets]);
+    const changed = [...new Set([...next.keys(), ...this.boardStates.keys()])].filter(
+      (id) => !same(this.boardStates.get(id), next.get(id)),
+    );
+    this.boardStates = next;
+    if (!changed.length) return;
+    this.memoStore.clear();
+    const rows = await this.prisma.match.findMany({
+      where: { id: { in: changed } },
+      include: this.publicInclude(),
+    });
+    for (const m of rows) this.live.emitScoreUpdate(m.id, m.tournamentId, this.toPublic(m));
+  }
+
   async liveList() {
     return this.memo('live', () => this.liveListUncached());
   }
 
   private async liveListUncached() {
     const matches = await this.prisma.match.findMany({
-      where: { status: 'LIVE' },
+      where: {
+        OR: [
+          { status: 'LIVE' },
+          { status: 'SCHEDULED', id: { in: [...this.boardStates.keys()].filter((id) => this.boardOf(id)) } },
+        ],
+      },
       orderBy: { updatedAt: 'desc' },
       include: this.publicInclude(),
     });
@@ -1212,10 +1257,22 @@ export class MatchesService {
 
   /** Public payload: hech qachon refereeCodeHash/overlayToken chiqmaydi */
   private toPublic(
-    m: Prisma.MatchGetPayload<{
+    raw: Prisma.MatchGetPayload<{
       include: ReturnType<MatchesService['publicInclude']>;
     }>,
   ) {
+    const board = raw.status === 'FINISHED' ? null : this.boardOf(raw.id);
+    const m = board
+      ? {
+          ...raw,
+          status: 'LIVE' as const,
+          currentSetP1: board.points[0],
+          currentSetP2: board.points[1],
+          player1SetsWon: board.setsWon[0],
+          player2SetsWon: board.setsWon[1],
+          sets: board.sets.map((s, i) => ({ id: `board-${i}`, matchId: raw.id, setNumber: i + 1, p1Points: s[0], p2Points: s[1] })),
+        }
+      : raw;
     let winnerInfo: {
       playerId: string;
       name: string;
@@ -1261,6 +1318,7 @@ export class MatchesService {
       stage: m.stage,
       status: m.status,
       tableNumber: m.tableNumber,
+      boardCourt: board?.court ?? null,
       scheduledAt: m.scheduledAt,
       bestOf: m.bestOf,
       seq: m.seq,

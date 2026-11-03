@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { TournamentStatus } from '@prisma/client';
 import { TournamentsService } from './tournaments.service';
+import { TableAssignService } from '../referee-assignment/table-assign.service';
 import { CreateTournamentDto, UpdateTournamentDto } from './dto/tournament.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
@@ -13,7 +14,10 @@ const LOCALES = ['uz', 'ru', 'en'];
 @Revalidates('tournaments')
 @Controller('tournaments')
 export class TournamentsController {
-  constructor(private readonly tournaments: TournamentsService) {}
+  constructor(
+    private readonly tournaments: TournamentsService,
+    private readonly tables: TableAssignService,
+  ) {}
 
   @Public()
   @Get()
@@ -52,6 +56,13 @@ export class TournamentsController {
   @RequirePermissions('tournament.manage')
   create(@Body() dto: CreateTournamentDto) {
     return this.tournaments.create(dto);
+  }
+
+  /** Sozlamadagi stollar bo'yicha taqsimlash. all: boshlanmagan hamma o'yin qaytadan */
+  @Post(':id/assign-tables')
+  @RequirePermissions('tournament.manage')
+  assignTables(@Param('id') id: string, @Body() body: { all?: boolean }) {
+    return this.tables.fill(id, { all: body?.all === true });
   }
 
   @Put(':id')

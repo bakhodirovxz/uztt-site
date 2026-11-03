@@ -3,6 +3,9 @@ import { MatchStage } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MatchesService } from '../matches/matches.service';
 import { planReplay } from './replay-plan';
+import type { SbLiveDto } from './dto';
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const STAGE_LABEL: Record<string, string> = {
   GROUP: 'GROUP STAGE',
@@ -57,8 +60,26 @@ export class ScoreboardBridgeService {
         bestOf: m.bestOf,
         p: [p(m.player1), p(m.player2)],
         done: m.status === 'FINISHED',
+        verified: !!m.refereeVerifiedAt,
       })),
     };
+  }
+
+  /** Planshetlardagi jonli hisob: saytning jonli ro'yxati va ekranlari ko'rsatadi, bazaga yozilmaydi */
+  async setLive(list: SbLiveDto['matches']) {
+    const int = (v: unknown) => (Number.isInteger(v) && (v as number) >= 0 && (v as number) < 1000 ? (v as number) : 0);
+    const pair = (p: unknown): [number, number] => (Array.isArray(p) ? [int(p[0]), int(p[1])] : [0, 0]);
+    await this.matches.setBoardStates(
+      list
+        .filter((m) => typeof m?.siteId === 'string' && UUID.test(m.siteId))
+        .map((m) => ({
+          siteId: m.siteId,
+          court: String(m.court ?? '').slice(0, 8),
+          points: pair(m.points),
+          setsWon: pair(m.setsWon),
+          sets: (Array.isArray(m.sets) ? m.sets.slice(0, 9) : []).map(pair),
+        })),
+    );
   }
 
   /**

@@ -1,6 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { ArrayMaxSize, IsArray, IsUUID } from 'class-validator';
 
+/** Stollardagi jonli hisob. Elementlar servisda tekshiriladi (SbResultDto dagi sabab bilan) */
+export class SbLiveDto {
+  @ApiProperty({ type: 'array', items: { type: 'object' } })
+  @IsArray()
+  @ArrayMaxSize(64)
+  matches!: Array<{ siteId: string; court: string; points: [number, number]; setsWon: [number, number]; sets: Array<[number, number]> }>;
+}
+
 /**
  * Scoreboard'dan kelgan o'yin natijasi.
  *

@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link, usePathname } from '@/i18n/navigation';
-import { api } from '@/lib/api';
+import { api, refreshSession } from '@/lib/api';
 import { SITE_CONTACT } from '@/lib/site-config';
 import { LocaleSwitcher } from './locale-switcher';
 import { HeaderSearch } from './header-search';
@@ -31,8 +31,8 @@ export function SiteHeader() {
 
   useEffect(() => {
     api
-      .get<{ authenticated: boolean }>('/auth/session')
-      .then((r) => setAuthed(r.authenticated))
+      .get<{ authenticated: boolean; canRefresh?: boolean }>('/auth/session')
+      .then(async (r) => setAuthed(r.authenticated || (!!r.canRefresh && (await refreshSession()))))
       .catch(() => setAuthed(false));
   }, [pathname]);
 

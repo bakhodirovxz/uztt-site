@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
-import { api, ApiError, type AuthUser } from '@/lib/api';
+import { api, ApiError, refreshSession, type AuthUser } from '@/lib/api';
 import { subscribeToMatch, type MatchPayload } from '@/lib/socket';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
@@ -16,6 +16,17 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
  */
 const SCOREBOARD_TILES = process.env.NEXT_PUBLIC_SCOREBOARD === '1';
 const SCOREBOARD_COURTS = 10;
+/** Bu planshet qaysi stolda turgani: birinchi marta so'raladi, keyin qurilmada eslab qolinadi */
+const COURT_KEY = 'uztt-referee-court';
+
+function rememberedCourt(): number | null {
+  try {
+    const n = Number(localStorage.getItem(COURT_KEY));
+    return Number.isInteger(n) && n >= 1 && n <= SCOREBOARD_COURTS ? n : null;
+  } catch {
+    return null;
+  }
+}
 
 export default function RefereePage() {
   const t = useTranslations('referee');
@@ -24,6 +35,9 @@ export default function RefereePage() {
   const [authorized, setAuthorized] = useState(false);
   const [matches, setMatches] = useState<MatchPayload[]>([]);
   const [selected, setSelected] = useState<MatchPayload | null>(null);
+  const [court, setCourt] = useState<number | null>(null);
+
+  useEffect(() => setCourt(rememberedCourt()), []);
 
   useEffect(() => {
     api
@@ -68,6 +82,25 @@ export default function RefereePage() {
         {t('title')}
       </h1>
       <p className="mt-1 text-muted">{t('chooseMatch')}</p>
+      {SCOREBOARD_TILES && court !== null && (
+        <p className="mt-2 text-sm text-muted">
+          {t('thisTablet', { n: court })}{' '}
+          <button
+            type="button"
+            onClick={() => {
+              try {
+                localStorage.removeItem(COURT_KEY);
+              } catch {
+                // saqlash yopiq bo'lsa ham stol keyingi safar so'raladi
+              }
+              setCourt(null);
+            }}
+            className="font-semibold underline hover:text-accent-400"
+          >
+            {t('changeCourt')}
+          </button>
+        </p>
+      )}
       {matches.length === 0 ? (
         <p className="mt-6 text-muted">{t('noMatches')}</p>
       ) : (
@@ -358,6 +391,13 @@ function ScoreScreen({
 
   const finished = match.status === 'FINISHED';
 
+  // Kod tasdiqlandi: hisob yangi planshetda yuritiladi (TV va overlay shundan o'qiydi).
+  // Saytda ochkosi bor o'yin eski ekranda tugatiladi: scoreboard natijasini API rad etardi.
+  const startedOnSite = match.sets.length > 0 || match.currentSetP1 + match.currentSetP2 > 0;
+  if (SCOREBOARD_TILES && !finished && (match.boardCourt || !startedOnSite)) {
+    return <CourtPicker match={match} onBack={onBack} />;
+  }
+
   // --- Hisob ekrani ---
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -503,6 +543,57 @@ function ScoreScreen({
   );
 }
 
+// ==================== PLANSHETGA O'TISH ====================
+
+function CourtPicker({ match, onBack }: { match: MatchPayload; onBack: () => void }) {
+  const t = useTranslations('referee');
+  const table = match.tableNumber;
+  const boardCourt = match.boardCourt;
+  const [auto, setAuto] = useState(true);
+
+  useEffect(() => {
+    const board = Number(boardCourt) || null;
+    const preset = board ?? (table && table <= SCOREBOARD_COURTS ? table : rememberedCourt());
+    if (preset) openCourt(preset, match.id);
+    else setAuto(false);
+  }, [boardCourt, table, match.id]);
+
+  if (auto) return <div className="p-8 text-muted">{t('openingTablet')}</div>;
+
+  return (
+    <div className="mx-auto max-w-md px-4 py-12 text-center">
+      <button type="button" onClick={onBack} className="text-sm text-muted hover:text-accent-400">
+        ← {t('back')}
+      </button>
+      <h2 className="mt-4 font-heading text-2xl font-extrabold uppercase">{t('chooseCourt')}</h2>
+      <div className="mt-6 grid grid-cols-3 gap-3">
+        {Array.from({ length: SCOREBOARD_COURTS }, (_, i) => i + 1).map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => {
+              try {
+                localStorage.setItem(COURT_KEY, String(n));
+              } catch {
+                // saqlash yopiq bo'lsa, keyingi o'yinda yana so'raladi
+              }
+              openCourt(n, match.id);
+            }}
+            className="rounded-card bg-surface-card py-5 font-heading text-2xl font-extrabold shadow-card transition-shadow hover:shadow-card-hover"
+          >
+            {n}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// /control saytning sahifasi emas (scoreboard jarayoni), shuning uchun to'liq o'tish
+function openCourt(court: number, matchId: string) {
+  window.location.assign(`/control?court=${court}&site=${encodeURIComponent(matchId)}`);
+}
+
 // ==================== DISKVALIFIKATSIYA DIALOGI ====================
 
 function DisqualifyDialog({
@@ -555,6 +646,7 @@ function DisqualifyDialog({
       form.append('player', String(player));
       if (reason) form.append('reason', reason);
       if (audioBlob) form.append('audio', audioBlob, 'reason.webm');
+      await refreshSession(); // to'g'ridan-to'g'ri fetch: api mijozidagi 401 qayta urinishi bu yerda yo'q
       const res = await fetch(`${API_BASE}/api/matches/${match.id}/disqualify`, {
         method: 'POST',
         credentials: 'include',

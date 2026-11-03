@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleDestroy } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { assignReferees, AsgMatch, AsgReferee } from './assignment.engine';
+import { TableAssignService } from './table-assign.service';
 
 @Injectable()
 export class AssignmentService implements OnModuleDestroy {
@@ -11,7 +12,10 @@ export class AssignmentService implements OnModuleDestroy {
   /** Fonda ishlayotgan tayinlashlar — ilova yopilganda tugashi kutiladi (yarim yo'lda uzilib qolmasin) */
   private readonly pending = new Set<Promise<void>>();
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tables: TableAssignService,
+  ) {}
 
   async onModuleDestroy() {
     await Promise.allSettled([...this.pending]);
@@ -140,6 +144,8 @@ export class AssignmentService implements OnModuleDestroy {
     if (this.running.has(tournamentId)) return;
     this.running.add(tournamentId);
     try {
+      // Qura tashlangan yoki yangi juftlik chiqqan: avval stol (xato bo'lsa hakam tayinlash to'xtamasin)
+      await this.tables.fill(tournamentId).catch((e) => this.log.warn(`Stollar: ${String(e)}`));
       // Juftligi aniq bo'lgan, hakami yo'q o'yinlar (TBD o'yinlar engine'da ham o'tkazib yuboriladi)
       const pending = await this.prisma.match.count({
         where: {

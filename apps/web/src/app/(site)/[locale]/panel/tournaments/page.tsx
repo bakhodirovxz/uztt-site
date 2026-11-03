@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from '@/lib/api';
 import type { EventType } from '@/lib/groups';
 import { CategoryEntries } from './category-entries';
+import { TablesCard, TablesPicker } from './tables-card';
 import {
   Alert,
   Badge,
@@ -23,6 +24,9 @@ interface Level {
   rules: Array<{ key: string; points: number }>;
 }
 
+/** Yangi planshet, TV va overlay havolalari faqat scoreboard bilan qurilgan build'da (referee/page.tsx dagi bayroq) */
+const SCOREBOARD = process.env.NEXT_PUBLIC_SCOREBOARD === '1';
+
 /** Reglament kalitlari uchun qisqa nomlar (panelda ko'rsatish uchun) */
 const RULE_LABEL: Record<string, string> = {
   PARTICIPATION: 'Ishtirok',
@@ -39,6 +43,8 @@ interface Tournament {
   startDate: string;
   endDate: string;
   createdAt?: string;
+  tableCount?: number | null;
+  mainTables?: number[];
   level: { code: string; name: string };
 }
 interface PlayerOpt {
@@ -127,6 +133,8 @@ export default function AdminTournamentsPage() {
     city: '',
     startDate: '',
     endDate: '',
+    tableCount: '',
+    mainTables: [] as number[],
   });
 
   const [newMatchOpen, setNewMatchOpen] = useState(false);
@@ -233,9 +241,11 @@ export default function AdminTournamentsPage() {
         city: tForm.city || undefined,
         startDate: tForm.startDate,
         endDate: tForm.endDate,
+        tableCount: Number(tForm.tableCount) || undefined,
+        mainTables: tForm.mainTables,
       });
       setMsg(`"${tForm.name}" yaratildi — endi guruhlarni oching`);
-      setTForm({ name: '', levelCode: 'NATIONAL', city: '', startDate: '', endDate: '' });
+      setTForm({ name: '', levelCode: 'NATIONAL', city: '', startDate: '', endDate: '', tableCount: '', mainTables: [] });
       setNewTournamentOpen(false);
       loadAll();
       // yangi musobaqa ro'yxat tagida qolib ketmasin: darrov tanlanadi va qidiruvga qo'yiladi
@@ -340,6 +350,13 @@ export default function AdminTournamentsPage() {
                 ))}
               </select>
             </Field>
+            <div className="sm:col-span-2">
+              <TablesPicker
+                count={tForm.tableCount}
+                main={tForm.mainTables}
+                onChange={(tableCount, mainTables) => setTForm({ ...tForm, tableCount, mainTables })}
+              />
+            </div>
             <Field label="Shahar">
               <input
                 value={tForm.city}
@@ -469,6 +486,23 @@ export default function AdminTournamentsPage() {
         <div className="min-w-0 space-y-6">
           {!selected ? null : (
             <>
+              <TablesCard
+                key={selected.id}
+                tournament={selected}
+                onChanged={() => {
+                  loadMatches(selected.id);
+                  api
+                    .get<Tournament[]>('/tournaments')
+                    .then((rows) => {
+                      setTournaments(rows);
+                      const fresh = rows.find((t) => t.id === selected.id);
+                      if (fresh) setSelected(fresh);
+                    })
+                    .catch(() => {});
+                }}
+                onMessage={setMsg}
+                onError={fail}
+              />
               <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-surface-card px-4 py-3">
                 <span className="text-sm">
                   {selected.status === 'LIVE' ? (
@@ -708,20 +742,22 @@ export default function AdminTournamentsPage() {
                         {m.player2Name}
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
-                        <a
-                          href={`/overlay/${m.overlayToken}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="font-semibold text-accent-500 underline-offset-2 hover:underline"
-                        >
-                          OBS overlay havolasi ↗
-                        </a>
+                        {!SCOREBOARD && (
+                          <a
+                            href={`/overlay/${m.overlayToken}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-semibold text-accent-500 underline-offset-2 hover:underline"
+                          >
+                            OBS overlay havolasi ↗
+                          </a>
+                        )}
                         {m.status === 'SCHEDULED' && (
                           <span className="flex items-center gap-1">
                             <input
                               type="number"
                               min={1}
-                              max={64}
+                              max={selected.tableCount ?? 64}
                               placeholder="Stol №"
                               defaultValue={m.tableNumber ?? ''}
                               id={`table-${m.id}`}
@@ -739,7 +775,20 @@ export default function AdminTournamentsPage() {
                             </button>
                           </span>
                         )}
-                        {m.tableNumber && (
+                        {SCOREBOARD && m.tableNumber && (
+                          <>
+                            <a href={`/control?court=${m.tableNumber}`} target="_blank" rel="noreferrer" className="font-semibold text-accent-500 underline-offset-2 hover:underline">
+                              Planshet ↗
+                            </a>
+                            <a href={`/tv?courts=${m.tableNumber}`} target="_blank" rel="noreferrer" className="font-semibold text-accent-500 underline-offset-2 hover:underline">
+                              TV ↗
+                            </a>
+                            <a href={`/overlay?court=${m.tableNumber}`} target="_blank" rel="noreferrer" className="font-semibold text-accent-500 underline-offset-2 hover:underline">
+                              Overlay ↗
+                            </a>
+                          </>
+                        )}
+                        {!SCOREBOARD && m.tableNumber && (
                           <>
                             <a href={`/screen/${m.tableNumber}`} target="_blank" rel="noreferrer" className="font-semibold text-accent-500 hover:underline">
                               TV (zal ekrani) ↗

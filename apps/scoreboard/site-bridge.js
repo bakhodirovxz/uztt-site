@@ -82,6 +82,24 @@ function start(api) {
       }
     } finally { pushing = false; }
   }
-  pull(); setInterval(pull, 15000); setInterval(push, 4000);
+  // Jonli hisob: saytning jonli ro'yxati va ekranlari uchun. O'zgarganda darrov, o'zgarmasa 20 soniyada bir
+  let liveKey = null, liveAt = 0, livePushing = false;
+  async function pushLive() {
+    if (livePushing) return;
+    const courts = api.courts();
+    const matches = Object.keys(courts).filter((id) => courts[id].siteId && courts[id].winner === null).map((id) => {
+      const c = courts[id];
+      return { siteId: c.siteId, court: String(id), points: [c.players[0].points, c.players[1].points], setsWon: [c.players[0].sets, c.players[1].sets], sets: c.sets };
+    });
+    const body = JSON.stringify({ matches });
+    if (body === liveKey && Date.now() - liveAt < 20000) return;
+    livePushing = true;
+    try {
+      const r = await fetch(API + '/sb/live', { method: 'POST', headers, body, signal: AbortSignal.timeout(5000) });
+      if (r.ok) { liveKey = body; liveAt = Date.now(); }
+    } catch (e) { /* keyingi aylanishda qayta yuboriladi */ } finally { livePushing = false; }
+  }
+  pull(); setInterval(pull, 15000); setInterval(push, 4000); setInterval(pushLive, 1000);
+  return { pull };
 }
 module.exports = { start, apiBase, resultAccepted };

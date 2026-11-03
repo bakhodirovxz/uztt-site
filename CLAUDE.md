@@ -246,6 +246,14 @@ atributidan foydalanadi. Yangi root layout qo'shsang, shuni yodda tut.
   yuboradi, shuning uchun `SB_EXACT` dagi `/api` yo'llari nginx konfigida
   alohida yozilgan — ro'yxat o'zgarsa, ikkalasini ham yangila.
 - Ma'lumot serverda `/opt/uztt/_data/scoreboard` da (gitda yo'q).
+- Hakam oqimi: `/referee` -> kod -> `/control?court=N&site=ID` (`startsite`). Prod'da (`SB_PUBLIC=1`) sayt o'yini
+  kodsiz boshlanmaydi. Saytda ochkosi bor eski o'yin eski ekranda tugatiladi.
+- Jonli hisob `/api/sb/live` orqali keladi va faqat API xotirasida turadi (`MatchesService.boardStates`): bazaga
+  o'yin tugaganda `/api/sb/result` bilan bir marta yoziladi. Shuning uchun jonli o'yin bazada `SCHEDULED` turadi.
+- Stollar: `tournaments.table_count`, `main_tables`. Qurada `AssignmentService.autoAssign` -> `TableAssignService.fill`
+  (qoidasi `table-plan.ts`). Chegara 10: scoreboard'dagi `COURTS` bilan bir xil.
+- Access token 15 daqiqa: sayt `lib/api.ts`, planshet `public/session.js` orqali yangilaydi, ikkalasi bitta
+  Web Lock'da (`uztt-session`). Eski refresh token qayta yuborilsa butun sessiya bekor bo'ladi.
 - **Tuzoq:** `players-db.json` dagi ba'zi `id` — haqiqiy PINFL, `uid` esa
   ommaviy JSON'ga chiqadi. Serverga faqat `scripts/sanitize-pdb.js` dan
   o'tkazib yukla; aks holda konteyner ishga tushmaydi (`SB_PUBLIC=1`).

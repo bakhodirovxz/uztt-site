@@ -1,10 +1,11 @@
 import { Body, Controller, Get, Headers, HttpCode, Post, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { timingSafeEqual } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { Public } from '../../common/decorators/public.decorator';
 import { ScoreboardBridgeService } from './scoreboard-bridge.service';
-import { SbResultDto } from './dto';
+import { SbLiveDto, SbResultDto } from './dto';
 
 /** Scoreboard dasturi bilan ulanish: umumiy maxfiy kalit (SB_SECRET) bilan himoyalangan */
 @ApiTags('scoreboard-bridge')
@@ -28,6 +29,16 @@ export class ScoreboardBridgeController {
   async export(@Headers('x-sb-secret') secret?: string) {
     this.check(secret);
     return this.bridge.export();
+  }
+
+  @Public()
+  @SkipThrottle()
+  @Post('live')
+  @HttpCode(200)
+  async live(@Headers('x-sb-secret') secret: string | undefined, @Body() body: SbLiveDto) {
+    this.check(secret);
+    await this.bridge.setLive(body.matches);
+    return { ok: true };
   }
 
   @Public()

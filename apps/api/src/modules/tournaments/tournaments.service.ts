@@ -21,6 +21,8 @@ const PUBLIC_TOURNAMENT_SELECT = {
   status: true,
   createdAt: true,
   bannerImageUrl: true,
+  tableCount: true,
+  mainTables: true,
   level: { select: { code: true, name: true, coefficient: true, ratingK: true, ratingMode: true } },
   ageCategory: { select: { code: true, name: true } },
   translations: { select: { locale: true, name: true } },
@@ -153,6 +155,8 @@ export class TournamentsService {
     gender?: Gender;
     startDate: string;
     endDate: string;
+    tableCount?: number;
+    mainTables?: number[];
   }) {
     const level = await this.prisma.tournamentLevel.findUnique({
       where: { code: data.levelCode },
@@ -186,6 +190,8 @@ export class TournamentsService {
       gender?: Gender;
       startDate: string;
       endDate: string;
+      tableCount?: number;
+      mainTables?: number[];
     },
   ) {
     const created = await this.prisma.tournament.create({
@@ -198,6 +204,8 @@ export class TournamentsService {
         gender: data.gender,
         startDate: new Date(data.startDate),
         endDate: new Date(data.endDate),
+        tableCount: data.tableCount,
+        mainTables: data.mainTables,
       },
       select: PUBLIC_TOURNAMENT_SELECT,
     });
@@ -216,6 +224,8 @@ export class TournamentsService {
       startDate: string;
       endDate: string;
       status: TournamentStatus;
+      tableCount: number;
+      mainTables: number[];
     }>,
   ) {
     const exists = await this.prisma.tournament.findUnique({ where: { id } });
@@ -241,6 +251,8 @@ export class TournamentsService {
         status: data.status,
         startDate: data.startDate ? new Date(data.startDate) : undefined,
         endDate: data.endDate ? new Date(data.endDate) : undefined,
+        tableCount: data.tableCount,
+        mainTables: data.mainTables,
       },
       select: PUBLIC_TOURNAMENT_SELECT,
     });

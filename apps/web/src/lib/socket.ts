@@ -89,6 +89,8 @@ export interface MatchPayload {
   stage: string;
   status: 'SCHEDULED' | 'LIVE' | 'FINISHED';
   tableNumber: number | null;
+  /** Hisob scoreboard planshetida yuritilmoqda: shu stolda */
+  boardCourt?: string | null;
   scheduledAt: string | null;
   bestOf: number;
   seq: number;

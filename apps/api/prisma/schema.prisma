@@ -455,6 +455,9 @@ model Tournament {
   endDate        DateTime         @map("end_date") @db.Date
   status         TournamentStatus @default(UPCOMING)
   bannerImageUrl String?          @map("banner_image_url")
+  /// Stollar soni va asosiy stollar: qurada o'yinlarga stol avtomatik belgilanadi
+  tableCount     Int?             @map("table_count")
+  mainTables     Int[]            @default([]) @map("main_tables")
   createdAt      DateTime         @default(now()) @map("created_at")
   updatedAt      DateTime         @updatedAt @map("updated_at")
 

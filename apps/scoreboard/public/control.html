@@ -216,6 +216,7 @@ h4{grid-column:1/-1;margin:8px 0 0;font-size:15px;color:#58a6ff;font-weight:600}
   </div>
 </details>
 <script src="/flags.js"></script>
+<script src="/session.js"></script>
 <script src="/common.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
@@ -323,7 +324,7 @@ function loadData() {
     DATA = d; PMAP = {};
     $('plist').innerHTML = d.players.map((p) => { PMAP[plabel(p)] = p; return '<option value="' + esc(plabel(p)) + '">'; }).join('');
     const num = (t) => (String(t || '').match(/\d+/) || [''])[0];
-    const mine = d.matches.map((m, id) => ({ m, id })).filter((x) => !num(x.m.table) || num(x.m.table) === String(COURT));
+    const mine = d.matches.map((m, id) => ({ m, id })).filter((x) => !(d.requireCode && x.m.siteId) && (!num(x.m.table) || num(x.m.table) === String(COURT)));
     mine.sort((a, b) => (a.m.done ? 1 : 0) - (b.m.done ? 1 : 0) || a.id - b.id);
     $('mlist').innerHTML = mine.map((x) => '<option value="' + x.id + '">' + (x.m.done ? '✓ ' : '') + esc((x.m.round ? x.m.round + ' · ' : '') + x.m.p[0].name + ' ' + (x.m.p[0].given || '') + ' – ' + x.m.p[1].name + ' ' + (x.m.p[1].given || '')) + '</option>').join('');
     $('mnone').style.display = mine.length ? 'none' : 'block';
@@ -351,7 +352,7 @@ $('mstart').onclick = () => {
 };
 
 // o'yin tugagach keyingi o'yinni tanlash oynasi o'zi chiqadi
-let nxDismissed = null, nxFor = null;
+let nxDismissed = Q.get('site') ? 'idle' : null, nxFor = null; // hakam panelidan kelgan o'yin boshlanayotganda ro'yxat chiqmasin
 function maybeNext() {
   const box = $('nx');
   // stolda o'yin yo'q (hali boshlanmagan) — hakamga keyingi o'yinlar ro'yxati darrov chiqadi
@@ -368,17 +369,18 @@ function showNext(key) {
   const idle = key === 'idle';
   if (!S || (idle ? (S.winner !== null || S.active) : (S.winner === null || String(S.finishedAt) !== key))) return;
   const num = (t) => (String(t || '').match(/\d+/) || [''])[0];
-  const list = DATA.matches.map((m, id) => ({ m, id })).filter((x) => !x.m.done && (!num(x.m.table) || num(x.m.table) === String(COURT))).sort((a, b) => a.id - b.id);
+  const list = DATA.matches.map((m, id) => ({ m, id })).filter((x) => !x.m.done && !(DATA.requireCode && x.m.siteId) && (!num(x.m.table) || num(x.m.table) === String(COURT))).sort((a, b) => a.id - b.id);
   const w = idle ? null : S.players[S.winner];
   $('nxh').textContent = idle ? "▶ Boshlash uchun o'yinni tanlang (" + COURT + "-stol)" : "✓ O'yin tugadi: " + S.players[0].name + ' ' + S.players[0].sets + ' – ' + S.players[1].sets + ' ' + S.players[1].name;
   $('nxr').innerHTML = idle ? '' : S.rating ? '<b>Reyting:</b><br>' + S.rating.sides.map((sd) => sd.list.map((p) => '<span class="' + (p.delta >= 0 ? 'u' : 'd') + '">' + (p.delta >= 0 ? '▲ +' : '▼ ') + p.delta.toFixed(2) + '</span> ' + esc((p.name + ' ' + (p.given || '')).trim()) + ' <span class="n">' + p.before.toFixed(2) + ' → ' + p.after.toFixed(2) + '</span>').join('<br>')).join('<br>') : '<span class="n">Reyting hisoblanmadi (o\'yinchilar bazadan topilmagan yoki texnik g\'alaba).</span>';
   $('nxl').innerHTML = (list.length ? '' : '<div class="nxs">Qurada bu stol uchun o\'yin yo\'q.</div>') + list.slice(0, 8).map((x) => '<button data-id="' + x.id + '"><small>' + esc([x.m.category, x.m.round].filter(Boolean).join(' · ')) + '</small>'
-    + esc(x.m.p[0].name + ' ' + (x.m.p[0].given || '') + ' (' + (x.m.p[0].country || '') + ')  —  ' + x.m.p[1].name + ' ' + (x.m.p[1].given || '') + ' (' + (x.m.p[1].country || '') + ')') + '</button>').join('') + '<button data-wiz="1" style="background:#1b5e66">' + W.newm + '</button><button data-manual="1" style="background:#30363d">⚙ Yangi o\'yinni qo\'lda kiritish</button>';
+    + esc(x.m.p[0].name + ' ' + (x.m.p[0].given || '') + ' (' + (x.m.p[0].country || '') + ')  —  ' + x.m.p[1].name + ' ' + (x.m.p[1].given || '') + ' (' + (x.m.p[1].country || '') + ')') + '</button>').join('') + (DATA.requireCode ? '<button data-panel="1" style="background:#1f6feb">▶ Keyingi o\'yin: hakam paneli (kod bilan)</button>' : '') + '<button data-wiz="1" style="background:#1b5e66">' + W.newm + '</button><button data-manual="1" style="background:#30363d">⚙ Yangi o\'yinni qo\'lda kiritish</button>';
   $('nx').style.display = 'flex';
 }
 $('nxl').onclick = (e) => {
   const b = e.target.closest('button');
   if (!b) return;
+  if (b.dataset.panel) { location.assign('/referee'); return; }
   if (b.dataset.wiz) { nxDismissed = nxFor; $('nx').style.display = 'none'; wzOpen(); return; }
   if (b.dataset.manual) { nxDismissed = nxFor; $('nx').style.display = 'none'; $('det').open = true; return; }
   const id = parseInt(b.dataset.id, 10), m = DATA.matches[id];
@@ -392,6 +394,16 @@ $('nxl').onclick = (e) => {
   act(f).then(() => { $('nx').style.display = 'none'; loadData(); });
 };
 $('nxc').onclick = () => { nxDismissed = nxFor; $('nx').style.display = 'none'; };
+
+// Hakam panelidan: kod tasdiqlangan o'yin shu stolda boshlanadi (/control?court=N&site=ID)
+if (Q.get('site')) (function startSite(tries) {
+  const fail = (msg) => { alert(msg); history.replaceState(null, '', '/referee'); location.assign('/referee'); };
+  act({ type: 'startsite', siteId: Q.get('site') }).then((r) => r.json()).then((d) => {
+    if (d.ok) { history.replaceState(null, '', '/control?court=' + encodeURIComponent(COURT)); loadData(); return; }
+    if (d.retry && tries > 0) { setTimeout(() => startSite(tries - 1), 1500); return; }
+    fail(d.error || "O'yinni boshlab bo'lmadi");
+  }).catch(() => (tries > 0 ? setTimeout(() => startSite(tries - 1), 1500) : fail("Server bilan aloqa yo'q")));
+})(20);
 
 // ===== Yangi o'yin: usul (yakkalik / juftlik / aralash juftlik) -> jins -> o'yinchilar ro'yxatidan tanlash =====
 const W = LAT ? {

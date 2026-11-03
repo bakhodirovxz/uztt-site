@@ -31,19 +31,45 @@ function accountPathForCurrentLocale(): string {
   return `${prefix}/account`;
 }
 
+let refreshing: Promise<boolean> | null = null;
+
+/**
+ * Access token 15 daqiqa yashaydi, sessiya esa refresh token bilan davom etadi. Token aylantiriladi:
+ * eski token qayta yuborilsa API butun sessiyani bekor qiladi, shuning uchun bir nechta tab bir vaqtda
+ * yangilamasin (Web Locks; scoreboard'ning public/session.js fayli ham shu qulfni ishlatadi).
+ */
+export function refreshSession(): Promise<boolean> {
+  if (refreshing) return refreshing;
+  const post = () =>
+    fetch(`${baseUrl()}/api/auth/refresh`, { method: 'POST', credentials: 'include' })
+      .then((r) => r.ok)
+      .catch(() => false);
+  const run = Promise.resolve(navigator.locks ? navigator.locks.request('uztt-session', post) : post());
+  const current = run.finally(() => {
+    refreshing = null;
+  });
+  refreshing = current;
+  return current;
+}
+
 async function request<T>(
   method: string,
   path: string,
   body?: unknown,
   init?: RequestInit,
 ): Promise<T> {
-  const res = await fetch(`${baseUrl()}/api${path}`, {
-    method,
-    credentials: 'include',
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-    ...init,
-  });
+  const send = () =>
+    fetch(`${baseUrl()}/api${path}`, {
+      method,
+      credentials: 'include',
+      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+      ...init,
+    });
+  let res = await send();
+  if (res.status === 401 && typeof window !== 'undefined' && path !== '/auth/login' && (await refreshSession())) {
+    res = await send();
+  }
 
   if (!res.ok) {
     let message = res.statusText;

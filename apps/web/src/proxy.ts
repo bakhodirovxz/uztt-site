@@ -25,7 +25,7 @@ const SB_EXACT = new Set([
   '/api/public', '/api/history', '/api/all', '/api/state', '/api/telegram-test', '/api/pdb/search', '/api/pdb/link',
 ]);
 const SB_PREFIX = ['/api/ads/', '/flags/', '/ads/'];
-const SB_STATIC = /^\/(board\.css|board\.js|common\.js|scenes\.js|flags\.js|logo-left\.png|logo-right\.png)$/;
+const SB_STATIC = /^\/(board\.css|board\.js|common\.js|session\.js|scenes\.js|flags\.js|logo-left\.png|logo-right\.png)$/;
 const SB_PHOTO = /^\/players\/[\w-]+\.(jpg|jpeg|png|webp|svg)$/;
 /**
  * Ruxsat darajalari:
@@ -87,7 +87,10 @@ export default async function proxy(req: NextRequest) {
     const need = requiredPerm(pathname, req.method);
     if (need && guardOn() && !(await allowed(req, need))) {
       if (pathname === '/control' || pathname === '/admin') {
-        return NextResponse.redirect(new URL('/login', req.url));
+        // Kirgach (yoki sessiya jimgina yangilangach) planshet o'z stoliga qaytadi
+        const login = new URL('/login', req.url);
+        login.searchParams.set('next', pathname + search);
+        return NextResponse.redirect(login);
       }
       return NextResponse.json({ ok: false, error: 'Kirish talab qilinadi' }, { status: 401 });
     }
@@ -110,7 +113,7 @@ export const config = {
   // Scoreboard yo'llari (yuqorida) shu yerda ushlanib, ichki scoreboard jarayoniga yo'naltiriladi.
   matcher: [
     '/((?!api|_next|_vercel|overlay|screen|.*\\..*).*)',
-    '/overlay', '/api/:path*', '/flags/:path*', '/ads/:path*', '/players/:file*', '/board.css', '/board.js', '/common.js',
+    '/overlay', '/api/:path*', '/flags/:path*', '/ads/:path*', '/players/:file*', '/board.css', '/board.js', '/common.js', '/session.js',
     '/scenes.js', '/flags.js', '/logo-left.png', '/logo-right.png',
   ],
 };

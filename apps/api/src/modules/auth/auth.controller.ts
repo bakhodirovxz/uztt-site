@@ -66,12 +66,18 @@ export class AuthController {
   ) {
     const raw = (req.cookies as Record<string, string>)?.[REFRESH_COOKIE];
     if (!raw) throw new UnauthorizedException('Sessiya topilmadi');
-    const { user, tokens } = await this.auth.refresh(raw, {
-      userAgent: req.headers['user-agent'],
-      ip: req.ip,
-    });
-    this.setCookies(res, tokens);
-    return { user };
+    try {
+      const { user, tokens } = await this.auth.refresh(raw, {
+        userAgent: req.headers['user-agent'],
+        ip: req.ip,
+      });
+      this.setCookies(res, tokens);
+      return { user };
+    } catch (e) {
+      // Yaroqsiz cookie qolib ketmasin: sayt har sahifada qayta urinib yurardi
+      this.clearCookies(res);
+      throw e;
+    }
   }
 
   @Public()
@@ -89,8 +95,12 @@ export class AuthController {
   @Get('session')
   @ApiOperation({ summary: 'Kirgan-kirmaganligi (ha/yo\'q) — 401 xatosiz' })
   async session(@Req() req: Request) {
-    const raw = (req.cookies as Record<string, string>)?.[ACCESS_COOKIE];
-    return { authenticated: await this.auth.hasSession(raw) };
+    const cookies = req.cookies as Record<string, string> | undefined;
+    return {
+      authenticated: await this.auth.hasSession(cookies?.[ACCESS_COOKIE]),
+      // Access token eskirgan bo'lishi mumkin: sayt faqat shunda /auth/refresh ni chaqiradi (mehmonlar uchun emas)
+      canRefresh: !!cookies?.[REFRESH_COOKIE],
+    };
   }
 
   @Post('change-password')

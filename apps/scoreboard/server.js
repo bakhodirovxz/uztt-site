@@ -313,6 +313,44 @@ function resultText(c) {
   }
   return t;
 }
+// Prod saytda (SB_PUBLIC=1) sayt o'yini faqat hakam kodi tasdiqlangach boshlanadi: /referee -> kod -> /control?site=ID.
+// Zal kompyuterida kod ekrani yo'q, u yerda ro'yxatdan boshlash o'zgarmaydi.
+const REQUIRE_CODE = process.env.SB_PUBLIC === '1';
+let siteBridge = null;
+
+/** Hakam panelidan kelgan o'yinni stolda boshlaydi. retry: planshet birozdan keyin qayta so'raydi */
+function startSiteMatch(court, siteId) {
+  const c = getCourt(court);
+  if (siteId && c.siteId === siteId) return { ok: true }; // planshet qayta ochildi: o'yin shu stolda davom etadi
+  const id = data.matches.findIndex((m) => m.siteId === siteId);
+  const m = data.matches[id];
+  if (!m || (REQUIRE_CODE && !m.verified)) {
+    if (siteBridge) siteBridge.pull(); // kod hozirgina tasdiqlangan: ro'yxat 15 soniyani kutmasin
+    return { ok: false, retry: true, error: "O'yin ma'lumoti saytdan kelmadi" };
+  }
+  const other = Object.keys(courts).find((k) => k !== String(court) && courts[k].siteId === siteId && courts[k].winner === null);
+  if (other) return { ok: false, error: "Bu o'yin " + other + '-stolda ketmoqda' };
+  if (c.winner === null && (c.active || c.sets.length || c.players[0].points + c.players[1].points)) {
+    return { ok: false, error: court + "-stolda boshqa o'yin ketmoqda. Avval uni yakunlang" };
+  }
+  if (c.winner !== null && c.siteId && !c.sitePosted && c.sets.length && c.siteRejected !== JSON.stringify(c.sets)) {
+    return { ok: false, retry: true, error: 'Oldingi natija saytga yuborilmoqda' }; // yangi o'yin uni bosib ketmasin
+  }
+  const t = String(m.table || '').trim();
+  apply(court, {
+    type: 'start', referee: '', table: /^\d+$/.test(t) ? 'TABLE ' + t : t || 'TABLE ' + court,
+    category: m.category || '', round: m.round || '',
+    players: m.p.map((p) => ({ name: p.name, given: p.given || '', country: p.country || '', uids: p.uid ? [p.uid] : [] })),
+    settings: m.bestOf ? { bestOf: m.bestOf } : undefined,
+  });
+  m.done = true;
+  data.started = data.started || {};
+  data.started[siteId] = true;
+  c.siteId = siteId; c.sitePosted = false; c.siteRejected = undefined;
+  saveData();
+  return { ok: true, started: true };
+}
+
 function reportFinished() {
   Object.keys(courts).forEach((id) => {
     const c = getCourt(id);
@@ -855,6 +893,14 @@ const server = http.createServer((req, res) => {
     return readBody(req, 1e5, (body) => {
       try {
         const act = JSON.parse(body);
+        if (act.type === 'startsite') {
+          const r = startSiteMatch(court, String(act.siteId || ''));
+          if (r.started) { persist(); broadcast(court); }
+          return json(res, r.ok ? 200 : 409, r);
+        }
+        if (REQUIRE_CODE && act.type === 'start' && Number.isInteger(act.matchId) && data.matches[act.matchId] && data.matches[act.matchId].siteId) {
+          return json(res, 403, { ok: false, error: "Sayt o'yini hakam paneli orqali, kod bilan boshlanadi" });
+        }
         apply(court, act);
         if (act.type === 'start' && Number.isInteger(act.matchId) && data.matches[act.matchId]) {
           data.matches[act.matchId].done = true;
@@ -890,7 +936,7 @@ const server = http.createServer((req, res) => {
       } catch (e) { json(res, 400, { ok: false }); }
     });
   }
-  if (url.pathname === '/api/data') return json(res, 200, data);
+  if (url.pathname === '/api/data') return json(res, 200, REQUIRE_CODE ? Object.assign({ requireCode: true }, data) : data);
 
   // admin: bazaga bog'lanmagan o'yinchilar va nomzodlar
   if (url.pathname === '/api/data/check') {
@@ -1064,7 +1110,7 @@ if (data.players.length && data.players.some((p) => p.uid === undefined)) { link
 
 if (require.main === module) {
   server.listen(PORT, HOST, () => {
-    require('./site-bridge').start({ getData: () => data, linkPlayers, relinkMatches, saveData, courts: () => courts, persist });
+    siteBridge = require('./site-bridge').start({ getData: () => data, linkPlayers, relinkMatches, saveData, courts: () => courts, persist });
     const lan = HOST !== '127.0.0.1' && HOST !== 'localhost' && HOST !== '::1';
     const ips = !lan ? [] : HOST === '0.0.0.0' || HOST === '::'
       ? Object.values(os.networkInterfaces()).flat().filter((i) => i.family === 'IPv4' && !i.internal).map((i) => i.address)

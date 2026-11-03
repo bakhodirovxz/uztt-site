@@ -1,9 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from '@/i18n/navigation';
-import { api, ApiError, type AuthUser } from '@/lib/api';
+import { api, ApiError, refreshSession, type AuthUser } from '@/lib/api';
+
+/** Kirgandan keyingi manzil (?next=): faqat shu saytning ichki yo'li, tashqi manzilga yo'naltirilmaydi */
+function nextPath(): string | null {
+  const next = new URLSearchParams(window.location.search).get('next');
+  return next && /^\/(?![/\\])/.test(next) ? next : null;
+}
 
 export default function LoginPage() {
   const t = useTranslations('login');
@@ -13,12 +19,29 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // Planshet /control ga qaytganda sessiya eskirgan bo'lsa: parol so'ramasdan yangilab, joyiga qaytaramiz
+  useEffect(() => {
+    const next = nextPath();
+    if (!next) return;
+    api
+      .get<{ authenticated: boolean; canRefresh?: boolean }>('/auth/session')
+      .then(async (r) => {
+        if (r.authenticated || (r.canRefresh && (await refreshSession()))) window.location.assign(next);
+      })
+      .catch(() => undefined);
+  }, []);
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
       const { user } = await api.post<{ user: AuthUser }>('/auth/login', { email, password });
+      const next = nextPath();
+      if (next && !user.mustChangePassword) {
+        window.location.assign(next);
+        return;
+      }
       // Boshlang'ich parol → avval almashtirish; huquqi yo'q (oddiy o'yinchi) → shaxsiy kabinet
       router.push(user.mustChangePassword ? '/account' : user.permissions.length > 0 ? '/panel' : '/profile');
       router.refresh();
