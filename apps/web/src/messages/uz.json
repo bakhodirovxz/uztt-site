@@ -206,7 +206,7 @@
   },
   "referee": {
     "title": "Hakam paneli",
-    "chooseTable": "Stolni tanlang",
+    "chooseMatch": "O'yinni tanlang",
     "enterCode": "6 xonali hakam kodini kiriting",
     "verify": "Tasdiqlash",
     "back": "Orqaga",

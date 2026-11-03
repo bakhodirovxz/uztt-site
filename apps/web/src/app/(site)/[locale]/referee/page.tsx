@@ -67,7 +67,7 @@ export default function RefereePage() {
       <h1 className="font-heading text-3xl font-extrabold uppercase tracking-tight">
         {t('title')}
       </h1>
-      <p className="mt-1 text-muted">{t('chooseTable')}</p>
+      <p className="mt-1 text-muted">{t('chooseMatch')}</p>
       {matches.length === 0 ? (
         <p className="mt-6 text-muted">{t('noMatches')}</p>
       ) : (
@@ -79,28 +79,24 @@ export default function RefereePage() {
               onClick={() => setSelected(m)}
               className="rounded-card bg-surface-card p-5 text-left shadow-card transition-shadow hover:shadow-card-hover"
             >
-              <div className="font-heading text-2xl font-extrabold">
-                {m.tableNumber ? `#${m.tableNumber}` : '—'}
+              {/* Stol raqami majburiy emas: o'yin ismlardan taniladi, kod ekrani keyin qoladi */}
+              <div className="font-heading text-lg font-extrabold">
+                {m.player1Name} — {m.player2Name}
               </div>
-              <div className="mt-1 text-sm text-muted">
+              <div className="mt-1 flex gap-2 text-sm text-muted">
+                {m.tableNumber ? <span>#{m.tableNumber}</span> : null}
                 {m.status === 'LIVE' ? (
                   <span className="font-bold text-live">LIVE</span>
                 ) : m.scheduledAt ? (
                   // Vaqt belgilanmagan bo'lsa "hozir" deb ko'rsatish chalg'itardi
-                  new Date(m.scheduledAt).toLocaleTimeString('uz-UZ', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })
-                ) : (
-                  '—'
-                )}
+                  <span>
+                    {new Date(m.scheduledAt).toLocaleTimeString('uz-UZ', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                ) : null}
               </div>
-              {/* Ismlar tasdiqlashdan keyin ko'rinadi (legacy UX) */}
-              {m.refereeVerified && (
-                <div className="mt-2 text-sm font-medium">
-                  {m.player1Name} — {m.player2Name}
-                </div>
-              )}
             </button>
           ))}
         </div>

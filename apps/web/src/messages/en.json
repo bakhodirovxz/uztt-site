@@ -206,7 +206,7 @@
   },
   "referee": {
     "title": "Referee panel",
-    "chooseTable": "Choose a table",
+    "chooseMatch": "Choose a match",
     "enterCode": "Enter the 6-digit referee code",
     "verify": "Verify",
     "back": "Back",
