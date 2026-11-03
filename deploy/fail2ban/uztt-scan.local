@@ -1,0 +1,10 @@
+# /etc/fail2ban/jail.d/uztt-scan.local
+[uztt-scan]
+enabled  = true
+backend  = polling
+filter   = uztt-scan
+logpath  = /var/log/nginx/stoltennis.access.log
+port     = http,https
+maxretry = 5
+findtime = 10m
+bantime  = 6h

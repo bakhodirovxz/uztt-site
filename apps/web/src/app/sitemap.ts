@@ -23,9 +23,12 @@ async function json<T>(path: string, fallback: T): Promise<T> {
 }
 
 /**
- * Sitemap: statik sahifalar + BARCHA o'yinchilar (sahifalab), klublar, yangiliklar, musobaqalar —
+ * Sitemap: statik sahifalar + kattalar o'yinchilari (sahifalab), klublar, yangiliklar, musobaqalar —
  * har biri uz/ru/en hreflang bilan. API o'chiq bo'lsa (build vaqti) faqat statik qism qaytadi.
  */
+// Build vaqtida API o'chiq: statik bo'lsa sitemap faqat 13 sahifa bilan "muzlab" qolardi. Ma'lumot 1 soat keshda
+export const dynamic = 'force-dynamic';
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const entries: MetadataRoute.Sitemap = [
     entry('/', 1, 'daily'),
@@ -57,9 +60,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     if (!data.rows.length || seen >= data.total || page >= 40) break;
   }
 
-  // O'yinchilar: 500 tadan sahifalab — hammasi indekslansin
+  // O'yinchilar: 500 tadan sahifalab. Faqat 18 yoshdan oshganlar: bolalar sahifasi indekslanmaydi
   for (let page = 1; page <= 40; page++) {
-    const data = await json<{ rows: Array<{ slug: string }>; totalPages?: number }>(`/players?pageSize=500&page=${page}`, { rows: [] });
+    const data = await json<{ rows: Array<{ slug: string }>; totalPages?: number }>(`/players?indexable=1&pageSize=500&page=${page}`, { rows: [] });
     for (const p of data.rows) entries.push(entry({ pathname: '/players/[slug]', params: { slug: p.slug } }, 0.5, 'weekly'));
     if (!data.rows.length || page >= (data.totalPages ?? 1)) break;
   }

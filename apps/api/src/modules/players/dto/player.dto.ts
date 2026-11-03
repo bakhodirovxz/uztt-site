@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
+  IsIn,
   IsEnum,
   IsInt,
   IsISO8601,
@@ -110,4 +111,10 @@ export class ListPlayersQueryDto {
   @IsInt()
   @Min(1)
   pageSize?: number;
+
+  /** Sitemap uchun: faqat 18 yoshdan oshganlar (tug'ilgan sanasi noma'lum bo'lsa ham kirmaydi) */
+  @ApiPropertyOptional({ enum: ['1'] })
+  @IsOptional()
+  @IsIn(['1'])
+  indexable?: string;
 }

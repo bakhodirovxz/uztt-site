@@ -25,6 +25,7 @@ interface PlayerDetail {
   } | null;
   rankingPoints: number;
   photoUrl: string | null;
+  age: number | null;
 
   ageCategory: { code: string; name: string } | null;
   rank: number | null;
@@ -57,6 +58,8 @@ interface PlayerHistory {
 }
 
 export const dynamic = 'force-dynamic';
+
+const isAdult = (p: Pick<PlayerDetail, 'age'>) => p.age !== null && p.age >= 18;
 
 /** O'ng paneldagi kartalar (Hudud, Sport maktabi/klubi) — uttf.uz uslubiga mos */
 function InfoCard({ title, children }: { title: string; children: React.ReactNode }) {
@@ -107,7 +110,9 @@ export async function generateMetadata({
     title,
     description,
     type: 'profile',
-    image: player.photoUrl,
+    // Bolalarning sahifasi, surati va ismi qidiruv tizimlariga berilmaydi; yoshi noma'lum bo'lsa ham shunday
+    image: isAdult(player) ? player.photoUrl : undefined,
+    noindex: !isAdult(player),
   });
 }
 
@@ -146,7 +151,7 @@ export default async function PlayerDetailPage({
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(personLd) }} />
+      {isAdult(player) && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(personLd) }} />}
       {/* Orqaga + sahifa nomi + bo'lim havolalari (uttf.uz'dagi Sportchi sahifasi tuzilishiga mos) */}
       <div className="bg-navy-950 text-white">
         <div className="mx-auto flex max-w-site flex-wrap items-center justify-between gap-x-6 px-4">

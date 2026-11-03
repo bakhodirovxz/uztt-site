@@ -3,6 +3,7 @@ import { pageMeta } from '@/lib/seo';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { api, cached } from '@/lib/api';
 import { Container, PageTitleBar } from '@/components/ui';
+import { YoutubeLite } from '@/components/media/youtube-lite';
 
 // Sahifa har so'rovda qayta render qilinadi, lekin API javoblari Data Cache'da
 // teg bilan saqlanadi: admin kontentni o'zgartirsa /api/revalidate darhol tozalaydi.
@@ -51,14 +52,7 @@ export default async function VideosPage({
               className="overflow-hidden rounded-card bg-surface-card shadow-card"
             >
               <div className="aspect-video bg-navy-900">
-                <iframe
-                  src={`https://www.youtube-nocookie.com/embed/${v.youtubeId}`}
-                  title={v.title}
-                  loading="lazy"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  className="h-full w-full"
-                />
+                <YoutubeLite id={v.youtubeId} title={v.title} />
               </div>
               <div className="p-4">
                 {v.category && (

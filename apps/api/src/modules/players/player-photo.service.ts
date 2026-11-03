@@ -5,6 +5,7 @@ import { join } from 'path';
 import sharp from 'sharp';
 import { PrismaService } from '../../prisma/prisma.service';
 import { avatarThumb } from '../../common/avatar-crop';
+import { assertRasterImage } from '../../common/raster-image';
 
 const DIR = join(process.cwd(), 'uploads', 'public', 'players');
 
@@ -33,6 +34,7 @@ export class PlayerPhotoService {
   async upload(playerId: string, file: Express.Multer.File | undefined, user: { id: string; permissions: string[] }) {
     const player = await this.assertCanEdit(playerId, user);
     if (!file) throw new BadRequestException('Fayl kiritilmadi');
+    assertRasterImage(file.buffer);
     let meta;
     try {
       meta = await sharp(file.buffer, { limitInputPixels: 40_000_000 }).metadata();

@@ -9,7 +9,7 @@ export default function robots(): MetadataRoute.Robots {
         allow: '/',
         // Panel, hakam, overlay/TV, kirish va shaxsiy sahifalar indekslanmaydi (3 tilda ham)
         disallow: [
-          '/panel', '/referee', '/overlay/', '/screen/', '/profile', '/login', '/signup', '/account',
+          '/panel', '/referee', '/overlay', '/screen', '/control', '/admin', '/tv', '/card', '/sb/', '/profile', '/login', '/signup', '/account',
           '/ru/panel', '/ru/referee', '/ru/profile', '/ru/login', '/ru/signup', '/ru/account',
           '/en/panel', '/en/referee', '/en/profile', '/en/login', '/en/signup', '/en/account',
           '/api/',

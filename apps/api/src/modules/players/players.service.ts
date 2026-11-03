@@ -78,6 +78,13 @@ export const PUBLIC_MATCH_SELECT = {
 } satisfies Prisma.MatchSelect;
 
 /** To'liq tug'ilgan sana ommaga chiqmaydi — faqat yosh */
+/** Bugun 18 yoshga to'lganlarning tug'ilgan sanasi */
+function adultBirthDate(): Date {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - 18);
+  return d;
+}
+
 export function withAge<T extends { birthDate: Date | null }>(p: T): Omit<T, 'birthDate'> & { age: number | null } {
   const { birthDate, ...rest } = p;
   return { ...rest, age: ageOf(birthDate) };
@@ -99,6 +106,7 @@ export class PlayersService {
     ageCategory?: string;
     page?: number;
     pageSize?: number;
+    indexable?: string;
   }) {
     const pageSize = filter.pageSize
       ? Math.min(Math.max(1, filter.pageSize), MAX_PAGE_SIZE)
@@ -116,6 +124,7 @@ export class PlayersService {
       status: 'ACTIVE',
       gender: filter.gender,
       ...(ageFloor ? { birthDate: { gte: ageFloor } } : {}),
+      ...(filter.indexable ? { birthDate: { lte: adultBirthDate() } } : {}),
       region: filter.region ? { equals: filter.region } : undefined,
       OR: filter.search
         ? [

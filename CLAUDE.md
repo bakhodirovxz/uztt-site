@@ -285,6 +285,14 @@ Konfig ikki joyda: `deploy/nginx.conf` (compose uchun) va
 `deploy/stoltennis.uz.nginx.conf` (serverda ishlaydigani).
 **Ikkalasini birga yangila.**
 
+### Himoya qatlamlari (nginx)
+- IP chegarasi: `uztt_page`, `uztt_api`, `uztt_login`, `uztt_conn`. Chegaralar ataylab keng: zal va mobil operator NAT.
+- Qisqa kesh: mehmon sahifasi 10 s, ommaviy API 2 s. `uztt_at`/`uztt_rt` cookie'si borlar keshdan o'tmaydi.
+  Keshlangan yo'lga `Set-Cookie` qo'shma, u yashiriladi. Natija: `X-Cache-Status` sarlavhasi.
+- Skanerlarga 444, `deploy/fail2ban` IP ni 6 soatga bloklaydi. Serverga o'rnatiladigan fayllar: `deploy/fail2ban/`, `deploy/sysctl-uztt.conf`.
+- CSP majburiy (`next.config.ts`). Yangi tashqi manzil kerak bo'lsa, u yerga qo'sh, aks holda brauzer bloklaydi.
+- 18 yoshgacha o'yinchi sahifasi `noindex`, sitemap'da yo'q, JSON-LD'siz.
+
 ### `next.config.ts` — tegma
 Faylda aniq ogohlantirish bor: `outputFileTracingRoot` / `turbopack.root`
 o'rnatilsa standalone server `/` ni 307 siklida qoldiradi. `headers()`

@@ -5,6 +5,7 @@ import { Link } from '@/i18n/navigation';
 import { pageMeta } from '@/lib/seo';
 import { api, ApiError } from '@/lib/api';
 import { safeJsonLd } from '@/lib/json-ld';
+import { YoutubeLite } from '@/components/media/youtube-lite';
 import { MatchCard } from '@/components/match/match-card';
 import { BracketView, type BracketData } from '@/components/match/bracket-view';
 import { GroupsView, type GroupsData } from '@/components/match/groups-view';
@@ -609,13 +610,7 @@ export default async function EventDetailPage({
                     className="overflow-hidden rounded-card bg-surface-card shadow-card"
                   >
                     <div className="aspect-video">
-                      <iframe
-                        src={`https://www.youtube-nocookie.com/embed/${v.youtubeId}`}
-                        title={v.title}
-                        allow="accelerometer; clipboard-write; encrypted-media; picture-in-picture"
-                        allowFullScreen
-                        className="h-full w-full"
-                      />
+                      <YoutubeLite id={v.youtubeId} title={v.title} />
                     </div>
                     <h3 className="p-4 font-heading font-bold leading-snug">
                       {v.title}

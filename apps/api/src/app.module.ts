@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { skipInternal } from './common/throttle-skip';
 import { ScheduleModule } from '@nestjs/schedule';
 import { validateEnv } from './config/env.validation';
 import { PrismaModule } from './prisma/prisma.module';
@@ -46,13 +47,16 @@ import { SlowRequestInterceptor } from './common/interceptors/slow-request.inter
     // Global chegara sozlanadigan: musobaqa zalida yuzlab tomoshabin bitta
     // NAT orqasidan kiradi — o'sha IP uchun 100/daq juda tor. Sezgir
     // endpointlar (login, hakam kodi, aloqa formasi) o'z chegarasini saqlaydi.
-    ThrottlerModule.forRoot([
-      {
-        name: 'default',
-        ttl: Number(process.env.THROTTLE_TTL_MS ?? 60_000),
-        limit: Number(process.env.THROTTLE_LIMIT ?? 300),
-      },
-    ]),
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          name: 'default',
+          ttl: Number(process.env.THROTTLE_TTL_MS ?? 60_000),
+          limit: Number(process.env.THROTTLE_LIMIT ?? 300),
+        },
+      ],
+      skipIf: skipInternal,
+    }),
     // Rejalashtirilgan vazifalar (haftalik reyting kesimi)
     ScheduleModule.forRoot(),
     PrismaModule,

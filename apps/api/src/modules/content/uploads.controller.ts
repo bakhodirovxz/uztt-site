@@ -14,6 +14,7 @@ import { mkdirSync, unlinkSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import sharp from 'sharp';
 import { PrismaService } from '../../prisma/prisma.service';
+import { assertRasterImage } from '../../common/raster-image';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import type { AuthUser } from '../../common/types/auth-user';
@@ -87,6 +88,7 @@ export class UploadsController {
     if (!/^image\/(jpeg|png|webp|avif)/.test(file.mimetype)) {
       throw new BadRequestException('Faqat JPEG/PNG/WebP/AVIF');
     }
+    assertRasterImage(file.buffer);
 
     mkdirSync(IMAGES_DIR, { recursive: true });
     const id = randomUUID();
