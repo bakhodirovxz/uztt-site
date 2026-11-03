@@ -14,10 +14,12 @@ const VERSION = 6; // sahifalar shu raqamni tekshiradi: eski server ishlab tursa
 const PUB = path.join(__dirname, 'public');
 const PHOTOS = path.join(PUB, 'players');
 const ADS_DIR = path.join(PUB, 'ads');
-const SAVE = path.join(__dirname, 'state.json');
-const DATA = path.join(__dirname, 'data.json'); // o'yinchilar ro'yxati va qura (o'yinlar jadvali)
-const HIST = path.join(__dirname, 'history.json'); // tugagan o'yinlar + reyting o'zgarishlari (statistika shundan hisoblanadi)
-const ADSF = path.join(__dirname, 'ads.json'); // overlay reklamalari
+// Ma'lumot fayllari: standart — shu papka; prod konteynerida SB_DATA_DIR (kod bilan birga o'chib ketmasin)
+const DATA_DIR = process.env.SB_DATA_DIR || __dirname;
+const SAVE = path.join(DATA_DIR, 'state.json');
+const DATA = path.join(DATA_DIR, 'data.json'); // o'yinchilar ro'yxati va qura (o'yinlar jadvali)
+const HIST = path.join(DATA_DIR, 'history.json'); // tugagan o'yinlar + reyting o'zgarishlari (statistika shundan hisoblanadi)
+const ADSF = path.join(DATA_DIR, 'ads.json'); // overlay reklamalari
 const TIMEOUT_MS = 60000;
 const COURT_COUNT = Math.max(1, Math.min(32, parseInt(process.env.COURTS || '10', 10) || 10)); // nechta stol (planshet/overlay) doim tayyor turadi
 // Faqat 1..COURT_COUNT stollar ("01", "a", "x-1" kabi ixtiyoriy kalitlar xotira va efirni to'ldirmasin)
@@ -52,7 +54,7 @@ function readJson(file, fallback) {
 }
 
 let data = Object.assign({ players: [], matches: [] }, readJson(DATA, {}));
-const pdb = playersdb.create(__dirname, PHOTOS);
+const pdb = playersdb.create(DATA_DIR, PHOTOS);
 
 // ===== Umumiy sozlamalar (hamma stollar uchun) =====
 const defaultMeta = () => ({
@@ -251,7 +253,7 @@ function reconcile(id, oldKey) {
 // ===== Telegram =====
 // telegram.json  {"token":"BOT_TOKEN","chat_id":"-100123..."}  (yoki TG_TOKEN / TG_CHAT muhit o'zgaruvchilari)
 function tgConf() {
-  const c = readJson(path.join(__dirname, 'telegram.json'), {});
+  const c = readJson(path.join(DATA_DIR, 'telegram.json'), {});
   const token = String(process.env.TG_TOKEN || c.token || '').trim();
   const chat = String(process.env.TG_CHAT || c.chat_id || '').trim();
   return token && chat ? { token, chat } : null;
@@ -274,7 +276,7 @@ function tgSend(text, tries) {
         try {
           const j = JSON.parse(out);
           if (r.statusCode === 400 && j.parameters && j.parameters.migrate_to_chat_id && !process.env.TG_CHAT) {
-            const f = path.join(__dirname, 'telegram.json');
+            const f = path.join(DATA_DIR, 'telegram.json');
             const cur = JSON.parse(fs.readFileSync(f, 'utf8'));
             cur.chat_id = String(j.parameters.migrate_to_chat_id);
             fs.writeFileSync(f, JSON.stringify(cur, null, 2) + '\n');

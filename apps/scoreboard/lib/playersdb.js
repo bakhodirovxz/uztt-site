@@ -14,6 +14,11 @@ function norm(s) {
 function create(dir, photosDir) {
   let rows = [];
   try { rows = JSON.parse(fs.readFileSync(path.join(dir, 'players-db.json'), 'utf8')).players || []; } catch (e) { rows = []; }
+  // uid ommaviy JSON'ga chiqadi (/api/public, /api/history, /sb/events). Ba'zi id'lar — haqiqiy PINFL.
+  // Internetga ochiq rejimda (SB_PUBLIC=1) bunday baza bilan ishga tushmaymiz: avval scripts/sanitize-pdb.js.
+  if (process.env.SB_PUBLIC === '1' && rows.some((r) => /\d{14}/.test(String(r.id)))) {
+    throw new Error('players-db.json da PINFL ko\'rinishidagi id bor — scripts/sanitize-pdb.js dan o\'tkazing');
+  }
   const byId = new Map(), byKey = new Map(), bySn = new Map();
   rows.forEach((r) => {
     byId.set(r.id, r);

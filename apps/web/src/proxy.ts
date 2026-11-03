@@ -11,11 +11,10 @@ const intl = createMiddleware(routing);
  * Ichkarida u alohida jarayon (SB_ORIGIN, lokalda standart http://localhost:3101) — yo'llar
  * o'zgarmaydi, shuning uchun tayyor dizayn aynan shu holida qoladi.
  *
- * PRODUCTION'da faqat `SB_ORIGIN` ANIQ berilganda yoqiladi. Prod docker compose'da scoreboard
- * jarayoni yo'q: standart localhost:3101 ga yo'naltirish /tv, /admin, /control kabi yo'llarni
- * 500 xatoga aylantirardi. Bundan tashqari host nginx barcha /api/* ni NestJS'ga yuboradi, ya'ni
- * scoreboard'ning /api/action, /api/settings ... yo'llari prod'da bu yerga umuman yetib kelmaydi.
- * Scoreboard zaldagi kompyuterda ishlaydi va saytga SB_SECRET bilan /api/sb/* orqali ulanadi.
+ * PRODUCTION'da faqat `SB_ORIGIN` ANIQ berilganda yoqiladi (docker-compose.prod.yml: scoreboard
+ * konteyneri). Jarayon bo'lmasa, standart localhost:3101 ga yo'naltirish bu yo'llarni 500 xatoga
+ * aylantirardi. Host nginx /api/* ni NestJS'ga yuboradi, shuning uchun SB_EXACT dagi /api yo'llari
+ * deploy/stoltennis.uz.nginx.conf da alohida yozilgan — ro'yxatni o'zgartirsang, u yerda ham o'zgartir.
  */
 const SB_ORIGIN = (process.env.SB_ORIGIN ?? 'http://localhost:3101').replace(/\/$/, '');
 const SB_ENABLED = !!process.env.SB_ORIGIN || process.env.NODE_ENV !== 'production';

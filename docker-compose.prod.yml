@@ -78,6 +78,8 @@ services:
       args:
         # Brauzer API'ga nginx orqali bir xil domenda murojaat qiladi
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?masalan https://uztt.uz}
+        # Hakam panelida scoreboard planshet havolalari
+        NEXT_PUBLIC_SCOREBOARD: "1"
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -85,6 +87,8 @@ services:
       API_INTERNAL_URL: http://api:4000
       NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-${NEXT_PUBLIC_API_URL}}
       REVALIDATE_SECRET: ${REVALIDATE_SECRET:-}
+      # /tv, /control, /overlay?court=N, /admin — proxy.ts ruxsatni tekshirib shu yerga yo'naltiradi
+      SB_ORIGIN: http://scoreboard:3101
     healthcheck:
       test:
         - CMD
@@ -95,6 +99,34 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # Scoreboard: port OCHILMAYDI, faqat web orqali. Ma'lumot _data/scoreboard da
+  # (players-db.json serverga scripts/sanitize-pdb.js dan o'tib yuklanadi).
+  scoreboard:
+    build:
+      context: ./apps/scoreboard
+    restart: unless-stopped
+    environment:
+      SITE_URL: http://api:4000
+      SITE_ORIGIN: ${WEB_ORIGIN:?WEB_ORIGIN berilishi shart (masalan https://uztt.uz)}
+      SB_SECRET: ${SB_SECRET:-}
+    volumes:
+      - ./_data/scoreboard:/data
+      - ./_data/scoreboard/players:/app/public/players
+      - ./_data/scoreboard/ads:/app/public/ads
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3101/api/public').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     depends_on:
       api:
         condition: service_healthy

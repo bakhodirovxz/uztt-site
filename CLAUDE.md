@@ -238,13 +238,17 @@ atributidan foydalanadi. Yangi root layout qo'shsang, shuni yodda tut.
   dan barcha darajalar OFFICIAL. Batafsil: `QOIDALAR.md`.
 
 ### Zal scoreboard'i (`apps/scoreboard`)
-- Alohida Node jarayoni (planshet/TV/OBS), zaldagi kompyuterda ishlaydi.
-  Prod docker compose'da **yo'q**. Sayt bilan `/api/sb/*` orqali
-  `SB_SECRET` bilan bog'lanadi.
-- `apps/web/src/proxy.ts` uning yo'llarini (`/control`, `/tv`, ...) faqat
-  lokalda yoki `SB_ORIGIN` aniq berilganda yo'naltiradi. Prod'da host
-  nginx `/api/*` ni NestJS'ga yuboradi — scoreboard'ning `/api/action`
-  kabi yo'llari u yerga yetmaydi. Prod'ga chiqarish alohida loyiha.
+- Alohida Node jarayoni (planshet/TV/OBS). Prod'da `scoreboard` konteyneri,
+  port tashqariga ochilmaydi. Sayt bilan `/api/sb/*` orqali `SB_SECRET`
+  bilan bog'lanadi.
+- `apps/web/src/proxy.ts` uning yo'llarini (`/control`, `/tv`, ...) ruxsatni
+  tekshirib `SB_ORIGIN` ga yo'naltiradi. Host nginx `/api/*` ni NestJS'ga
+  yuboradi, shuning uchun `SB_EXACT` dagi `/api` yo'llari nginx konfigida
+  alohida yozilgan — ro'yxat o'zgarsa, ikkalasini ham yangila.
+- Ma'lumot serverda `/opt/uztt/_data/scoreboard` da (gitda yo'q).
+- **Tuzoq:** `players-db.json` dagi ba'zi `id` — haqiqiy PINFL, `uid` esa
+  ommaviy JSON'ga chiqadi. Serverga faqat `scripts/sanitize-pdb.js` dan
+  o'tkazib yukla; aks holda konteyner ishga tushmaydi (`SB_PUBLIC=1`).
 
 ### Prod seed
 `prisma/seed.ts` production'da **ataylab ishlamaydi**. Kerak bo'lsa

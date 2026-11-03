@@ -1,0 +1,6 @@
+# Real ma'lumot image'ga kirmaydi: serverda _data/scoreboard da turadi
+*.json
+public/players
+public/ads
+scripts
+README.md
