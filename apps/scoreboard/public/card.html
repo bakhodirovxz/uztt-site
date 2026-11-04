@@ -10,6 +10,9 @@
 <script>
 // Telegramga yuboriladigan natija rasmi: server shu sahifani 1920x1080 va 1080x1920 da rasmga oladi
 const CARD = /*CARD_JSON*/null;
+// Oyna o'lchamiga tayanmaymiz: headless brauzer sahifani avval pastroq balandlikda ochib, keyin kattalashtiradi
+const V = Q.get('fmt') === 'v';
+document.getElementById('sc').style.cssText = 'position:absolute;left:0;top:0;right:auto;bottom:auto;width:' + (V ? 1080 : 1920) + 'px;height:' + (V ? 1920 : 1080) + 'px;--vu:10.8px';
 if (CARD) Scenes.renderCard(document.getElementById('sc'), CARD);
 else document.getElementById('sc').textContent = 'Kartochka topilmadi';
 </script></body></html>
