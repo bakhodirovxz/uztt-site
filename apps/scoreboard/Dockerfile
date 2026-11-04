@@ -9,7 +9,10 @@ ENV SB_HOST=0.0.0.0
 ENV SB_DATA_DIR=/data
 # PINFL ko'rinishidagi id bilan ishga tushmaydi (lib/playersdb.js)
 ENV SB_PUBLIC=1
+# Telegramga natija rasmi: /card sahifasini brauzer rasmga oladi
+ENV BROWSER_NO_SANDBOX=1
 
+RUN apk add --no-cache chromium font-noto
 WORKDIR /app
 COPY server.js site-bridge.js ./
 COPY lib ./lib

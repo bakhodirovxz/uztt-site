@@ -37,7 +37,7 @@ function render(d) {
 }
 
 let LAST = null;
-Scenes.mount(document.body, { clear: Q.get('clear') === '1' }); // ?clear=1 — fonsiz (videokeyer uchun) // o'yin oldidan o'yinchi statistikasi va o'yindan keyin reyting animatsiyasi
+Scenes.mount(document.body, { clear: Q.get('clear') === '1', big: true }); // ?clear=1 — fonsiz (videokeyer uchun) // o'yin oldidan o'yinchi statistikasi va o'yindan keyin reyting animatsiyasi
 const sceneTick = () => LAST && Scenes.update(Scenes.pick(LAST.courts, { filter: FILTER, meta: LAST.meta }));
 connectAll((d) => { LAST = d; render(d); sceneTick(); });
 setInterval(sceneTick, 500);

@@ -250,6 +250,9 @@ atributidan foydalanadi. Yangi root layout qo'shsang, shuni yodda tut.
   kodsiz boshlanmaydi. Saytda ochkosi bor eski o'yin eski ekranda tugatiladi.
 - Jonli hisob `/api/sb/live` orqali keladi va faqat API xotirasida turadi (`MatchesService.boardStates`): bazaga
   o'yin tugaganda `/api/sb/result` bilan bir marta yoziladi. Shuning uchun jonli o'yin bazada `SCHEDULED` turadi.
+- Efirdagi "Rating update" balli musobaqaning K si bilan hisoblanadi (`/api/sb` eksportidagi `k`). `/tv` katta zal uchun `.scene.big`
+  o'lchamida, overlay va Telegram rasmi oddiy o'lchamda.
+- Telegram: `/opt/uztt/_data/scoreboard/telegram.json` (gitda yo'q, ruxsat 600). Natija rasmini konteynerdagi Chromium oladi.
 - Stollar: `tournaments.table_count`, `main_tables`. Qurada `AssignmentService.autoAssign` -> `TableAssignService.fill`
   (qoidasi `table-plan.ts`). Chegara 10: scoreboard'dagi `COURTS` bilan bir xil.
 - Access token 15 daqiqa: sayt `lib/api.ts`, planshet `public/session.js` orqali yangilaydi, ikkalasi bitta

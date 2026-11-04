@@ -210,7 +210,8 @@ function finalize(id, c) {
   if (meta.ratingOn && !entry.walkover && need(uidsW, c.players[w].name) && need(uidsL, c.players[l].name)) {
     const side = (uids) => { const v = uids.map((u) => liveRating(u, type)); return rating.r2(v.reduce((a, b) => a + b, 0) / v.length); };
     const gr = side(uidsW), yr = side(uidsL);
-    const d = rating.matchDelta(gr, yr, { k: meta.ratingK, loserNonPositive: meta.loserNonPositive, loserNoDeduct: meta.loserNoDeduct });
+    const ratingK = Number.isFinite(c.siteK) ? c.siteK : meta.ratingK; // sayt o'yini: musobaqaning K si
+    const d = rating.matchDelta(gr, yr, { k: ratingK, loserNonPositive: meta.loserNonPositive, loserNoDeduct: meta.loserNoDeduct });
     const changes = [];
     const sidesOut = [w, l].map((s) => {
       const isW = s === w, uids = (isW ? uidsW : uidsL);
@@ -224,10 +225,10 @@ function finalize(id, c) {
       });
       return { won: isW, idx: s, country: c.players[s].country, name: c.players[s].name, given: c.players[s].given, sets: c.players[s].sets, list };
     });
-    hist.ledger.push({ key, ts: c.finishedAt, type, k: meta.ratingK, gr, yr, changes });
+    hist.ledger.push({ key, ts: c.finishedAt, type, k: ratingK, gr, yr, changes });
     entry.rating = { gr, yr, win: d.win, lose: d.lose };
     const from = c.finishedAt + (meta.ratingDelayS || 0) * 1000;
-    rs = { key, from, until: from + meta.ratingS * 1000, type, k: meta.ratingK, gr, yr, sides: sidesOut };
+    rs = { key, from, until: from + meta.ratingS * 1000, type, k: ratingK, gr, yr, sides: sidesOut };
   }
   c.histId = key;
   c.rating = rs;
@@ -346,7 +347,7 @@ function startSiteMatch(court, siteId) {
   m.done = true;
   data.started = data.started || {};
   data.started[siteId] = true;
-  c.siteId = siteId; c.sitePosted = false; c.siteRejected = undefined;
+  c.siteId = siteId; c.sitePosted = false; c.siteRejected = undefined; c.siteK = m.k;
   saveData();
   return { ok: true, started: true };
 }
@@ -388,7 +389,8 @@ function renderCard(key, fmt) {
     try { fs.unlinkSync(out); } catch (e) { /* yo'q */ }
     const args = ['--headless=new', '--disable-gpu', '--hide-scrollbars', '--force-device-scale-factor=1', '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--disable-sync', '--disable-component-update', '--disable-default-apps', '--disable-extensions', '--user-data-dir=' + prof,
       '--window-size=' + w + ',' + h, '--virtual-time-budget=8000', '--screenshot=' + out];
-    if (process.getuid && process.getuid() === 0) args.push('--no-sandbox');
+    // konteynerda sandbox ishlamaydi; faqat o'zimizning /card sahifasi ochiladi
+    if ((process.getuid && process.getuid() === 0) || process.env.BROWSER_NO_SANDBOX) args.push('--no-sandbox', '--disable-dev-shm-usage');
     args.push('http://' + SELF_HOST + ':' + PORT + '/card?key=' + encodeURIComponent(key) + '&fmt=' + fmt + '&feed=0');
     const { spawn } = require('child_process');
     const p = spawn(bin, args, { stdio: 'ignore', windowsHide: true });

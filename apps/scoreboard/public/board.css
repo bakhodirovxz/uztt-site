@@ -179,6 +179,41 @@
   .scene .tp:not(.two) .tpi b{font-size:calc(4.6*var(--vu))}.scene .tp:not(.two) .tpi b.sm{font-size:calc(4*var(--vu))}.scene .tp:not(.two) .tpi b.xs{font-size:calc(3.2*var(--vu))}
 }
 
+/* Yakuniy kadr: har setdagi ochko */
+.scene .tp-sets{padding:calc(.8*var(--vu)) calc(1.6*var(--vu)) calc(1.2*var(--vu));background:rgba(0,0,0,.25);border-bottom:calc(.2*var(--vu)) solid rgba(255,255,255,.1);animation:scFade .5s .3s both}
+.scene .tp-setn,.scene .tp-setr{display:grid;grid-template-columns:minmax(0,1fr) repeat(var(--n),calc(6.6*var(--vu)));align-items:center;text-align:center}
+.scene .tp-setn i{font-style:normal;font-size:calc(1.9*var(--vu));font-weight:700;color:#9a9ea5}
+.scene .tp-setr{height:calc(5*var(--vu))}
+.scene .tp-setr b{text-align:left;font-size:calc(2.6*var(--vu));font-weight:800;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.scene .tp-setr.w b,.scene .tp-setr span.gw{color:#c6f06a}
+.scene .tp-setr span{font-size:calc(3.6*var(--vu));font-weight:900;font-variant-numeric:tabular-nums}
+.scene .tp.rt .tp-rec small{display:none}
+/* TV: katta zal, 55 dyuym. Overlay va Telegram rasmi o'zgarmaydi */
+@media (min-aspect-ratio:1/1){
+  .scene.big .tp{grid-template-columns:minmax(0,1fr) 46vw minmax(0,1fr)}
+  .scene.big .tp:not(.two) .tpi b{font-size:calc(5*var(--vu))}
+  .scene.big .tp:not(.two) .tpi b.sm{font-size:calc(4.2*var(--vu))}
+  .scene.big .tp:not(.two) .tpi b.xs{font-size:calc(3.4*var(--vu))}
+  .scene.big .tp-head{padding-top:calc(3.2*var(--vu));padding-bottom:calc(1.2*var(--vu))}
+  .scene.big .tp-head i{font-size:calc(2.8*var(--vu))}
+  .scene.big .tp-head u.sc{font-size:calc(6.4*var(--vu))}
+  .scene.big .tp-row{height:calc(9*var(--vu));grid-template-columns:1fr calc(13*var(--vu)) 1fr}
+  .scene.big .tp-row span{font-size:calc(5.8*var(--vu))}
+  .scene.big .tp-row em{font-size:calc(2.5*var(--vu))}
+  .scene.big .tp-chip{font-size:calc(7*var(--vu));line-height:1.1;padding:0 calc(1.6*var(--vu));animation-delay:1.2s}
+  .scene.big .rkch{animation-delay:1.4s}
+  .scene.big .tp-setn,.scene.big .tp-setr{grid-template-columns:minmax(0,1fr) repeat(var(--n),calc(8.4*var(--vu)))}
+  .scene.big .tp-setn i{font-size:calc(2.4*var(--vu))}
+  .scene.big .tp-setr{height:calc(6.8*var(--vu))}
+  .scene.big .tp-setr b{font-size:calc(3.3*var(--vu))}
+  .scene.big .tp-setr span{font-size:calc(5.4*var(--vu))}
+  .scene.big .tp.rt .tp-lb{display:none}
+  .scene.big .tp.rt .tp-rec{flex-wrap:wrap;row-gap:calc(.3*var(--vu));font-size:calc(3.2*var(--vu))}
+  .scene.big .tp.rt .tp-rec em.g,.scene.big .tp.rt .tp-rec em.r,.scene.big .tp.rt .tp-rec em{font-size:calc(5.6*var(--vu));line-height:1.05}
+  .scene.big .tp.rt .tp-rec small{display:block;flex:0 0 100%;text-align:center;font-weight:800;color:#fff}
+  .scene.big .tp-rec{font-size:calc(3.4*var(--vu))}
+}
+
 /* ===== Overlay reklamalari ===== */
 .adlayer{position:fixed;inset:0;z-index:40;display:none;background:#000;overflow:hidden}
 .adlayer.on{display:block}

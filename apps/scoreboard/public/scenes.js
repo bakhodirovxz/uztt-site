@@ -13,7 +13,7 @@ const Scenes = (() => {
   function mount(root, opt) {
     CLEAR = !!(opt && opt.clear);
     el = document.createElement('div');
-    el.className = 'scene tvbg';
+    el.className = 'scene tvbg' + (opt && opt.big ? ' big' : '');
     (root || document.body).appendChild(el);
     return el;
   }
@@ -132,7 +132,7 @@ const Scenes = (() => {
     const sides = c.rating.sides.slice().sort((x, y) => x.idx - y.idx);
     const view = (sd) => sd.list.map((p) => Object.assign({}, p, { rating: p.after, rank: p.rankAfter, played: 0, won: 0, lost: 0 }));
     const two = sides[0].list.length > 1 || sides[1].list.length > 1;
-    const plr = (sd, side) => view(sd).map((p) => tapePlayer(p, side).replace('<div class="tp-rec">', '<div class="tp-rec">' + '').replace(/<div class="tp-rec">[\s\S]*<\/div>$/, '<div class="tp-rec">' + (p.country && flagUrl(p.country) ? '<img src="' + flagUrl(p.country) + '" alt="">' : '') + '<em class="' + (p.delta > 0 ? 'g' : p.delta < 0 ? 'r' : '') + '">' + sgn(p.delta) + '</em></div></div>')
+    const plr = (sd, side) => view(sd).map((p) => tapePlayer(p, side).replace('<div class="tp-rec">', '<div class="tp-rec">' + '').replace(/<div class="tp-rec">[\s\S]*<\/div>$/, '<div class="tp-rec">' + (p.country && flagUrl(p.country) ? '<img src="' + flagUrl(p.country) + '" alt="">' : '') + '<em class="' + (p.delta > 0 ? 'g' : p.delta < 0 ? 'r' : '') + '">' + sgn(p.delta) + '</em><small>' + fmt(p.before) + ' → ' + fmt(p.after) + '</small></div></div>')
       .replace('<div class="tp-ph">', (sd.won ? '<div class="tp-win">' + L.winner + '</div>' : '') + '<div class="tp-ph">')).join('');
     const joinV = (sd, f) => sd.list.map(f).join(' / ');
     const cnt = (p) => '<span class="cnt" data-from="' + p.before + '" data-to="' + p.after + '" data-dec="2" data-delay="700" data-dur="2300">' + fmt(p.before) + '</span>';
@@ -151,10 +151,13 @@ const Scenes = (() => {
         + '<span>' + (p.country && flagUrl(p.country) ? '<img src="' + flagUrl(p.country) + '" alt="">' : '') + '<b>' + esc(p.name) + '</b></span><em class="cnt" data-from="' + p.before + '" data-to="' + p.after + '" data-dec="2" data-delay="700" data-dur="2300">' + fmt(p.before) + '</em></div>';
     }).join('');
     const sc = c.players[0].sets + ' – ' + c.players[1].sets;
+    const games = c.sets || [];
+    const gameRow = (i) => '<div class="tp-setr' + (c.players[i].sets > c.players[1 - i].sets ? ' w' : '') + '"><b>' + esc(c.players[i].name) + '</b>' + games.map((g) => '<span class="' + (g[i] > g[1 - i] ? 'gw' : '') + '">' + g[i] + '</span>').join('') + '</div>';
+    const gamesHtml = games.length ? '<div class="tp-sets" style="--n:' + games.length + '"><div class="tp-setn"><i></i>' + games.map((g, i) => '<i>' + (i + 1) + '</i>').join('') + '</div>' + gameRow(0) + gameRow(1) + '</div>' : '';
     return '<div class="tp rt' + (two ? ' two' : '') + '">'
       + '<div class="tp-side L">' + plr(sides[0], 'L') + '</div>'
       + '<div class="tp-center"><div class="tp-tab">' + esc(meta && meta.title1 ? meta.title1 : c.table) + '</div>'
-      + '<div class="tp-head"><b>' + L.upd + '</b><i>' + esc([c.category, c.round].filter(Boolean).join(' · ')) + '</i><u class="sc">' + esc(sc) + '</u></div>'
+      + '<div class="tp-head"><b>' + L.upd + '</b><i>' + esc([c.category, c.round].filter(Boolean).join(' · ')) + '</i><u class="sc">' + esc(sc) + '</u></div>' + gamesHtml
       + rows.map((r, i) => '<div class="tp-row" style="animation-delay:' + (0.4 + i * 0.1) + 's"><span class="' + (two ? 'lg' : '') + '">' + r[1](sides[0]) + '</span><em>' + r[0] + '</em><span class="' + (two ? 'lg' : '') + '">' + r[1](sides[1]) + '</span></div>').join('')
       + '<div class="tp-lb"><div class="tp-lbh">' + L.lb + '</div>' + lb + '</div></div>'
       + '<div class="tp-side R">' + plr(sides[1], 'R') + '</div></div>';
@@ -218,7 +221,7 @@ const Scenes = (() => {
       + '<div class="tp-side R">' + plr(sides[1], 'R') + '</div></div>';
   }
   function renderCard(root, card) {
-    const pseudo = { table: card.table, category: card.category, round: card.round, players: card.players, rating: card.rating };
+    const pseudo = { table: card.table, category: card.category, round: card.round, players: card.players, sets: card.sets, rating: card.rating };
     root.classList.add('static');
     root.innerHTML = '<div class="sc-wrap">' + (card.rating ? tapeRatingHtml(pseudo, card.meta) : tapeResultHtml(card, card.meta)) + '</div>';
     root.querySelectorAll('.cnt').forEach((n) => { const d = parseInt(n.dataset.dec, 10), v = parseFloat(n.dataset.to); n.textContent = d ? v.toFixed(d) : String(Math.round(v)); });

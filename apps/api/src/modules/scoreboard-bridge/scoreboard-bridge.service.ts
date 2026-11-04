@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, Injectable, Logger, Unprocessab
 import { MatchStage } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MatchesService } from '../matches/matches.service';
+import { tournamentK } from '../rankings/rating.engine';
 import { planReplay } from './replay-plan';
 import type { SbLiveDto } from './dto';
 
@@ -40,7 +41,13 @@ export class ScoreboardBridgeService {
       where: { tournamentId: { in: ids }, player1Id: { not: null }, player2Id: { not: null } },
       orderBy: [{ tableNumber: { sort: 'asc', nulls: 'last' } }, { scheduledAt: 'asc' }, { createdAt: 'asc' }],
       include: {
-        tournament: { select: { name: true } },
+        tournament: {
+          select: {
+            name: true,
+            level: { select: { ratingK: true } },
+            ageCategory: { select: { code: true } },
+          },
+        },
         player1: { select: { firstName: true, lastName: true } },
         player2: { select: { firstName: true, lastName: true } },
       },
@@ -58,6 +65,7 @@ export class ScoreboardBridgeService {
         category: m.tournament.name.toUpperCase(),
         round: STAGE_LABEL[m.stage as MatchStage] ?? String(m.stage),
         bestOf: m.bestOf,
+        k: tournamentK(m.tournament.level.ratingK, m.tournament.ageCategory?.code),
         p: [p(m.player1), p(m.player2)],
         done: m.status === 'FINISHED',
         verified: !!m.refereeVerifiedAt,
