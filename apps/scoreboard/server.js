@@ -7,6 +7,7 @@ const https = require('https');
 const zlib = require('zlib');
 const crypto = require('crypto');
 const rating = require('./lib/rating');
+const { shot } = require('./lib/cardshot');
 const playersdb = require('./lib/playersdb');
 
 const PORT = process.env.PORT || 3100; // 3000 emas: boshqa dasturlar/eski versiya bilan to'qnashmasligi uchun
@@ -380,24 +381,20 @@ const limited = (fn) => new Promise((res) => {
 });
 function pngSize(file) { const b = fs.readFileSync(file); return b.readUInt32BE(16) + 'x' + b.readUInt32BE(20); }
 function renderCard(key, fmt) {
-  return limited(() => new Promise((resolve) => {
+  return limited(async () => {
     const bin = findBrowser();
-    if (!bin) { console.log("Telegram rasm: Edge/Chrome topilmadi (BROWSER_PATH ni belgilang) — faqat matn yuboriladi"); return resolve(null); }
-    const [w, h] = fmt === 'v' ? [1080, 1920] : [1920, 1080];
+    if (!bin) { console.log("Telegram rasm: Edge/Chrome topilmadi (BROWSER_PATH ni belgilang) — faqat matn yuboriladi"); return null; }
+    const [width, height] = fmt === 'v' ? [1080, 1920] : [1920, 1080];
     const out = path.join(os.tmpdir(), 'sbcard-' + key.replace(/[^\w-]/g, '') + '-' + fmt + '.png');
-    const prof = fs.mkdtempSync(path.join(os.tmpdir(), 'sbshot-'));
-    try { fs.unlinkSync(out); } catch (e) { /* yo'q */ }
-    const args = ['--headless=new', '--disable-gpu', '--hide-scrollbars', '--force-device-scale-factor=1', '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--disable-sync', '--disable-component-update', '--disable-default-apps', '--disable-extensions', '--user-data-dir=' + prof,
-      '--window-size=' + w + ',' + h, '--virtual-time-budget=8000', '--screenshot=' + out];
+    const url = 'http://' + SELF_HOST + ':' + PORT + '/card?key=' + encodeURIComponent(key) + '&fmt=' + fmt + '&feed=0';
     // konteynerda sandbox ishlamaydi; faqat o'zimizning /card sahifasi ochiladi
-    if ((process.getuid && process.getuid() === 0) || process.env.BROWSER_NO_SANDBOX) args.push('--no-sandbox', '--disable-dev-shm-usage');
-    args.push('http://' + SELF_HOST + ':' + PORT + '/card?key=' + encodeURIComponent(key) + '&fmt=' + fmt + '&feed=0');
-    const { spawn } = require('child_process');
-    const p = spawn(bin, args, { stdio: 'ignore', windowsHide: true });
-    const timer = setTimeout(() => p.kill(), 40000);
-    const done = () => { clearTimeout(timer); fs.rm(prof, { recursive: true, force: true }, () => {}); resolve(fs.existsSync(out) && fs.statSync(out).size > 5000 ? out : null); };
-    p.on('exit', done); p.on('error', () => { console.log('Telegram rasm: brauzer ishga tushmadi'); done(); });
-  }));
+    const noSandbox = !!((process.getuid && process.getuid() === 0) || process.env.BROWSER_NO_SANDBOX);
+    for (let i = 0; i < 2; i++) { // sahifa tayyor bo'lmasa bir marta qayta urinamiz
+      try { fs.unlinkSync(out); } catch (e) { /* yo'q */ }
+      if (await shot({ bin, url, width, height, out, noSandbox }) && fs.existsSync(out)) return out;
+    }
+    return null;
+  });
 }
 function tgPhoto(file, caption, tries) {
   const conf = tgConf();
