@@ -199,6 +199,7 @@
   .scene.big .tp-head u.sc{font-size:calc(6.4*var(--vu))}
   .scene.big .tp-row{height:calc(9*var(--vu));grid-template-columns:1fr calc(13*var(--vu)) 1fr}
   .scene.big .tp-row span{font-size:calc(5.8*var(--vu))}
+  .scene.big .tp-row span.lg{font-size:calc(3.8*var(--vu))}
   .scene.big .tp-row em{font-size:calc(2.5*var(--vu))}
   .scene.big .tp-chip{font-size:calc(7*var(--vu));line-height:1.1;padding:0 calc(1.6*var(--vu));animation-delay:1.2s}
   .scene.big .rkch{animation-delay:1.4s}
