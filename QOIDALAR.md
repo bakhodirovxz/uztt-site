@@ -42,7 +42,7 @@ Belgilar: ✅ bajarildi (kod + test) · 🟡 qisman · ⬜ hali yo'q · ➖ dast
 | Band | Qoida | Holat |
 |---|---|---|
 | 3.4.4.2 | Taym-aut: har o'yinchiga 1 marta, 1 daqiqa | ✅ API + hakam tugmasi + TV va overlayda KATTA panel (hisoblagich ≈175 px) |
-| 3.5.2.2–4 | Sariq ogohlantirish; 2-qoidabuzarlik — raqibga 1 ochko; 3-sida 2 ochko; 4-sida bosh hakamga xabar | ✅ `matches.service.card` |
+| 3.5.2.2–4 | Sariq ogohlantirish; 2-qoidabuzarlik — raqibga 1 ochko; 3-sida 2 ochko; 4-sida bosh hakamga xabar | ✅ `matches.service.card`, planshet `server.js` (`card`); bosh hakamga xabar ogohlantirishi planshetda yo'q |
 | 3.5.2.8–10 | Bosh hakam diskvalifikatsiyasi (o'yin / musobaqa) | 🟡 o'yin bo'yicha ✅; "ikki o'yinda diskvalifikatsiya = turdan chiqarish" avtomatik emas |
 | 3.5.2.11 | Diskvalifikatsiyada medal/ball/pul olib tashlanadi | 🟡 jarima (Ж) qo'lda `/penalty` |
 | 3.3 | Protestlar: faqat o'yinchi, faqat talqin/tashkiliy masala | ✅ `appeals` (o'yin FAKTI bo'yicha protest — qabul qilinmaydi: 3.3.2, matn shartida) |

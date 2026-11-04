@@ -664,11 +664,14 @@ function apply(id, a) {
     case 'introhide':
       c.intro = null;
       break;
-    case 'card': { // sariq: ogohlantirish (belgi); qizil: raqibga +1 ball
+    case 'card': { // sariq: ogohlantirish (belgi); qizil: jarima ochkolari raqibga
       if (c.winner !== null) break;
       const cd = c.cards[side];
       if (a.color === 'y') cd.y = cd.y ? 0 : 1;
-      else if (a.color === 'r') { cd.r++; c.endsNote = null; c.intro = null; c.players[1 - side].points++; afterPoint(c); }
+      else if (a.color === 'r') { // 3.5.2.3-4: birinchi jarima 1 ochko, keyingisi 2 ochko; undan keyin ochko berilmaydi, bosh hakamga xabar
+        cd.r++; c.endsNote = null; c.intro = null;
+        for (let n = cd.r === 1 ? 1 : cd.r === 2 ? 2 : 0; n > 0 && c.winner === null; n--) { c.players[1 - side].points++; afterPoint(c); }
+      }
       break;
     }
     case 'walkover': // texnik g'alaba: side g'olib
