@@ -27,9 +27,10 @@ export function LiveTicker({ initial = [] }: { initial?: MatchPayload[] }) {
         .get<MatchPayload[]>('/matches/live')
         .then((ms) => active && setMatches(ms))
         .catch(() => {});
-    // Server ma'lumoti bor bo'lsa darhol qayta so'ramaymiz — 30 soniyada yangilanadi
+    // Server ma'lumoti bor bo'lsa darhol qayta so'ramaymiz — 10 soniyada yangilanadi.
+    // Yangi o'yin haqida socket xabar bermaydi: u faqat ro'yxatdagi o'yinlarga obuna.
     if (initial.length === 0) load();
-    const interval = setInterval(load, 30_000);
+    const interval = setInterval(load, 10_000);
     return () => {
       active = false;
       clearInterval(interval);

@@ -22,7 +22,7 @@ export default function LivePage() {
         .catch(() => active && setMatches([]));
     load();
     // Yangi jonli o'yinlar paydo bo'lishini davriy tekshiramiz
-    const interval = setInterval(load, 30_000);
+    const interval = setInterval(load, 10_000);
     return () => {
       active = false;
       clearInterval(interval);
