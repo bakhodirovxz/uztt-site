@@ -59,10 +59,10 @@ const pdb = playersdb.create(DATA_DIR, PHOTOS);
 
 // ===== Umumiy sozlamalar (hamma stollar uchun) =====
 const defaultMeta = () => ({
-  title1: 'PREZIDENT OLIMPIADASI 2026', title2: 'STOL TENNISI',
+  title1: "O'ZBEKISTON STOL TENNISI FEDERATSIYASI", title2: 'STOL TENNISI', // sayt ulangan bo'lsa title1 o'rniga musobaqa nomi keladi
   introOn: true, introS: 22, // o'yinchilar statistikasi: yoqilgan, necha soniya
   ratingOn: true, ratingS: 14, ratingDelayS: 4, // o'yindan keyin reyting yangilanishi animatsiyasi
-  ratingK: 1, loserNonPositive: true, loserNoDeduct: true, // К koeffitsienti; mag'lubga musbat ball berilmasin; mag'lubdan ball ayirilmasin
+  ratingK: 1, loserNonPositive: true, loserNoDeduct: false, // К koeffitsienti; mag'lubga musbat ball berilmasin; mag'lubdan ball ayirilmasin
 });
 
 const defaults = (id) => ({
@@ -107,7 +107,7 @@ let courts = {};
     courts = Object.fromEntries(Object.entries(saved.courts).filter(([k]) => validCourt(k)));
     meta = Object.assign(defaultMeta(), saved.meta || {});
     // eski standart sarlavha (ITTF-ATTU ...) saqlanib qolgan bo'lsa, yangisiga almashtiramiz
-    if (/ITTF|ATTU|Tashkent 2026/i.test((meta.title1 || '') + (meta.title2 || ''))) { const d = defaultMeta(); meta.title1 = d.title1; meta.title2 = d.title2; }
+    if (/ITTF|ATTU|Tashkent 2026|PREZIDENT OLIMPIADASI/i.test((meta.title1 || '') + (meta.title2 || ''))) { const d = defaultMeta(); meta.title1 = d.title1; meta.title2 = d.title2; }
   }
 }
 
@@ -212,7 +212,8 @@ function finalize(id, c) {
     const side = (uids) => { const v = uids.map((u) => liveRating(u, type)); return rating.r2(v.reduce((a, b) => a + b, 0) / v.length); };
     const gr = side(uidsW), yr = side(uidsL);
     const ratingK = Number.isFinite(c.siteK) ? c.siteK : meta.ratingK; // sayt o'yini: musobaqaning K si
-    const d = rating.matchDelta(gr, yr, { k: ratingK, loserNonPositive: meta.loserNonPositive, loserNoDeduct: meta.loserNoDeduct });
+    // Sayt o'yini: Nizom 19-band bo'yicha mag'lubdan ayiriladi, efir saytdagi hisobdan farq qilmasin
+    const d = rating.matchDelta(gr, yr, { k: ratingK, loserNonPositive: meta.loserNonPositive, loserNoDeduct: c.siteId ? false : meta.loserNoDeduct });
     const changes = [];
     const sidesOut = [w, l].map((s) => {
       const isW = s === w, uids = (isW ? uidsW : uidsL);
@@ -235,7 +236,7 @@ function finalize(id, c) {
   c.rating = rs;
   // Telegramga yuboriladigan natija kartochkasi (o'yin tugagan paytdagi holat; keyingi o'yin boshlansa ham o'zgarmaydi)
   cards.set(key, {
-    key, ts: c.finishedAt, meta: { title1: meta.title1, title2: meta.title2 }, table: c.table, category: c.category, round: c.round,
+    key, ts: c.finishedAt, meta: { title1: c.siteTitle || meta.title1, title2: meta.title2 }, table: c.table, category: c.category, round: c.round,
     players: c.players.map((p) => ({ name: p.name, given: p.given, country: p.country, sets: p.sets })), sets: entry.sets, winner: w,
     tie: c.showTie ? c.tie.slice() : null, rating: rs,
     sides: c.players.map((p, s) => ({ won: s === w, idx: s, list: Array.from({ length: sideSize(p) }, (_, k) => cardFor(p, k, type)) })),
@@ -348,7 +349,7 @@ function startSiteMatch(court, siteId) {
   m.done = true;
   data.started = data.started || {};
   data.started[siteId] = true;
-  c.siteId = siteId; c.sitePosted = false; c.siteRejected = undefined; c.siteK = m.k;
+  c.siteId = siteId; c.sitePosted = false; c.siteRejected = undefined; c.siteK = m.k; c.siteTitle = m.tournament;
   saveData();
   return { ok: true, started: true };
 }
@@ -905,10 +906,10 @@ const server = http.createServer((req, res) => {
           data.matches[act.matchId].done = true;
           const sid = data.matches[act.matchId].siteId; // sayt o'yini: natija tugagach saytga yuboriladi
           const cc = getCourt(court);
-          cc.siteId = sid || undefined; cc.sitePosted = false;
+          cc.siteId = sid || undefined; cc.sitePosted = false; cc.siteK = data.matches[act.matchId].k; cc.siteTitle = data.matches[act.matchId].tournament;
           if (sid) { data.started = data.started || {}; data.started[sid] = true; }
           saveData();
-        } else if (act.type === 'start' || act.type === 'newmatch') { const cc = getCourt(court); cc.siteId = undefined; cc.sitePosted = false; }
+        } else if (act.type === 'start' || act.type === 'newmatch') { const cc = getCourt(court); cc.siteId = undefined; cc.sitePosted = false; cc.siteK = undefined; cc.siteTitle = undefined; }
         reportFinished();
         persist();
         broadcast(court);
@@ -1109,7 +1110,7 @@ if (data.players.length && data.players.some((p) => p.uid === undefined)) { link
 
 if (require.main === module) {
   server.listen(PORT, HOST, () => {
-    siteBridge = require('./site-bridge').start({ getData: () => data, linkPlayers, relinkMatches, saveData, courts: () => courts, persist });
+    siteBridge = require('./site-bridge').start({ setTitle: (t) => { const v = str(t, 80); if (v && v !== meta.title1) { meta.title1 = v; persist(); broadcast(); } }, getData: () => data, linkPlayers, relinkMatches, saveData, courts: () => courts, persist });
     const lan = HOST !== '127.0.0.1' && HOST !== 'localhost' && HOST !== '::1';
     const ips = !lan ? [] : HOST === '0.0.0.0' || HOST === '::'
       ? Object.values(os.networkInterfaces()).flat().filter((i) => i.family === 'IPv4' && !i.internal).map((i) => i.address)

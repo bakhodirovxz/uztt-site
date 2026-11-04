@@ -125,6 +125,7 @@ export default function AdminTournamentsPage() {
   const [matches, setMatches] = useState<AdminMatch[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [finishAsk, setFinishAsk] = useState(false);
 
   const [newTournamentOpen, setNewTournamentOpen] = useState(false);
   const [tForm, setTForm] = useState({
@@ -227,6 +228,21 @@ export default function AdminTournamentsPage() {
       await api.put(`/matches/${matchId}`, { tableNumber: Number(value) });
       setMsg(`${value}-stol belgilandi`);
       if (selected) loadMatches(selected.id);
+    } catch (e) {
+      fail(e);
+    }
+  }
+
+  /** Musobaqani yakunlaydi: ro'yxatda "yakunlangan" bo'ladi, hakam va TV uni boshqa olmaydi */
+  async function finishTournament(t: Tournament) {
+    setError(null);
+    try {
+      await api.put(`/tournaments/${t.id}`, { status: 'FINISHED' });
+      setFinishAsk(false);
+      setMsg(`"${t.name}" yakunlandi`);
+      const rows = await api.get<Tournament[]>('/tournaments');
+      setTournaments(rows);
+      setSelected(rows.find((x) => x.id === t.id) ?? null);
     } catch (e) {
       fail(e);
     }
@@ -507,6 +523,8 @@ export default function AdminTournamentsPage() {
                 <span className="text-sm">
                   {selected.status === 'LIVE' ? (
                     <b className="text-live">● Joriy musobaqa</b>
+                  ) : selected.status === 'FINISHED' ? (
+                    <b>Yakunlangan</b>
                   ) : (
                     <span className="text-muted">Bu musobaqa joriy emas</span>
                   )}
@@ -519,8 +537,28 @@ export default function AdminTournamentsPage() {
                   variant={selected.status === 'LIVE' ? 'ghost' : 'primary'}
                   onClick={() => setCurrent(selected, selected.status !== 'LIVE')}
                 >
-                  {selected.status === 'LIVE' ? 'Joriy emas qilish' : 'Joriy qilish'}
+                  {selected.status === 'LIVE' ? 'Joriy emas qilish' : selected.status === 'FINISHED' ? 'Qayta ochish' : 'Joriy qilish'}
                 </Button>
+                {selected.status !== 'FINISHED' &&
+                  (finishAsk ? (
+                    <>
+                      <span className="text-xs font-semibold">
+                        {matches.some((m) => m.status !== 'FINISHED')
+                          ? 'Tugamagan o‘yinlar bor. Baribir yakunlaysizmi?'
+                          : 'Musobaqani yakunlaysizmi?'}
+                      </span>
+                      <Button size="sm" variant="primary" onClick={() => finishTournament(selected)}>
+                        Ha, yakunlash
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setFinishAsk(false)}>
+                        Bekor qilish
+                      </Button>
+                    </>
+                  ) : (
+                    <Button size="sm" variant="ghost" onClick={() => setFinishAsk(true)}>
+                      Musobaqani yakunlash
+                    </Button>
+                  ))}
               </div>
               <Card
                 title={`2 · Guruhlar — ${selected.name}`}

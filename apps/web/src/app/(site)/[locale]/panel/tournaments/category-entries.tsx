@@ -98,11 +98,11 @@ export function CategoryEntries({
     }
   }
 
-  const [plan, setPlan] = useState<{ firstRound: Array<{ n: number; a: string | null; b: string | null }>; status: string } | null>(null);
+  const [plan, setPlan] = useState<{ firstRound: Array<{ n: number; a: string | null; b: string | null }>; status: string; finished: boolean; lot: boolean } | null>(null);
   const loadPlan = useCallback(() => {
     api
-      .get<{ status: string; bracketPlan?: { firstRound: Array<{ n: number; a: string | null; b: string | null }> } }>(`/groups/category/${categoryId}?t=${Date.now()}`)
-      .then((v) => setPlan(v.bracketPlan ? { firstRound: v.bracketPlan.firstRound, status: v.status } : null))
+      .get<{ status: string; allMatchesFinished?: boolean; groups?: Array<{ lotAtBoundary?: boolean }>; bracketPlan?: { firstRound: Array<{ n: number; a: string | null; b: string | null }> } }>(`/groups/category/${categoryId}?t=${Date.now()}`)
+      .then((v) => setPlan(v.bracketPlan ? { firstRound: v.bracketPlan.firstRound, status: v.status, finished: !!v.allMatchesFinished, lot: !!v.groups?.some((g) => g.lotAtBoundary) } : null))
       .catch(() => setPlan(null));
   }, [categoryId]);
   useEffect(loadPlan, [loadPlan]);
@@ -122,6 +122,23 @@ export function CategoryEntries({
           ? `Qura o'tkazildi: ${r.players} o'yinchi ${r.groupCount} ta guruhga bo'lindi (har guruhdan ${r.advancing} tadan setkaga chiqadi). O'yinlar va hakamlar avtomatik yaratildi.`
           : `Qura o'tkazildi: ${r.players} o'yinchi uchun setka yaratildi. O'yinlar va hakamlar avtomatik yaratildi.`,
       );
+      loadPlan();
+      onChanged?.();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : String(e));
+    } finally {
+      setDrawing(false);
+    }
+  }
+
+  /** Guruh bosqichi tugagach setkani yaratadi. acceptLot: chegaradagi tenglik jereb bilan hal qilingani tasdiqlanadi (4.2.4) */
+  async function advance(acceptLot: boolean) {
+    setError(null);
+    setDrawMsg(null);
+    setDrawing(true);
+    try {
+      await api.post(`/groups/category/${categoryId}/advance${acceptLot ? '?acceptLot=1' : ''}`, {});
+      setDrawMsg("Setka yaratildi: o'yinlar va stollar pastdagi ro'yxatda.");
       loadPlan();
       onChanged?.();
     } catch (e) {
@@ -186,6 +203,33 @@ export function CategoryEntries({
                 <span>{r.b ?? 'BYE'}</span>
               </div>
             ))}
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              disabled={drawing || !plan.finished || plan.lot}
+              onClick={() => advance(false)}
+              className="rounded-md bg-accent-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+            >
+              Setkaga o‘tkazish
+            </button>
+            {plan.finished && plan.lot && (
+              <button
+                type="button"
+                disabled={drawing}
+                onClick={() => advance(true)}
+                className="rounded-md border border-accent-600 px-4 py-2 text-sm font-bold text-accent-700 disabled:opacity-50"
+              >
+                Jereb natijasini tasdiqlab o‘tkazish
+              </button>
+            )}
+            <span className="text-xs text-muted">
+              {!plan.finished
+                ? 'Guruh o‘yinlari tugagach ochiladi.'
+                : plan.lot
+                  ? 'Chiqish chegarasidagi tenglikni jereb hal qildi: guruh jadvalini tekshirib, bosh hakam tasdiqlaydi.'
+                  : 'Guruhlar tugadi: g‘oliblar setka rejasi bo‘yicha joylashadi.'}
+            </span>
           </div>
         </div>
       )}

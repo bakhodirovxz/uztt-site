@@ -5,7 +5,7 @@
 //  G'olib (2-formula):  ΔG = (100 − (GR − YR)) / 10        GR − YR > 100 bo'lsa ball yo'q (0)
 //  Mag'lub (3-formula): ΔY = −(100 − (GR − YR)) / 20       (pastki chegarasi hujjatda yo'q)
 //  20-band: reytinglari teng bo'lsa g'olibga +10, mag'lubga −10.
-//  Ayirish o'chirilgan bo'lsa (loserNoDeduct, standart) mag'lubning balli o'zgarmaydi — faqat g'olib ball oladi.
+//  Ayirish o'chirilgan bo'lsa (loserNoDeduct, saytsiz zal uchun sozlama) mag'lubning balli o'zgarmaydi. Sayt o'yinida doim ayiriladi.
 //  GR — g'olibning, YR — mag'lubning o'yin oldidagi reytingi.
 //  Yakuniy 1-formula (Р = ЖР + К·МРБ − Ж + Б): bu yerda faqat К·МРБ qismi (o'yin natijasi) hisoblanadi;
 //  Б (o'rin bonusi) va Ж (jarima) musobaqa tugagach saytda qo'llanadi.

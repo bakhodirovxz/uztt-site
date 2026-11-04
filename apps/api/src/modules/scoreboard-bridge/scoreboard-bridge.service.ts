@@ -58,10 +58,12 @@ export class ScoreboardBridgeService {
       country: 'UZB',
     });
     return {
+      title: rows[0]?.tournament.name ?? null,
       players: [] as unknown[],
       matches: rows.map((m) => ({
         siteId: m.id,
         table: m.tableNumber ? String(m.tableNumber) : '',
+        tournament: m.tournament.name,
         category: m.tournament.name.toUpperCase(),
         round: STAGE_LABEL[m.stage as MatchStage] ?? String(m.stage),
         bestOf: m.bestOf,

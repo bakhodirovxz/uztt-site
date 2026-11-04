@@ -292,6 +292,7 @@ Konfig ikki joyda: `deploy/nginx.conf` (compose uchun) va
 - IP chegarasi: `uztt_page`, `uztt_api`, `uztt_login`, `uztt_conn`. Chegaralar ataylab keng: zal va mobil operator NAT.
 - Qisqa kesh: mehmon sahifasi 10 s, ommaviy API 2 s. `uztt_at`/`uztt_rt` cookie'si borlar keshdan o'tmaydi.
   Keshlangan yo'lga `Set-Cookie` qo'shma, u yashiriladi. Natija: `X-Cache-Status` sarlavhasi.
+- Cloudflare: `set_real_ip_from` ro'yxati va `real_ip_header CF-Connecting-IP` konfigda. Serverning o'zi (127.0.0.1) IP chegarasidan ozod: yuklama sinovi shu yerdan.
 - Skanerlarga 444, `deploy/fail2ban` 10 daqiqada 20 tasidan keyin IP ni 1 soatga bloklaydi (zal Wi-Fi bitta manzil, shuning uchun yumshoq). Serverga o'rnatiladigan fayllar: `deploy/fail2ban/`, `deploy/sysctl-uztt.conf`.
 - CSP majburiy (`next.config.ts`). Yangi tashqi manzil kerak bo'lsa, u yerga qo'sh, aks holda brauzer bloklaydi.
 - 18 yoshgacha o'yinchi sahifasi `noindex`, sitemap'da yo'q, JSON-LD'siz.

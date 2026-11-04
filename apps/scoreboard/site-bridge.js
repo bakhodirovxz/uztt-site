@@ -31,6 +31,7 @@ function start(api) {
       const r = await fetch(API + '/sb/export', { headers, signal: AbortSignal.timeout(10000) });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const d = await r.json();
+      if (d.title) api.setTitle(d.title);
       const data = api.getData();
       data.started = data.started || {};
       const matches = d.matches.map((m) => Object.assign({}, m, { done: !!(m.done || data.started[m.siteId]) }));

@@ -101,7 +101,7 @@ Belgilar: ✅ bajarildi (kod + test) · 🟡 qisman · ⬜ hali yo'q · ➖ dast
 Kumulyativ: U-9, U-11, U-13, U-15, U-17, U-19 — shu yosh VA undan kichik hamma o'yinchi (U-15 ichida U-13 dagilar ham bor); Kattalar — hamma. Yosh = joriy yil − tug'ilgan yil. Chegara kiritiladimi (13 yoshli U-13 ga kiradimi) — `apps/api/src/common/age.ts` dagi `AGE_LIMIT_INCLUSIVE` (hozir `true`, uttf.uz ga mos). Bazadagi natija: U-9 261, U-11 1023, U-13 1964, U-15 2826, U-17 3425, U-19 4029, Kattalar 5520.
 
 ## Sizdan qarorlar
-1. **Mag'lubdan ball ayirish**: Nizom 19-band ayiradi (sayt shunday). Efir dasturi (scoreboard)da sozlama alohida (`loserNoDeduct`).
+1. **Mag'lubdan ball ayirish** (hal qilindi): Nizom 19-band va PDF 22-ilova ayiradi. Sayt va efir sayt o'yinida bir xil hisoblaydi; `loserNoDeduct` faqat saytsiz zal rejimi uchun.
 2. **Rejim**: barcha darajalar OFFICIAL (`UPDATE tournament_levels SET rating_mode='LEGACY' WHERE code='…'` — orqaga qaytarish).
 3. **Yosh hisoblash**: 31-dekabr usulini (BY qoidasi) yoki turnir yili usulini (hozirgi) tanlang — Nizomda aniq yozilmagan.
 4. **Qolgan katta ishlar** (ketma-ket): jamoaviy o'yinlar (baza + hakam + efir), setkaning barcha o'rinlarni aniqlovchi turlari (15–20-ilovalar), guruhlarni yaratish/setkaga o'tkazish admin sahifasi (hozir API; natijalar saytda "Guruhlar" bo'limida ko'rinadi), tezlashtirish qoidasi (2.15), boshlang'ich reyting (razryad) arizasi, hisobot generatsiyasi.

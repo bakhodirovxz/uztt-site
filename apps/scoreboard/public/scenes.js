@@ -108,7 +108,7 @@ const Scenes = (() => {
     const sub = [c.category, c.round].filter(Boolean).join(' · ');
     return '<div class="tp' + (two ? ' two' : '') + '">'
       + '<div class="tp-side L">' + s[0].list.map((p) => tapePlayer(p, 'L')).join('') + '</div>'
-      + '<div class="tp-center"><div class="tp-tab">' + esc(meta && meta.title1 ? meta.title1 : c.table) + '</div>'
+      + '<div class="tp-center"><div class="tp-tab">' + esc(c.siteTitle || (meta && meta.title1) || c.table) + '</div>'
       + '<div class="tp-head"><b>' + L.prof + '</b><i>' + esc(sub) + '</i><u>' + esc(c.table) + '</u></div>'
       + rows.map((r, i) => {
         const a = r[1](s[0].list), b = r[1](s[1].list);
@@ -156,7 +156,7 @@ const Scenes = (() => {
     const gamesHtml = games.length ? '<div class="tp-sets" style="--n:' + games.length + '"><div class="tp-setn"><i></i>' + games.map((g, i) => '<i>' + (i + 1) + '</i>').join('') + '</div>' + gameRow(0) + gameRow(1) + '</div>' : '';
     return '<div class="tp rt' + (two ? ' two' : '') + '">'
       + '<div class="tp-side L">' + plr(sides[0], 'L') + '</div>'
-      + '<div class="tp-center"><div class="tp-tab">' + esc(meta && meta.title1 ? meta.title1 : c.table) + '</div>'
+      + '<div class="tp-center"><div class="tp-tab">' + esc(c.siteTitle || (meta && meta.title1) || c.table) + '</div>'
       + '<div class="tp-head"><b>' + L.upd + '</b><i>' + esc([c.category, c.round].filter(Boolean).join(' · ')) + '</i><u class="sc">' + esc(sc) + '</u></div>' + gamesHtml
       + rows.map((r, i) => '<div class="tp-row" style="animation-delay:' + (0.4 + i * 0.1) + 's"><span class="' + (two ? 'lg' : '') + '">' + r[1](sides[0]) + '</span><em>' + r[0] + '</em><span class="' + (two ? 'lg' : '') + '">' + r[1](sides[1]) + '</span></div>').join('')
       + '<div class="tp-lb"><div class="tp-lbh">' + L.lb + '</div>' + lb + '</div></div>'

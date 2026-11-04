@@ -54,7 +54,8 @@ function boardLayout(n, anyTie, W, H) {
 
 // root ichidagi .t1 .t2 .grid larni to'ldiradi; list — chiziladigan stollar (state obyektlari)
 function renderBoard(root, meta, list) {
-  root.querySelector('.t1').textContent = meta.title1;
+  const own = list.find((c) => c.siteTitle); // stolda sayt o'yini bo'lsa: o'sha musobaqa nomi
+  root.querySelector('.t1').textContent = own ? own.siteTitle : meta.title1;
   root.querySelector('.t2').textContent = meta.title2;
   const g = root.querySelector('.grid');
   if (!list.length) {
