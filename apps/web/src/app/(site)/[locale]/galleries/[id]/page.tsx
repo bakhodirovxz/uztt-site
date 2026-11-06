@@ -31,7 +31,8 @@ export default async function GalleryDetailPage({
 
   const gallery = await api.get<GalleryDetail>(`/galleries/${id}?locale=${locale}`, cached('media'))
     .catch((e) => {
-      if (e instanceof ApiError && e.status === 404) return null;
+      // 400 — id UUID emas (API ParseUUIDPipe): bunday galereya ham yo'q
+      if (e instanceof ApiError && (e.status === 404 || e.status === 400)) return null;
       throw e;
     });
   if (!gallery) notFound();
